@@ -274,6 +274,9 @@ fridaJj
 fridaLj
 fridaCj
 fridaCj re.frida.minapp
+fridaDj java.lang.String
+fridaDj sg.vantagepoint.uncrackable1.MainActivity 3
+fridaImj sg.vantagepoint.uncrackable1.MainActivity
 ```
 
 `fridaJj` checks whether the Java VM is reachable. `fridaLj` enumerates the classloaders
@@ -283,21 +286,44 @@ class name, otherwise the full list is returned. The `frida.java.max` config (de
 caps the batch and a `truncated` flag in the reply says whether more classes exist beyond
 the cap.
 
+`fridaDj <class> [loader]` describes one Java class through the reflection API and returns
+its name, superclass, interfaces, declared fields (name, type, modifiers), declared methods
+(name, returnType, parameterTypes, flags, isNative), declared ctors, modifier flag
+arrays from the Java.ACC_* bitmask, and optional kotlin.Metadata when the class
+was compiled with the Kotlin compiler. An optional loader id selects a specific classloader
+from a prior `fridaLj` listing.
+
+`fridaImj <class> [loader]` describes and imports the class into rizin's analysis class
+database. It creates the class node, sets the superclass relation (skipping
+java.lang.Object), and registers each method and ctor. The imported class is then
+visible with `ac` (list classes) and `acl <name>` (show details). Methods carry the
+UT64_MAX sentinel address (runtime addresses are unknown without native method resolution).
+
+Both `fridaDj` and `fridaImj` support Tab-completion for class names. Pressing Tab reads
+the partially typed prefix from the line buffer, queries the agent for matching loaded
+classes, and shows suggestions. `frida.ac.min` (default 2) sets the minimum characters
+before autocomplete fires, and `frida.ac.max` (default 12) caps the number of suggestions.
+
 ## Configuration
 
-Four `e` config variables tune the runtime behaviour:
+Six `e` config variables tune the runtime behaviour:
 
 ```
 e frida.mem.max=0x100000   # max bytes per fridaxj/fridawj transfer, 0 for no limit
 e frida.timeout=5000       # session and agent request timeout in milliseconds
 e frida.hw.watchpoints=4   # max hardware watchpoint slots fridaW may use, capped by the CPU
-e frida.java.max=500       # max loaded classes fridaC returns per request, 0 for unlimited
+e frida.java.max=512       # max loaded classes fridaC returns per request, 0 for unlimited
+e frida.ac.min=2           # min chars before class autocomplete triggers
+e frida.ac.max=12          # max class autocomplete suggestions shown
 ```
 
 `frida.timeout` is applied when a session is opened with `fridaoj`. `frida.hw.watchpoints`
 defaults to 4 (the common arm64 and x86 count), raise it on a CPU with more slots.
 `frida.java.max` defaults to 512 to avoid dumping tens of thousands of classes at once,
-set it to 0 on a fast device when you need the complete list.
+set it to 0 on a fast device when you need the complete list. `frida.ac.min` and
+`frida.ac.max` control class-name Tab-completion for `fridaDj` and `fridaImj`: the
+first autocomplete query is made only when at least `frida.ac.min` chars are typed,
+and at most `frida.ac.max` suggestions are shown at once.
 
 ## Install
 

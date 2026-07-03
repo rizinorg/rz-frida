@@ -773,6 +773,85 @@ RZ_IPI RzCmdStatus rz_cmd_fridaD_handler(RZ_NONNULL RzCore *core, int argc,
 	return RZ_CMD_STATUS_OK;
 }
 
+RZ_IPI RzCmdStatus rz_cmd_fridaIm_handler(RZ_NONNULL RzCore *core, int argc,
+	RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
+	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
+	if (state->mode != RZ_OUTPUT_MODE_JSON) {
+		return RZ_CMD_STATUS_WRONG_ARGS;
+	}
+	PJ *pj = state->d.pj;
+	RzFridaCoreContext *ctx = frida_context(core);
+	if (!ctx || !ctx->session) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return RZ_CMD_STATUS_OK;
+	}
+	const char *className = argv[1];
+	if (!RZ_STR_ISNOTEMPTY(className)) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "class name is required");
+		return RZ_CMD_STATUS_OK;
+	}
+	ut64 loaderId = 0;
+	if (argc > 2 && RZ_STR_ISNOTEMPTY(argv[2])) {
+		loaderId = rz_num_math(core->num, argv[2]);
+	}
+	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_frida_backend_import_class(ctx->session, core, className, loaderId, pj);
+	rz_cons_break_pop();
+	return RZ_CMD_STATUS_OK;
+}
+
+static const char *extract_prefix(const char *line) {
+	if (!line) return NULL;
+	int len = (int)strlen(line);
+	while (len > 0 && line[len - 1] == ' ') len--;
+	int start = len;
+	while (start > 0 && line[start - 1] != ' ') start--;
+	if (start == 0) return NULL;
+	if (start >= len) return NULL;
+	return line + start;
+}
+
+/**
+ * \brief Returns loaded Java class names for fridaDj Tab-completion.
+ *
+ * Reads the current line buffer to extract the partially typed class name,
+ * guards against no-session and too-few-characters via the frida.ac.min config,
+ * queries the agent for matching class names (capped at frida.ac.max), and
+ * returns a freshly allocated NULL-terminated array suitable for rizin's
+ * RZ_CMD_ARG_TYPE_CHOICES autocomplete mechanism.
+ *
+ * \param core The active RzCore (must have an open frida session).
+ * \return NULL-terminated array of individually allocated class name strings,
+ *         or NULL when autocomplete should not offer anything.
+ */
+RZ_IPI RZ_OWN char **rz_frida_autocomplete_class(RZ_NONNULL RzCore *core) {
+	rz_return_val_if_fail(core, NULL);
+
+	RzFridaCoreContext *ctx = frida_context(core);
+	if (!ctx || !ctx->session) return NULL;
+
+	const char *line = core->cons->line->buffer.data;
+	const char *prefix = extract_prefix(line);
+	if (!prefix) return NULL;
+	size_t plen = strlen(prefix);
+
+	ut64 min = rz_config_get_integer(core->config, "frida.ac.min");
+	if (min && plen < (size_t)min) return NULL;
+
+	ut64 max = rz_config_get_integer(core->config, "frida.ac.max");
+	if (!max) max = 12;
+
+	size_t count = 0;
+	char **result = rz_frida_backend_class_list(ctx->session, prefix, max, &count);
+	if (!result) return NULL;
+
+	if (count == 0) {
+		free(result);
+		return NULL;
+	}
+	return result;
+}
+
 static RzFridaCoreContext *frida_context_new(void) {
 	return RZ_NEW0(RzFridaCoreContext);
 }
@@ -810,6 +889,8 @@ static bool rz_frida_plugin_init(RzCore *core, void **user) {
 	rz_config_add_integer(core->config, "frida.timeout", "Frida session and agent request timeout in milliseconds", RZ_FRIDA_DEFAULT_TIMEOUT_MS);
 	rz_config_add_integer(core->config, "frida.hw.watchpoints", "Maximum hardware watchpoint slots fridaW may use, capped by the CPU", RZ_FRIDA_HW_WATCHPOINTS_DEFAULT);
 	rz_config_add_integer(core->config, "frida.java.max", "Maximum loaded classes fridaC returns per request, 0 for unlimited", RZ_FRIDA_JAVA_MAX_DEFAULT);
+	rz_config_add_integer(core->config, "frida.ac.min", "Minimum characters typed before class autocomplete triggers", 2);
+	rz_config_add_integer(core->config, "frida.ac.max", "Maximum class autocomplete suggestions shown", 12);
 
 	rz_frida_backend_init();
 

@@ -9,6 +9,9 @@
 
 #include <frida-core.h>
 
+#include <rz_analysis.h>
+#include <rz_core.h>
+
 #include <rzfrida_agent.h>
 
 #define RZ_FRIDA_DRAIN_POLL_MS 50
@@ -2126,6 +2129,103 @@ RZ_IPI bool rz_frida_backend_class_describe(RZ_NONNULL RzFridaSession *session,
 }
 
 /**
+ * \brief Fetch a filtered list of loaded Java class names from the agent.
+ *
+ * Loads the agent on first use, sends a classList request with a prefix filter
+ * and a max cap, parses the agent reply, and returns a freshly allocated
+ * NULL-terminated array of class name strings together with the loaded count.
+ * Returns NULL on any error (session missing, script not loaded, timeout,
+ * cancel, or agent-side failure) and sets *count_out to zero.
+ *
+ * \param session Session holding the attached backend handles.
+ * \param prefix  Class name prefix to send to the agent, or NULL for all.
+ * \param max     Max number of classes the agent should return, or 0 for unlimited.
+ * \param count_out Receives the number of strings in the returned array.
+ * \return NULL-terminated array of individually allocated class name strings,
+ *         or NULL on failure.
+ */
+RZ_IPI RZ_OWN char **rz_frida_backend_class_list(RZ_NONNULL RzFridaSession *session,
+	RZ_NULLABLE const char *prefix, ut64 max, RZ_NONNULL size_t *count_out) {
+	rz_return_val_if_fail(session && count_out, NULL);
+	*count_out = 0;
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) return NULL;
+
+	// capture ensure_script errors in throwaway pj.
+	PJ *err_pj = pj_new();
+	bool script_ok = backend_ensure_script(backend, session, err_pj);
+	if (!script_ok) {
+		pj_free(err_pj);
+		return NULL;
+	}
+	pj_free(err_pj);
+
+	PJ *params = pj_new();
+	if (!params) return NULL;
+	pj_o(params);
+	if (RZ_STR_ISNOTEMPTY(prefix)) pj_ks(params, "prefix", prefix);
+	if (max) pj_kn(params, "max", max);
+	pj_end(params);
+	char *params_json = pj_drain(params);
+	if (!params_json) return NULL;
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "classList", params_json,
+		&response, &fail_code, &fail_msg);
+	free(params_json);
+	if (!got || !response.ok || !RZ_STR_ISNOTEMPTY(response.result)) {
+		rz_frida_response_fini(&response);
+		return NULL;
+	}
+
+	// args modified in place, so just dup beforehand.
+	char *json_copy = rz_str_dup(response.result);
+	rz_frida_response_fini(&response);
+	if (!json_copy) return NULL;
+
+	RzJson *root = rz_json_parse(json_copy);
+	if (!root || root->type != RZ_JSON_OBJECT) {
+		free(json_copy);
+		rz_json_free(root);
+		return NULL;
+	}
+
+	const RzJson *classes_node = rz_json_get(root, "classes");
+	if (!classes_node || classes_node->type != RZ_JSON_ARRAY) {
+		free(json_copy);
+		rz_json_free(root);
+		return NULL;
+	}
+
+	size_t count = classes_node->children.count;
+	char **result = RZ_NEWS0(char *, count + 1);
+	if (!result) {
+		free(json_copy);
+		rz_json_free(root);
+		return NULL;
+	}
+
+	size_t i = 0;
+	const RzJson *child = classes_node->children.first;
+	while (child && i < count) {
+		const RzJson *name_node = rz_json_get(child, "name");
+		if (name_node && name_node->type == RZ_JSON_STRING && name_node->str_value) {
+			result[i++] = rz_str_dup(name_node->str_value);
+		}
+		child = child->next;
+	}
+	result[i] = NULL;
+	*count_out = i;
+
+	free(json_copy);
+	rz_json_free(root);
+	return result;
+}
+
+/**
  * \brief Ping the agent loaded in the target and report what it sees.
  *
  * Loads the agent on first use, sends a ping request, and writes an ok:true
@@ -2162,6 +2262,141 @@ RZ_IPI bool rz_frida_backend_ping(RzFridaSession *session, PJ *pj) {
 	bool ok = backend_emit_response(pj, &response);
 	rz_frida_response_fini(&response);
 	return ok;
+}
+
+/**
+ * \brief Import a Java class into the rizin analysis database.
+ *
+ * Describes the class through the agent, creates its analysis-class node via
+ * \ref rz_analysis_class_create, sets the superclass relation via
+ * \ref rz_analysis_class_base_set, registers each declared method and
+ * constructor via \ref rz_analysis_class_method_set, and writes an import
+ * summary as the ok:true reply envelope (or ok:false on any error).
+ *
+ * \param session  Session holding the attached backend handles.
+ * \param core     Active RzCore, providing the analysis and type database.
+ * \param className Fully qualified class name to import.
+ * \param loaderId Stable loader id from a prior loaderList reply, or 0
+ *                 for the default system loader.
+ * \param pj       JSON builder that receives the reply envelope.
+ * \return true on success, false on any error.
+ */
+RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
+	RZ_NONNULL RzCore *core, RZ_NONNULL const char *className, ut64 loaderId, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && core && className && pj, false);
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return false;
+	}
+	if (!backend_ensure_script(backend, session, pj)) return false;
+
+	PJ *params = pj_new();
+	if (!params) { rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request"); return false; }
+	pj_o(params);
+	pj_ks(params, "className", className);
+	if (loaderId) pj_kn(params, "loaderId", loaderId);
+	pj_end(params);
+	char *pp = pj_drain(params);
+	if (!pp) { rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request"); return false; }
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "classDescribe", pp,
+		&response, &fail_code, &fail_msg);
+	free(pp);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+	if (!response.ok || !RZ_STR_ISNOTEMPTY(response.result)) {
+		rz_frida_json_error(pj, fail_code,
+			response.error ? response.error : "the agent could not describe the class");
+		rz_frida_response_fini(&response);
+		return false;
+	}
+
+	char *json_copy = rz_str_dup(response.result);
+	rz_frida_response_fini(&response);
+	if (!json_copy) { rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "out of memory"); return false; }
+
+	RzJson *root = rz_json_parse(json_copy);
+	if (!root || root->type != RZ_JSON_OBJECT) {
+		free(json_copy); rz_json_free(root);
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "the agent returned an unexpected reply");
+		return false;
+	}
+
+	const RzJson *name_node = rz_json_get(root, "name");
+	const RzJson *super_node = rz_json_get(root, "super");
+	const RzJson *methods_node = rz_json_get(root, "methods");
+	const RzJson *ctors_node = rz_json_get(root, "constructors");
+
+	if (!name_node || name_node->type != RZ_JSON_STRING || !name_node->str_value) {
+		free(json_copy); rz_json_free(root);
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "class description has no name");
+		return false;
+	}
+
+	RzAnalysis *analysis = core->analysis;
+	const char *name = name_node->str_value;
+
+	rz_analysis_class_create(analysis, name);
+
+	if (super_node && super_node->type == RZ_JSON_STRING && super_node->str_value) {
+		const char *super = super_node->str_value;
+		if (strcmp(super, "java.lang.Object") != 0) {
+			RzAnalysisBaseClass base = { .id = NULL, .offset = 0, .class_name = rz_str_dup(super) };
+			rz_analysis_class_base_set(analysis, name, &base);
+			rz_analysis_class_base_fini(&base);
+		}
+	}
+
+	size_t method_count = 0;
+	if (methods_node && methods_node->type == RZ_JSON_ARRAY) {
+		const RzJson *m = methods_node->children.first;
+		while (m) {
+			const RzJson *mn = rz_json_get(m, "name");
+			if (mn && mn->type == RZ_JSON_STRING && mn->str_value) {
+				RzAnalysisMethod meth = { .name = rz_str_dup(mn->str_value),
+					.real_name = rz_str_dup(mn->str_value),
+					.addr = UT64_MAX, .vtable_offset = -1,
+					.method_type = RZ_ANALYSIS_CLASS_METHOD_DEFAULT };
+				rz_analysis_class_method_set(analysis, name, &meth);
+				rz_analysis_class_method_fini(&meth);
+				method_count++;
+			}
+			m = m->next;
+		}
+	}
+
+	size_t ctor_count = 0;
+	if (ctors_node && ctors_node->type == RZ_JSON_ARRAY) {
+		const RzJson *c = ctors_node->children.first;
+		while (c) {
+			RzAnalysisMethod meth = { .name = rz_str_dup(name),
+				.real_name = rz_str_dup(name),
+				.addr = UT64_MAX, .vtable_offset = -1,
+				.method_type = RZ_ANALYSIS_CLASS_METHOD_CONSTRUCTOR };
+			rz_analysis_class_method_set(analysis, name, &meth);
+			rz_analysis_class_method_fini(&meth);
+			ctor_count++;
+			c = c->next;
+		}
+	}
+
+	rz_frida_json_ok_begin(pj);
+	pj_kb(pj, "imported", true);
+	pj_ks(pj, "class", name);
+	pj_kn(pj, "methods", method_count);
+	pj_kn(pj, "constructors", ctor_count);
+	rz_frida_json_ok_end(pj);
+
+	free(json_copy);
+	rz_json_free(root);
+	return true;
 }
 
 /**

@@ -77,6 +77,10 @@ function mapModifiers(modifiers) {
   return flags;
 }
 
+function paramNames(paramTypes) {
+  return paramTypes.map(function (t) { return String(t.getName()); });
+}
+
 function classDescribe(params) {
   if (typeof Java === 'undefined' || !Java.available) {
     throw new Error('Java VM is not available');
@@ -96,20 +100,20 @@ function classDescribe(params) {
   Java.performNow(function () {
     var factory = Java.ClassFactory.get(loader);
     var wrapper = factory.use(className);
+
     if (wrapper === null || typeof wrapper === 'undefined') {
       throw new Error('class ' + className + ' not found');
     }
+
     var klass = wrapper.class;
     result.name = String(klass.getName());
     result.modifiers = klass.getModifiers();
     result.flags = mapModifiers(result.modifiers);
+
     var sup = klass.getSuperclass();
     result.super = (sup !== null) ? String(sup.getName()) : null;
-    var ifaces = klass.getInterfaces();
-    result.interfaces = [];
-    for (var a = 0; a < ifaces.length; a++) {
-      result.interfaces.push(String(ifaces[a].getName()));
-    }
+    result.interfaces = klass.getInterfaces().map(function (i) { return String(i.getName()); });
+
     var checkKotlin = function () { return null; };
     try {
       var metaKlass = Java.use('kotlin.Metadata');
@@ -117,58 +121,41 @@ function classDescribe(params) {
         checkKotlin = function () { return klass.getAnnotation(metaKlass.class); };
       }
     } catch (_) { }
+
     var meta = checkKotlin();
     if (meta !== null) {
       result.kotlin = { k: meta.k(), mv: [meta.mv()[0], meta.mv()[1]] };
     }
-    var declaredFields = klass.getDeclaredFields();
-    result.fields = [];
-    for (var f = 0; f < declaredFields.length; f++) {
-      var fd = declaredFields[f];
-      result.fields.push({
+
+    result.fields = klass.getDeclaredFields().map(function (fd) {
+      return {
         name: String(fd.getName()),
         type: String(fd.getType().getName()),
         modifiers: fd.getModifiers(),
         flags: mapModifiers(fd.getModifiers())
-      });
-    }
-    var declaredMethods = klass.getDeclaredMethods();
-    result.methods = [];
-    result.constructors = [];
-    for (var m = 0; m < declaredMethods.length; m++) {
-      var md = declaredMethods[m];
-      var name = String(md.getName());
-      var parms = [];
-      var pts = md.getParameterTypes();
-      for (var p = 0; p < pts.length; p++) {
-        parms.push(String(pts[p].getName()));
-      }
+      };
+    });
+
+    result.methods = klass.getDeclaredMethods().map(function (md) {
       var mod = md.getModifiers();
-      var entry = {
-        name: name,
+      return {
+        name: String(md.getName()),
         returnType: String(md.getReturnType().getName()),
-        parameterTypes: parms,
+        parameterTypes: paramNames(md.getParameterTypes()),
         modifiers: mod,
         flags: mapModifiers(mod),
         isNative: (mod & Java.ACC_NATIVE) !== 0
       };
-      result.methods.push(entry);
-    }
-    var declaredCtors = klass.getDeclaredConstructors();
-    for (var c = 0; c < declaredCtors.length; c++) {
-      var ct = declaredCtors[c];
-      var cparms = [];
-      var cpts = ct.getParameterTypes();
-      for (var cp = 0; cp < cpts.length; cp++) {
-        cparms.push(String(cpts[cp].getName()));
-      }
+    });
+
+    result.constructors = klass.getDeclaredConstructors().map(function (ct) {
       var cmod = ct.getModifiers();
-      result.constructors.push({
-        parameterTypes: cparms,
+      return {
+        parameterTypes: paramNames(ct.getParameterTypes()),
         modifiers: cmod,
         flags: mapModifiers(cmod)
-      });
-    }
+      };
+    });
   });
   return result;
 }

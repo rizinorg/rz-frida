@@ -727,7 +727,8 @@ commands:
           - RZ_OUTPUT_MODE_JSON
         args:
           - name: class
-            type: RZ_CMD_ARG_TYPE_STRING
+            type: RZ_CMD_ARG_TYPE_CHOICES
+            choices_cb: rz_frida_autocomplete_class
           - name: loader
             type: RZ_CMD_ARG_TYPE_NUM
             optional: true
@@ -736,7 +737,34 @@ commands:
             entries:
               - text: "fridaDj "
                 arg_str: "java.lang.String"
-                comment: "Describe String using the default system loader"
+                comment: "Describe String using the default system loader, Tab to autocomplete class names"
               - text: "fridaDj "
                 arg_str: "com.example.Foo 3"
                 comment: "Describe Foo loaded by classloader id 3"
+      - name: fridaIm
+        cname: cmd_fridaIm
+        summary: "Import a Java class description into rizin analysis"
+        description: >
+          Describes a Java class in the target through the rz-frida agent and
+          imports its name, superclass, methods, and constructors into the rizin
+          analysis class database. After import the class is visible with ac and
+          acl. Takes a fully qualified class name and an optional classloader id.
+        type: RZ_CMD_DESC_TYPE_ARGV_STATE
+        modes:
+          - RZ_OUTPUT_MODE_JSON
+        args:
+          - name: class
+            type: RZ_CMD_ARG_TYPE_CHOICES
+            choices_cb: rz_frida_autocomplete_class
+          - name: loader
+            type: RZ_CMD_ARG_TYPE_NUM
+            optional: true
+        details:
+          - name: "Examples"
+            entries:
+              - text: "fridaImj "
+                arg_str: "java.lang.String"
+                comment: "Import String using the default system loader, Tab to autocomplete class names"
+              - text: "fridaImj "
+                arg_str: "com.example.Foo 3"
+                comment: "Import Foo loaded by classloader id 3"

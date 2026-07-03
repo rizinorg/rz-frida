@@ -245,7 +245,11 @@ RZ_IPI bool rz_frida_backend_java_available(RZ_NONNULL RzFridaSession *session, 
 RZ_IPI bool rz_frida_backend_loaders(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_classes(RZ_NONNULL RzFridaSession *session, RZ_NULLABLE const char *prefix, ut64 max, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_class_describe(RZ_NONNULL RzFridaSession *session, RZ_NONNULL const char *className, ut64 loaderId, RZ_NONNULL PJ *pj);
+RZ_IPI RZ_OWN char **rz_frida_backend_class_list(RZ_NONNULL RzFridaSession *session, RZ_NULLABLE const char *prefix, ut64 max, RZ_NONNULL size_t *count_out);
+RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NONNULL const char *className, ut64 loaderId, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_ping(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_messages(RZ_NONNULL RZ_BORROW RzFridaSession *session, RZ_NONNULL RZ_BORROW PJ *pj);
+
+RZ_IPI RZ_OWN char **rz_frida_autocomplete_class(RZ_NONNULL RzCore *core);
 
 #endif
