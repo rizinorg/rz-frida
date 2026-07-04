@@ -2298,7 +2298,6 @@ static const char *java_type_to_c(RZ_NONNULL const char *jtype) {
 	for (size_t i = 0; i < RZ_ARRAY_SIZE(map); i++) {
 		if (RZ_STR_EQ(jtype, map[i][0])) return map[i][1];
 	}
-	if (jtype[0] == '[') return "void *";
 	return "void *";
 }
 
