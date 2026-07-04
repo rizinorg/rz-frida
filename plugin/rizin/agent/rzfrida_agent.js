@@ -157,6 +157,7 @@ function classDescribe(params) {
       };
     });
   });
+  result.loader = (typeof params.loaderId === 'number' && params.loaderId > 0) ? params.loaderId : 0;
   return result;
 }
 

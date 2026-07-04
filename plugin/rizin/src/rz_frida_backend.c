@@ -2281,6 +2281,27 @@ RZ_IPI bool rz_frida_backend_ping(RzFridaSession *session, PJ *pj) {
  * \param pj       JSON builder that receives the reply envelope.
  * \return true on success, false on any error.
  */
+
+static const char *java_type_to_c(RZ_NONNULL const char *jtype) {
+	rz_return_val_if_fail(jtype, NULL);
+	static const char *map[][2] = {
+		{ "int",              "int"        },
+		{ "long",             "long long"  },
+		{ "boolean",          "bool"       },
+		{ "double",           "double"     },
+		{ "float",            "float"      },
+		{ "byte",             "int8_t"     },
+		{ "short",            "int16_t"    },
+		{ "char",             "uint16_t"   },
+		{ "java.lang.String", "char *"     },
+	};
+	for (size_t i = 0; i < RZ_ARRAY_SIZE(map); i++) {
+		if (RZ_STR_EQ(jtype, map[i][0])) return map[i][1];
+	}
+	if (jtype[0] == '[') return "void *";
+	return "void *";
+}
+
 RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 	RZ_NONNULL RzCore *core, RZ_NONNULL const char *className, ut64 loaderId, RZ_NONNULL PJ *pj) {
 	rz_return_val_if_fail(session && core && className && pj, false);
@@ -2347,7 +2368,7 @@ RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 
 	if (super_node && super_node->type == RZ_JSON_STRING && super_node->str_value) {
 		const char *super = super_node->str_value;
-		if (strcmp(super, "java.lang.Object") != 0) {
+		if (!RZ_STR_EQ(super, "java.lang.Object")) {
 			RzAnalysisBaseClass base = { .id = NULL, .offset = 0, .class_name = rz_str_dup(super) };
 			rz_analysis_class_base_set(analysis, name, &base);
 			rz_analysis_class_base_fini(&base);
@@ -2387,11 +2408,63 @@ RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 		}
 	}
 
+	size_t field_count = 0;
+	const RzJson *fields_node = rz_json_get(root, "fields");
+	size_t slen = strlen(name);
+	if (fields_node && fields_node->type == RZ_JSON_ARRAY && fields_node->children.count > 0 &&
+		slen < 512) {
+		char struct_name[512];
+		for (size_t j = 0; j < slen; j++) {
+			char c = name[j];
+			struct_name[j] = (c == '.' || c == '$') ? '_' : c;
+		}
+		struct_name[slen] = '\0';
+
+		bool struct_exists = rz_type_db_get_base_type(
+			rz_analysis_get_type_db(core->analysis), struct_name) != NULL;
+		RzStrBuf *decl = struct_exists ? NULL : rz_strbuf_new(NULL);
+		if (decl) rz_strbuf_appendf(decl, "struct %s { ", struct_name);
+
+		const RzJson *f = fields_node->children.first;
+		while (f) {
+			const RzJson *fn = rz_json_get(f, "name");
+			const RzJson *ft = rz_json_get(f, "type");
+			if (fn && ft && fn->type == RZ_JSON_STRING && fn->str_value &&
+				ft->type == RZ_JSON_STRING && ft->str_value) {
+				const char *ctype = java_type_to_c(ft->str_value);
+				char fname[256];
+				size_t flen = strlen(fn->str_value);
+				for (size_t k = 0; k < flen && k < sizeof(fname) - 1; k++) {
+					char c = fn->str_value[k];
+					fname[k] = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+						(c >= '0' && c <= '9') || c == '_' ? c : '_';
+					fname[k + 1] = '\0';
+				}
+				if (decl) rz_strbuf_appendf(decl, "%s %s; ", ctype, fname);
+				field_count++;
+			}
+			f = f->next;
+		}
+
+		if (decl && field_count > 0) {
+			rz_strbuf_append(decl, "};");
+			char *decl_c = rz_strbuf_drain(decl);
+			if (decl_c) {
+				rz_type_parse_string(rz_analysis_get_type_db(core->analysis), decl_c, NULL);
+				free(decl_c);
+			}
+		} else {
+			rz_strbuf_free(decl);
+		}
+	}
+
 	rz_frida_json_ok_begin(pj);
 	pj_kb(pj, "imported", true);
 	pj_ks(pj, "class", name);
+	pj_kn(pj, "loader", loaderId);
 	pj_kn(pj, "methods", method_count);
 	pj_kn(pj, "constructors", ctor_count);
+	pj_kn(pj, "fields", field_count);
 	rz_frida_json_ok_end(pj);
 
 	free(json_copy);

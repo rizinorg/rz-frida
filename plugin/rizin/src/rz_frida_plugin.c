@@ -794,8 +794,60 @@ RZ_IPI RzCmdStatus rz_cmd_fridaIm_handler(RZ_NONNULL RzCore *core, int argc,
 	if (argc > 2 && RZ_STR_ISNOTEMPTY(argv[2])) {
 		loaderId = rz_num_math(core->num, argv[2]);
 	}
+
+	bool has_dot = (strchr(className, '.') != NULL);
 	rz_cons_break_push(frida_cancel_on_break, ctx->session);
-	rz_frida_backend_import_class(ctx->session, core, className, loaderId, pj);
+	if (has_dot) {
+		rz_frida_backend_import_class(ctx->session, core, className, loaderId, pj);
+	} else {
+		ut64 max = rz_config_get_integer(core->config, "frida.java.max");
+		size_t count = 0;
+		char **names = rz_frida_backend_class_list(ctx->session, className, max, &count);
+
+		if (!count) {
+			if (names) free(names);
+			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET,
+				"no matching classes found for the given prefix");
+			rz_cons_break_pop();
+			return RZ_CMD_STATUS_OK;
+		}
+
+		size_t total_m = 0, total_f = 0, total_c = 0;
+		for (size_t i = 0; i < count; i++) {
+			PJ *one = pj_new();
+			if (!one) continue;
+			rz_frida_backend_import_class(ctx->session, core, names[i], 0, one);
+			char *raw = pj_drain(one); /* pj_drain frees one */
+			char *txt = raw ? rz_str_dup(raw) : NULL;
+			free(raw);
+			if (txt) {
+				RzJson *r = rz_json_parse(txt);
+				if (r) {
+					const RzJson *res = rz_json_get(r, "result");
+					if (res) {
+						const RzJson *j = rz_json_get(res, "methods");
+						total_m += (j && j->type == RZ_JSON_INTEGER) ? (size_t)j->num.u_value : 0;
+						j = rz_json_get(res, "fields");
+						total_f += (j && j->type == RZ_JSON_INTEGER) ? (size_t)j->num.u_value : 0;
+						j = rz_json_get(res, "constructors");
+						total_c += (j && j->type == RZ_JSON_INTEGER) ? (size_t)j->num.u_value : 0;
+					}
+					rz_json_free(r);
+				}
+				free(txt);
+			}
+		}
+		for (size_t i = 0; i < count; i++) free(names[i]);
+		free(names);
+
+		rz_frida_json_ok_begin(pj);
+		pj_kb(pj, "batch", true);
+		pj_kn(pj, "classes", (ut64)count);
+		pj_kn(pj, "methods", (ut64)total_m);
+		pj_kn(pj, "fields", (ut64)total_f);
+		pj_kn(pj, "constructors", (ut64)total_c);
+		rz_frida_json_ok_end(pj);
+	}
 	rz_cons_break_pop();
 	return RZ_CMD_STATUS_OK;
 }
