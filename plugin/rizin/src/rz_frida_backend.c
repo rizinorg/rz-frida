@@ -2150,7 +2150,9 @@ RZ_IPI RZ_OWN char **rz_frida_backend_class_list(RZ_NONNULL RzFridaSession *sess
 	*count_out = 0;
 
 	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
-	if (!backend) return NULL;
+	if (!backend) {
+		return NULL;
+	}
 
 	// capture ensure_script errors in throwaway pj.
 	PJ *err_pj = pj_new();
@@ -2162,13 +2164,21 @@ RZ_IPI RZ_OWN char **rz_frida_backend_class_list(RZ_NONNULL RzFridaSession *sess
 	pj_free(err_pj);
 
 	PJ *params = pj_new();
-	if (!params) return NULL;
+	if (!params) {
+		return NULL;
+	}
 	pj_o(params);
-	if (RZ_STR_ISNOTEMPTY(prefix)) pj_ks(params, "prefix", prefix);
-	if (max) pj_kn(params, "max", max);
+	if (RZ_STR_ISNOTEMPTY(prefix)) {
+		pj_ks(params, "prefix", prefix);
+	}
+	if (max) {
+		pj_kn(params, "max", max);
+	}
 	pj_end(params);
 	char *params_json = pj_drain(params);
-	if (!params_json) return NULL;
+	if (!params_json) {
+		return NULL;
+	}
 
 	RzFridaResponse response = { 0 };
 	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
@@ -2184,7 +2194,9 @@ RZ_IPI RZ_OWN char **rz_frida_backend_class_list(RZ_NONNULL RzFridaSession *sess
 	// args modified in place, so just dup beforehand.
 	char *json_copy = rz_str_dup(response.result);
 	rz_frida_response_fini(&response);
-	if (!json_copy) return NULL;
+	if (!json_copy) {
+		return NULL;
+	}
 
 	RzJson *root = rz_json_parse(json_copy);
 	if (!root || root->type != RZ_JSON_OBJECT) {
@@ -2264,24 +2276,6 @@ RZ_IPI bool rz_frida_backend_ping(RzFridaSession *session, PJ *pj) {
 	return ok;
 }
 
-/**
- * \brief Import a Java class into the rizin analysis database.
- *
- * Describes the class through the agent, creates its analysis-class node via
- * \ref rz_analysis_class_create, sets the superclass relation via
- * \ref rz_analysis_class_base_set, registers each declared method and
- * constructor via \ref rz_analysis_class_method_set, and writes an import
- * summary as the ok:true reply envelope (or ok:false on any error).
- *
- * \param session  Session holding the attached backend handles.
- * \param core     Active RzCore, providing the analysis and type database.
- * \param className Fully qualified class name to import.
- * \param loaderId Stable loader id from a prior loaderList reply, or 0
- *                 for the default system loader.
- * \param pj       JSON builder that receives the reply envelope.
- * \return true on success, false on any error.
- */
-
 static const char *java_type_to_c(RZ_NONNULL const char *jtype) {
 	rz_return_val_if_fail(jtype, NULL);
 	static const char *map[][2] = {
@@ -2296,10 +2290,89 @@ static const char *java_type_to_c(RZ_NONNULL const char *jtype) {
 		{ "java.lang.String", "char *"     },
 	};
 	for (size_t i = 0; i < RZ_ARRAY_SIZE(map); i++) {
-		if (RZ_STR_EQ(jtype, map[i][0])) return map[i][1];
+		if (RZ_STR_EQ(jtype, map[i][0])) {
+			return map[i][1];
+		}
 	}
 	return "void *";
 }
+
+static size_t import_class_fields(RZ_NONNULL RzCore *core, RZ_NONNULL const RzJson *root, RZ_NONNULL const char *name) {
+	rz_return_val_if_fail(core && root && name, 0);
+	size_t field_count = 0;
+	const RzJson *fields_node = rz_json_get(root, "fields");
+	size_t slen = strlen(name);
+	if (!fields_node || fields_node->type != RZ_JSON_ARRAY || !fields_node->children.count || slen >= 512) {
+		return 0;
+	}
+	char struct_name[512];
+	for (size_t j = 0; j < slen; j++) {
+		char c = name[j];
+		struct_name[j] = (c == '.' || c == '$') ? '_' : c;
+	}
+	struct_name[slen] = '\0';
+
+	bool struct_exists = rz_type_db_get_base_type(
+		rz_analysis_get_type_db(core->analysis), struct_name) != NULL;
+	RzStrBuf *decl = struct_exists ? NULL : rz_strbuf_new(NULL);
+	if (decl) {
+		rz_strbuf_appendf(decl, "struct %s { ", struct_name);
+	}
+
+	const RzJson *f = fields_node->children.first;
+	while (f) {
+		const RzJson *fn = rz_json_get(f, "name");
+		const RzJson *ft = rz_json_get(f, "type");
+		if (fn && ft && fn->type == RZ_JSON_STRING && fn->str_value &&
+			ft->type == RZ_JSON_STRING && ft->str_value) {
+			const char *ctype = java_type_to_c(ft->str_value);
+			char fname[256];
+			size_t flen = strlen(fn->str_value);
+			for (size_t k = 0; k < flen && k < sizeof(fname) - 1; k++) {
+				char c = fn->str_value[k];
+				fname[k] = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+					(c >= '0' && c <= '9') || c == '_' ? c : '_';
+				fname[k + 1] = '\0';
+			}
+			if (decl) {
+				rz_strbuf_appendf(decl, "%s %s; ", ctype, fname);
+			}
+			field_count++;
+		}
+		f = f->next;
+	}
+
+	if (decl && field_count > 0) {
+		rz_strbuf_append(decl, "};");
+		char *decl_c = rz_strbuf_drain(decl);
+		if (decl_c) {
+			rz_type_parse_string(rz_analysis_get_type_db(core->analysis), decl_c, NULL);
+			free(decl_c);
+		}
+	} else {
+		rz_strbuf_free(decl);
+	}
+	return field_count;
+}
+
+/**
+ * \brief Import a Java class into the rizin analysis database.
+ *
+ * Describes the class through the agent, creates its analysis-class node via
+ * \ref rz_analysis_class_create, sets the superclass relation via
+ * \ref rz_analysis_class_base_set, registers each declared method and
+ * constructor via \ref rz_analysis_class_method_set, exports field types into
+ * the type database via \ref import_class_fields, and writes an import
+ * summary as the ok:true reply envelope (or ok:false on any error).
+ *
+ * \param session  Session holding the attached backend handles.
+ * \param core     Active RzCore, providing the analysis and type database.
+ * \param className Fully qualified class name to import.
+ * \param loaderId Stable loader id from a prior loaderList reply, or 0
+ *                 for the default system loader.
+ * \param pj       JSON builder that receives the reply envelope.
+ * \return true on success, false on any error.
+ */
 
 RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 	RZ_NONNULL RzCore *core, RZ_NONNULL const char *className, ut64 loaderId, RZ_NONNULL PJ *pj) {
@@ -2310,13 +2383,17 @@ RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
 		return false;
 	}
-	if (!backend_ensure_script(backend, session, pj)) return false;
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
 
 	PJ *params = pj_new();
 	if (!params) { rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request"); return false; }
 	pj_o(params);
 	pj_ks(params, "className", className);
-	if (loaderId) pj_kn(params, "loaderId", loaderId);
+	if (loaderId) {
+		pj_kn(params, "loaderId", loaderId);
+	}
 	pj_end(params);
 	char *pp = pj_drain(params);
 	if (!pp) { rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request"); return false; }
@@ -2407,55 +2484,7 @@ RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 		}
 	}
 
-	size_t field_count = 0;
-	const RzJson *fields_node = rz_json_get(root, "fields");
-	size_t slen = strlen(name);
-	if (fields_node && fields_node->type == RZ_JSON_ARRAY && fields_node->children.count > 0 &&
-		slen < 512) {
-		char struct_name[512];
-		for (size_t j = 0; j < slen; j++) {
-			char c = name[j];
-			struct_name[j] = (c == '.' || c == '$') ? '_' : c;
-		}
-		struct_name[slen] = '\0';
-
-		bool struct_exists = rz_type_db_get_base_type(
-			rz_analysis_get_type_db(core->analysis), struct_name) != NULL;
-		RzStrBuf *decl = struct_exists ? NULL : rz_strbuf_new(NULL);
-		if (decl) rz_strbuf_appendf(decl, "struct %s { ", struct_name);
-
-		const RzJson *f = fields_node->children.first;
-		while (f) {
-			const RzJson *fn = rz_json_get(f, "name");
-			const RzJson *ft = rz_json_get(f, "type");
-			if (fn && ft && fn->type == RZ_JSON_STRING && fn->str_value &&
-				ft->type == RZ_JSON_STRING && ft->str_value) {
-				const char *ctype = java_type_to_c(ft->str_value);
-				char fname[256];
-				size_t flen = strlen(fn->str_value);
-				for (size_t k = 0; k < flen && k < sizeof(fname) - 1; k++) {
-					char c = fn->str_value[k];
-					fname[k] = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-						(c >= '0' && c <= '9') || c == '_' ? c : '_';
-					fname[k + 1] = '\0';
-				}
-				if (decl) rz_strbuf_appendf(decl, "%s %s; ", ctype, fname);
-				field_count++;
-			}
-			f = f->next;
-		}
-
-		if (decl && field_count > 0) {
-			rz_strbuf_append(decl, "};");
-			char *decl_c = rz_strbuf_drain(decl);
-			if (decl_c) {
-				rz_type_parse_string(rz_analysis_get_type_db(core->analysis), decl_c, NULL);
-				free(decl_c);
-			}
-		} else {
-			rz_strbuf_free(decl);
-		}
-	}
+	size_t field_count = import_class_fields(core, root, name);
 
 	rz_frida_json_ok_begin(pj);
 	pj_kb(pj, "imported", true);

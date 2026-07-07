@@ -805,7 +805,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaIm_handler(RZ_NONNULL RzCore *core, int argc,
 		char **names = rz_frida_backend_class_list(ctx->session, className, max, &count);
 
 		if (!count) {
-			if (names) free(names);
+			if (names) {
+				free(names);
+			}
 			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET,
 				"no matching classes found for the given prefix");
 			rz_cons_break_pop();
@@ -815,27 +817,30 @@ RZ_IPI RzCmdStatus rz_cmd_fridaIm_handler(RZ_NONNULL RzCore *core, int argc,
 		size_t total_m = 0, total_f = 0, total_c = 0;
 		for (size_t i = 0; i < count; i++) {
 			PJ *one = pj_new();
-			if (!one) continue;
+			if (!one) {
+				continue;
+			}
 			rz_frida_backend_import_class(ctx->session, core, names[i], 0, one);
 			char *raw = pj_drain(one); /* pj_drain frees one */
 			char *txt = raw ? rz_str_dup(raw) : NULL;
 			free(raw);
-			if (txt) {
-				RzJson *r = rz_json_parse(txt);
-				if (r) {
-					const RzJson *res = rz_json_get(r, "result");
-					if (res) {
-						const RzJson *j = rz_json_get(res, "methods");
-						total_m += (j && j->type == RZ_JSON_INTEGER) ? (size_t)j->num.u_value : 0;
-						j = rz_json_get(res, "fields");
-						total_f += (j && j->type == RZ_JSON_INTEGER) ? (size_t)j->num.u_value : 0;
-						j = rz_json_get(res, "constructors");
-						total_c += (j && j->type == RZ_JSON_INTEGER) ? (size_t)j->num.u_value : 0;
-					}
-					rz_json_free(r);
-				}
-				free(txt);
+			if (!txt) {
+				continue;
 			}
+			RzJson *r = rz_json_parse(txt);
+			if (r) {
+				const RzJson *res = rz_json_get(r, "result");
+				if (res) {
+					const RzJson *j = rz_json_get(res, "methods");
+					total_m += (j && j->type == RZ_JSON_INTEGER) ? (size_t)j->num.u_value : 0;
+					j = rz_json_get(res, "fields");
+					total_f += (j && j->type == RZ_JSON_INTEGER) ? (size_t)j->num.u_value : 0;
+					j = rz_json_get(res, "constructors");
+					total_c += (j && j->type == RZ_JSON_INTEGER) ? (size_t)j->num.u_value : 0;
+				}
+				rz_json_free(r);
+			}
+			free(txt);
 		}
 		for (size_t i = 0; i < count; i++) free(names[i]);
 		free(names);
@@ -853,13 +858,19 @@ RZ_IPI RzCmdStatus rz_cmd_fridaIm_handler(RZ_NONNULL RzCore *core, int argc,
 }
 
 static const char *extract_prefix(const char *line) {
-	if (!line) return NULL;
+	if (!line) {
+		return NULL;
+	}
 	int len = (int)strlen(line);
 	while (len > 0 && line[len - 1] == ' ') len--;
 	int start = len;
 	while (start > 0 && line[start - 1] != ' ') start--;
-	if (start == 0) return NULL;
-	if (start >= len) return NULL;
+	if (start == 0) {
+		return NULL;
+	}
+	if (start >= len) {
+		return NULL;
+	}
 	return line + start;
 }
 
@@ -880,22 +891,32 @@ RZ_IPI RZ_OWN char **rz_frida_autocomplete_class(RZ_NONNULL RzCore *core) {
 	rz_return_val_if_fail(core, NULL);
 
 	RzFridaCoreContext *ctx = frida_context(core);
-	if (!ctx || !ctx->session) return NULL;
+	if (!ctx || !ctx->session) {
+		return NULL;
+	}
 
 	const char *line = core->cons->line->buffer.data;
 	const char *prefix = extract_prefix(line);
-	if (!prefix) return NULL;
+	if (!prefix) {
+		return NULL;
+	}
 	size_t plen = strlen(prefix);
 
 	ut64 min = rz_config_get_integer(core->config, "frida.ac.min");
-	if (min && plen < (size_t)min) return NULL;
+	if (min && plen < (size_t)min) {
+		return NULL;
+	}
 
 	ut64 max = rz_config_get_integer(core->config, "frida.ac.max");
-	if (!max) max = 12;
+	if (!max) {
+		max = 12;
+	}
 
 	size_t count = 0;
 	char **result = rz_frida_backend_class_list(ctx->session, prefix, max, &count);
-	if (!result) return NULL;
+	if (!result) {
+		return NULL;
+	}
 
 	if (count == 0) {
 		free(result);
