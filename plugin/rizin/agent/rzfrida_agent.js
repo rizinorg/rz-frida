@@ -12,6 +12,7 @@ const watchpoints = new Map(); // slot -> {slot, address, size, conditions} per 
 const HW_WATCHPOINT_SLOTS = 4; // default, host can override it per req
 let exceptionHandlerReady = false;
 const loaderIds = new Map(); // classloader wrapper -> stable integer id
+const idToLoader = new Map(); // stable integer id -> classloader wrapper
 let nextLoaderId = 1;
 
 function isJavaAvailable() {
@@ -28,7 +29,9 @@ function loaderList() {
     for (let i = 0; i < list.length; i++) {
       const l = list[i];
       if (!loaderIds.has(l)) {
-        loaderIds.set(l, nextLoaderId++);
+        var newId = nextLoaderId++;
+        loaderIds.set(l, newId);
+        idToLoader.set(newId, l);
       }
       loaders.push({ id: loaderIds.get(l), type: l.getClass().getName(), toString: l.toString() });
     }
@@ -57,6 +60,105 @@ function classList(params) {
     }
   });
   return { classes: classes, total: classes.length, truncated: classes.length >= max };
+}
+
+function mapModifiers(modifiers) {
+  var flags = [];
+  if (modifiers & Java.ACC_PUBLIC) flags.push('public');
+  if (modifiers & Java.ACC_PRIVATE) flags.push('private');
+  if (modifiers & Java.ACC_PROTECTED) flags.push('protected');
+  if (modifiers & Java.ACC_STATIC) flags.push('static');
+  if (modifiers & Java.ACC_FINAL) flags.push('final');
+  if (modifiers & Java.ACC_NATIVE) flags.push('native');
+  if (modifiers & Java.ACC_ABSTRACT) flags.push('abstract');
+  if (modifiers & Java.ACC_SYNCHRONIZED) flags.push('synchronized');
+  if (modifiers & Java.ACC_STRICT) flags.push('strictfp');
+  if (modifiers & Java.ACC_SYNTHETIC) flags.push('synthetic');
+  return flags;
+}
+
+function paramNames(paramTypes) {
+  return paramTypes.map(function (t) { return String(t.getName()); });
+}
+
+function classDescribe(params) {
+  if (typeof Java === 'undefined' || !Java.available) {
+    throw new Error('Java VM is not available');
+  }
+  var className = params.className;
+  if (typeof className !== 'string' || className === '') {
+    throw new Error('className must be a non-empty string');
+  }
+  var loader = null;
+  if (typeof params.loaderId === 'number' && params.loaderId > 0) {
+    loader = idToLoader.get(params.loaderId);
+    if (typeof loader === 'undefined') {
+      throw new Error('no classloader with id ' + params.loaderId);
+    }
+  }
+  var result = {};
+  Java.performNow(function () {
+    var factory = Java.ClassFactory.get(loader);
+    var wrapper = factory.use(className);
+
+    if (wrapper === null || typeof wrapper === 'undefined') {
+      throw new Error('class ' + className + ' not found');
+    }
+
+    var klass = wrapper.class;
+    result.name = String(klass.getName());
+    result.modifiers = klass.getModifiers();
+    result.flags = mapModifiers(result.modifiers);
+
+    var sup = klass.getSuperclass();
+    result.super = (sup !== null) ? String(sup.getName()) : null;
+    result.interfaces = klass.getInterfaces().map(function (i) { return String(i.getName()); });
+
+    var checkKotlin = function () { return null; };
+    try {
+      var metaKlass = Java.use('kotlin.Metadata');
+      if (metaKlass && metaKlass.class) {
+        checkKotlin = function () { return klass.getAnnotation(metaKlass.class); };
+      }
+    } catch (_) { }
+
+    var meta = checkKotlin();
+    if (meta !== null) {
+      result.kotlin = { k: meta.k(), mv: [meta.mv()[0], meta.mv()[1]] };
+    }
+
+    result.fields = klass.getDeclaredFields().map(function (fd) {
+      return {
+        name: String(fd.getName()),
+        type: String(fd.getType().getName()),
+        modifiers: fd.getModifiers(),
+        flags: mapModifiers(fd.getModifiers())
+      };
+    });
+
+    result.methods = klass.getDeclaredMethods().map(function (md) {
+      var mod = md.getModifiers();
+      return {
+        name: String(md.getName()),
+        returnType: String(md.getReturnType().getName()),
+        parameterTypes: paramNames(md.getParameterTypes()),
+        modifiers: mod,
+        flags: mapModifiers(mod),
+        isNative: (mod & Java.ACC_NATIVE) !== 0
+      };
+    });
+
+    result.constructors = klass.getDeclaredConstructors().map(function (ct) {
+      var cmod = ct.getModifiers();
+      return {
+        parameterTypes: paramNames(ct.getParameterTypes()),
+        modifiers: cmod,
+        flags: mapModifiers(cmod)
+      };
+    });
+  });
+  result.loader = (typeof params.loaderId === 'number' && params.loaderId > 0) ? params.loaderId : 0;
+  return result;
 }
 
 function agentInfo() {
@@ -540,6 +642,8 @@ function handleRequest(request) {
       return loaderList();
     case 'classList':
       return classList(params);
+    case 'classDescribe':
+      return classDescribe(params);
     default:
       throw new Error('unknown request type: ' + String(type));
   }

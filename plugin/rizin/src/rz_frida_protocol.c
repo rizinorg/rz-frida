@@ -86,14 +86,14 @@ RZ_IPI const char *rz_frida_error_string(RzFridaError error) {
 	}
 }
 
-RZ_IPI void rz_frida_json_ok_begin(PJ *pj) {
+RZ_IPI void rz_frida_json_ok_begin(RZ_NONNULL PJ *pj) {
 	rz_return_if_fail(pj);
 	pj_o(pj);
 	pj_kb(pj, "ok", true);
 	pj_ko(pj, "result");
 }
 
-RZ_IPI void rz_frida_json_ok_end(PJ *pj) {
+RZ_IPI void rz_frida_json_ok_end(RZ_NONNULL PJ *pj) {
 	rz_return_if_fail(pj);
 	pj_end(pj);
 	pj_end(pj);
@@ -105,7 +105,7 @@ RZ_IPI void rz_frida_json_ok_empty(PJ *pj) {
 	rz_frida_json_ok_end(pj);
 }
 
-RZ_IPI void rz_frida_json_error(PJ *pj, RzFridaError error, const char *message) {
+RZ_IPI void rz_frida_json_error(RZ_NONNULL PJ *pj, RzFridaError error, RZ_NULLABLE const char *message) {
 	rz_return_if_fail(pj);
 	pj_o(pj);
 	pj_kb(pj, "ok", false);

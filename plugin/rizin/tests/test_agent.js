@@ -107,6 +107,125 @@ const fakeModules = [
 	}
 ];
 
+const KNOWN_JAVA_CLASSES = [
+	're.frida.minapp.MainActivity', 're.frida.minapp.SampleModel',
+	're.frida.minapp.DerivedModel', 're.frida.minapp.NativeLib',
+	're.frida.minapp.ReflectionTarget', 're.frida.minapp.BaseModel',
+	'java.lang.String', 'java.lang.System',
+	'android.app.Activity', 'android.os.Bundle'
+];
+
+const fakeFields = {
+	're.frida.minapp.SampleModel': [
+		{ getName: function () { return 'id'; }, getType: function () { return { getName: function () { return 'int'; } }; }, getModifiers: function () { return 0x0002; } },
+		{ getName: function () { return 'name'; }, getType: function () { return { getName: function () { return 'java.lang.String'; } }; }, getModifiers: function () { return 0x0002; } },
+		{ getName: function () { return 'active'; }, getType: function () { return { getName: function () { return 'boolean'; } }; }, getModifiers: function () { return 0x0002; } },
+		{ getName: function () { return 'tags'; }, getType: function () { return { getName: function () { return '[I'; } }; }, getModifiers: function () { return 0x0002; } },
+		{ getName: function () { return 'parent'; }, getType: function () { return { getName: function () { return 're.frida.minapp.SampleModel'; } }; }, getModifiers: function () { return 0x0002; } }],
+	're.frida.minapp.DerivedModel': [
+		{ getName: function () { return 'count'; }, getType: function () { return { getName: function () { return 'int'; } }; }, getModifiers: function () { return 0x0002; } }],
+	're.frida.minapp.ReflectionTarget': [
+		{ getName: function () { return 'publicField'; }, getType: function () { return { getName: function () { return 'int'; } }; }, getModifiers: function () { return 0x0001; } },
+		{ getName: function () { return 'privateField'; }, getType: function () { return { getName: function () { return 'java.lang.String'; } }; }, getModifiers: function () { return 0x0002; } },
+		{ getName: function () { return 'protectedField'; }, getType: function () { return { getName: function () { return 'boolean'; } }; }, getModifiers: function () { return 0x0004; } },
+		{ getName: function () { return 'packageField'; }, getType: function () { return { getName: function () { return 'double'; } }; }, getModifiers: function () { return 0; } }]
+};
+
+function fakeMethods(name) {
+	if (name === 're.frida.minapp.SampleModel') {
+		return [
+			{ getName: function () { return 'getId'; }, getReturnType: function () { return { getName: function () { return 'int'; } }; },
+				getParameterTypes: function () { return []; }, getModifiers: function () { return 0x0001; } },
+			{ getName: function () { return 'getName'; }, getReturnType: function () { return { getName: function () { return 'java.lang.String'; } }; },
+				getParameterTypes: function () { return []; }, getModifiers: function () { return 0x0001; } },
+			{ getName: function () { return 'isActive'; }, getReturnType: function () { return { getName: function () { return 'boolean'; } }; },
+				getParameterTypes: function () { return []; }, getModifiers: function () { return 0x0001; } },
+			{ getName: function () { return 'setActive'; }, getReturnType: function () { return { getName: function () { return 'void'; } }; },
+				getParameterTypes: function () { return [{ getName: function () { return 'boolean'; } }]; }, getModifiers: function () { return 0x0001; } }];
+	}
+	if (name === 're.frida.minapp.NativeLib') {
+		return [
+			{ getName: function () { return 'nativeInit'; }, getReturnType: function () { return { getName: function () { return 'void'; } }; },
+				getParameterTypes: function () { return []; }, getModifiers: function () { return 0x0109; } },
+			{ getName: function () { return 'processBytes'; }, getReturnType: function () { return { getName: function () { return 'int'; } }; },
+				getParameterTypes: function () { return [{ getName: function () { return '[B'; } }]; }, getModifiers: function () { return 0x0101; } },
+			{ getName: function () { return 'getNativeVersion'; }, getReturnType: function () { return { getName: function () { return 'java.lang.String'; } }; },
+				getParameterTypes: function () { return []; }, getModifiers: function () { return 0x0101; } }];
+	}
+	if (name === 're.frida.minapp.DerivedModel') {
+		return [
+			{ getName: function () { return 'getCount'; }, getReturnType: function () { return { getName: function () { return 'int'; } }; },
+				getParameterTypes: function () { return []; }, getModifiers: function () { return 0x0001; } },
+			{ getName: function () { return 'setCount'; }, getReturnType: function () { return { getName: function () { return 'void'; } }; },
+				getParameterTypes: function () { return [{ getName: function () { return 'int'; } }]; }, getModifiers: function () { return 0x0001; } },
+			{ getName: function () { return 'getCount'; }, getReturnType: function () { return { getName: function () { return 'int'; } }; },
+				getParameterTypes: function () { return [{ getName: function () { return 'int'; } }]; }, getModifiers: function () { return 0x0001; } },
+			{ getName: function () { return 'compute'; }, getReturnType: function () { return { getName: function () { return 'int'; } }; },
+				getParameterTypes: function () { return [{ getName: function () { return 'int'; } }, { getName: function () { return 'int'; } }, { getName: function () { return 'int'; } }]; },
+				getModifiers: function () { return 0x0001; } },
+			{ getName: function () { return 'compute'; }, getReturnType: function () { return { getName: function () { return 'double'; } }; },
+				getParameterTypes: function () { return [{ getName: function () { return 'double'; } }, { getName: function () { return 'double'; } }]; },
+				getModifiers: function () { return 0x0001; } }];
+	}
+	return [];
+}
+
+function fakeCtors(name) {
+	if (name === 're.frida.minapp.SampleModel') {
+		return [
+			{ getParameterTypes: function () { return []; }, getModifiers: function () { return 0x0001; } },
+			{ getParameterTypes: function () { return [{ getName: function () { return 'int'; } }]; }, getModifiers: function () { return 0x0001; } },
+			{ getParameterTypes: function () { return [{ getName: function () { return 'int'; } }, { getName: function () { return 'java.lang.String'; } }]; }, getModifiers: function () { return 0x0001; } }];
+	}
+	if (name === 're.frida.minapp.DerivedModel') {
+		return [
+			{ getParameterTypes: function () { return []; }, getModifiers: function () { return 0x0001; } },
+			{ getParameterTypes: function () { return [{ getName: function () { return 'int'; } }]; }, getModifiers: function () { return 0x0001; } }];
+	}
+	return [{ getParameterTypes: function () { return []; }, getModifiers: function () { return 0x0001; } }];
+}
+
+function fakeSuper(name) {
+	if (name === 're.frida.minapp.DerivedModel') {
+		return fakeKlass('re.frida.minapp.BaseModel');
+	}
+	if (name === 're.frida.minapp.MainActivity') {
+		return fakeKlass('android.app.Activity');
+	}
+	if (name === 'java.lang.Object') {
+		return null;
+	}
+	return fakeKlass('java.lang.Object');
+}
+
+function fakeInterfaces(name) {
+	if (name === 're.frida.minapp.DerivedModel') {
+		return [fakeKlass('re.frida.minapp.ModelInterface')];
+	}
+	return [];
+}
+
+function fakeKlass(name) {
+	var cachedFields = (fakeFields[name] || []);
+	return {
+		getName: function () { return name; },
+		getSuperclass: function () { return fakeSuper(name); },
+		getInterfaces: function () { return fakeInterfaces(name); },
+		getModifiers: function () { return name === 're.frida.minapp.BaseModel' ? 0x0401 : 0x0001; },
+		getDeclaredFields: function () { return cachedFields; },
+		getDeclaredMethods: function () { return fakeMethods(name); },
+		getDeclaredConstructors: function () { return fakeCtors(name); },
+		getAnnotation: function () { return null; }
+	};
+}
+
+function findClass(name) {
+	if (KNOWN_JAVA_CLASSES.indexOf(name) < 0) {
+		throw new Error('java.lang.ClassNotFoundException: ' + name);
+	}
+	return { class: fakeKlass(name) };
+}
+
 const sandbox = {
 	Process: {
 		platform: 'linux',
@@ -120,6 +239,18 @@ const sandbox = {
 	},
 	Java: {
 		available: true,
+		ACC_PUBLIC: 0x0001,
+		ACC_PRIVATE: 0x0002,
+		ACC_PROTECTED: 0x0004,
+		ACC_STATIC: 0x0008,
+		ACC_FINAL: 0x0010,
+		ACC_SYNCHRONIZED: 0x0020,
+		ACC_BRIDGE: 0x0040,
+		ACC_VARARGS: 0x0080,
+		ACC_NATIVE: 0x0100,
+		ACC_ABSTRACT: 0x0400,
+		ACC_STRICT: 0x0800,
+		ACC_SYNTHETIC: 0x1000,
 		performNow: function (fn) { return fn(); },
 		perform: function (fn) { return fn(); },
 		enumerateClassLoadersSync: function () {
@@ -131,13 +262,12 @@ const sandbox = {
 			];
 		},
 		enumerateLoadedClassesSync: function () {
-			return ['re.frida.minapp.MainActivity', 'java.lang.String', 'java.lang.System',
-				'android.app.Activity', 'android.os.Bundle'];
+			return KNOWN_JAVA_CLASSES;
 		},
-		use: function (name) { return {}; },
-		ClassFactory: { get: function (loader) { return { use: function () { return {}; } }; } }
-	},
-	// untyped recv stores the handler, typed recv(type, cb) is a parked thread waiter.
+		use: function (name) { return findClass(name); },
+		ClassFactory: { get: function (loader) { return { use: function (name) { return findClass(name); } }; } }
+},
+// untyped recv stores the handler, typed recv(type, cb) is a parked thread waiter.
 	recv: function (type, cb) {
 		if (typeof type === 'function') {
 			pendingRecv = type;
@@ -500,15 +630,21 @@ assert.strictEqual(ldrs.result.loaders[0].type, 'dalvik.system.PathClassLoader',
 // class enumeration
 assert.deepStrictEqual(roundtrip({ id: 82, type: 'classList' }),
 	{ id: 82, ok: true, result: { classes: [{ name: 're.frida.minapp.MainActivity' },
-		{ name: 'java.lang.String' }, { name: 'java.lang.System' },
-		{ name: 'android.app.Activity' }, { name: 'android.os.Bundle' }],
-		total: 5, truncated: false } },
+		{ name: 're.frida.minapp.SampleModel' }, { name: 're.frida.minapp.DerivedModel' },
+		{ name: 're.frida.minapp.NativeLib' }, { name: 're.frida.minapp.ReflectionTarget' },
+		{ name: 're.frida.minapp.BaseModel' }, { name: 'java.lang.String' },
+		{ name: 'java.lang.System' }, { name: 'android.app.Activity' },
+		{ name: 'android.os.Bundle' }],
+		total: 10, truncated: false } },
 	'classList returns all loaded classes');
 
 // prefix filter
 assert.deepStrictEqual(roundtrip({ id: 83, type: 'classList', params: { prefix: 're.frida.minapp' } }),
-	{ id: 83, ok: true, result: { classes: [{ name: 're.frida.minapp.MainActivity' }],
-		total: 1, truncated: false } },
+	{ id: 83, ok: true, result: { classes: [{ name: 're.frida.minapp.MainActivity' },
+		{ name: 're.frida.minapp.SampleModel' }, { name: 're.frida.minapp.DerivedModel' },
+		{ name: 're.frida.minapp.NativeLib' }, { name: 're.frida.minapp.ReflectionTarget' },
+		{ name: 're.frida.minapp.BaseModel' }],
+		total: 6, truncated: false } },
 	'classList with prefix returns matching classes only');
 
 // negative prefix
@@ -525,8 +661,58 @@ assert.deepStrictEqual(roundtrip({ id: 86, type: 'classList', params: { prefix: 
 // batch cap
 assert.deepStrictEqual(roundtrip({ id: 85, type: 'classList', params: { max: 2 } }),
 	{ id: 85, ok: true, result: { classes: [{ name: 're.frida.minapp.MainActivity' },
-		{ name: 'java.lang.String' }],
+		{ name: 're.frida.minapp.SampleModel' }],
 		total: 2, truncated: true } },
 	'the max cap truncates and marks the result');
+
+// class describe -- basic
+const desc = roundtrip({ id: 90, type: 'classDescribe', params: { className: 're.frida.minapp.SampleModel' } });
+assert.strictEqual(desc.ok, true, 'classDescribe returns ok');
+assert.strictEqual(desc.result.name, 're.frida.minapp.SampleModel', 'class name is correct');
+assert.strictEqual(desc.result.super, 'java.lang.Object', 'superclass is Object');
+assert.strictEqual(desc.result.interfaces.length, 0, 'no interfaces');
+assert.strictEqual(desc.result.flags.indexOf('public') >= 0, true, 'class is public');
+assert.strictEqual(desc.result.fields.length, 5, 'SampleModel has 5 fields');
+assert.strictEqual(desc.result.fields[0].name, 'id', 'first field name');
+assert.strictEqual(desc.result.fields[0].type, 'int', 'first field type');
+assert.strictEqual(desc.result.fields[0].flags.indexOf('private') >= 0, true, 'field modifier');
+assert.strictEqual(desc.result.methods.length, 4, 'SampleModel has 4 declared methods');
+assert.strictEqual(desc.result.methods[0].name, 'getId', 'first method name');
+assert.strictEqual(desc.result.methods[0].returnType, 'int', 'return type');
+assert.strictEqual(desc.result.methods[0].isNative, false, 'not native');
+assert.strictEqual(desc.result.constructors.length, 3, 'SampleModel has 3 constructors');
+assert.strictEqual(desc.result.constructors[0].parameterTypes.length, 0, 'default ctor');
+
+// class describe -- inheritance
+const descDerived = roundtrip({ id: 91, type: 'classDescribe', params: { className: 're.frida.minapp.DerivedModel' } });
+assert.strictEqual(descDerived.ok, true, 'DerivedModel describe ok');
+assert.strictEqual(descDerived.result.super, 're.frida.minapp.BaseModel', 'superclass is BaseModel');
+assert.strictEqual(descDerived.result.interfaces.length, 1, 'one interface');
+assert.strictEqual(descDerived.result.interfaces[0], 're.frida.minapp.ModelInterface', 'interface name');
+assert.strictEqual(descDerived.result.methods.length, 5, 'DerivedModel has 5 declared methods');
+assert.strictEqual(descDerived.result.constructors.length, 2, 'DerivedModel has 2 constructors');
+
+// class describe -- native methods
+const descNative = roundtrip({ id: 92, type: 'classDescribe', params: { className: 're.frida.minapp.NativeLib' } });
+assert.strictEqual(descNative.ok, true, 'NativeLib describe ok');
+assert.strictEqual(descNative.result.methods[0].isNative, true, 'method is native');
+assert.strictEqual(descNative.result.methods[1].isNative, true, 'method is native');
+
+// class describe -- all modifier flags
+const descRefl = roundtrip({ id: 93, type: 'classDescribe', params: { className: 're.frida.minapp.ReflectionTarget' } });
+assert.strictEqual(descRefl.ok, true, 'ReflectionTarget describe ok');
+assert.strictEqual(descRefl.result.fields.length, 4, '4 fields');
+assert.strictEqual(descRefl.result.fields[0].flags.indexOf('public') >= 0, true, 'public field');
+assert.strictEqual(descRefl.result.fields[1].flags.indexOf('private') >= 0, true, 'private field');
+assert.strictEqual(descRefl.result.fields[2].flags.indexOf('protected') >= 0, true, 'protected field');
+assert.strictEqual(descRefl.result.fields[3].modifiers, 0, 'package-private has no modifiers');
+
+// class describe -- class not found
+const descNotFound = roundtrip({ id: 94, type: 'classDescribe', params: { className: 'com.nonexistent.Foo' } });
+assert.strictEqual(descNotFound.ok, false, 'missing class returns error');
+
+// class describe -- missing className
+const descNoName = roundtrip({ id: 95, type: 'classDescribe', params: {} });
+assert.strictEqual(descNoName.ok, false, 'missing className returns error');
 
 console.log('ok - agent script protocol');

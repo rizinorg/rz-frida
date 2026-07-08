@@ -423,6 +423,36 @@ static bool test_classes_without_session(RzCore *core) {
 	mu_end;
 }
 
+static bool test_describe_without_session(RzCore *core) {
+	char *d = rz_core_cmd_str(core, "fridaDj java.lang.String");
+	mu_assert_notnull(d, "describe command returns output");
+	mu_assert_streq(d,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"describe without an open session reports the precondition failure");
+	RZ_FREE(d);
+	mu_end;
+}
+
+static bool test_import_without_session(RzCore *core) {
+	char *i = rz_core_cmd_str(core, "fridaImj java.lang.String");
+	mu_assert_notnull(i, "import command returns output");
+	mu_assert_streq(i,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"import without an open session reports the precondition failure");
+	RZ_FREE(i);
+	mu_end;
+}
+
+static bool test_import_batch_without_session(RzCore *core) {
+	char *b = rz_core_cmd_str(core, "fridaImj re.frida");
+	mu_assert_notnull(b, "batch import returns output");
+	mu_assert_streq(b,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"batch import without an open session reports the precondition failure");
+	RZ_FREE(b);
+	mu_end;
+}
+
 static bool test_invalid_open_uri(RzCore *core) {
 	char *open = rz_core_cmd_str(core, "fridaoj gdb://attach/local//1234");
 	mu_assert_notnull(open, "open command returns output");
@@ -506,6 +536,8 @@ static bool test_plugin_unregistration(RzCore *core) {
 	mu_assert_null(rz_cmd_get_desc(core->rcmd, "fridaJ"), "fridaJ command is removed");
 	mu_assert_null(rz_cmd_get_desc(core->rcmd, "fridaL"), "fridaL command is removed");
 	mu_assert_null(rz_cmd_get_desc(core->rcmd, "fridaC"), "fridaC command is removed");
+	mu_assert_null(rz_cmd_get_desc(core->rcmd, "fridaD"), "fridaD command is removed");
+	mu_assert_null(rz_cmd_get_desc(core->rcmd, "fridaIm"), "fridaIm command is removed");
 	mu_end;
 }
 
@@ -555,6 +587,9 @@ int all_tests(void) {
 	mu_run_test(test_java_available_without_session, core);
 	mu_run_test(test_loaders_without_session, core);
 	mu_run_test(test_classes_without_session, core);
+	mu_run_test(test_describe_without_session, core);
+	mu_run_test(test_import_without_session, core);
+	mu_run_test(test_import_batch_without_session, core);
 	mu_run_test(test_invalid_open_uri, core);
 	mu_run_test(test_open_command, core);
 	mu_run_test(test_open_usb_command, core);
