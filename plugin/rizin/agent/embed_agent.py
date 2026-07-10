@@ -72,12 +72,20 @@ def main(argv):
     if os.path.isfile(frida_compile) and os.path.isfile(entry_js):
         try:
             subprocess.run(
-                [frida_compile, "-Sc", "-o", bundle_js, entry_js],
+                [frida_compile, "-o", bundle_js, entry_js],
                 cwd=script_dir,
                 check=True,
                 capture_output=True,
                 text=True,
             )
+            with open(bundle_js, "rb") as f:
+                raw = f.read()
+            # keep only js
+            js_start = raw.find(b"\xe2\x9c\x84\n")
+            if js_start >= 0:
+                raw = raw[js_start + 4:]
+            with open(bundle_js, "wb") as f:
+                f.write(raw)
             embed(bundle_js, output_path)
             return 0
         except (subprocess.CalledProcessError, OSError) as e:

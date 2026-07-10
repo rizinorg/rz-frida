@@ -712,6 +712,22 @@ commands:
           - name: prefix
             type: RZ_CMD_ARG_TYPE_STRING
             optional: true
+      - name: fridaN
+        cname: cmd_fridaN
+        summary: "Monitor newly loaded Java classes in the target"
+        description: >
+          When called without arguments, lists classes loaded since the monitor was
+          last started. Call 'fridaNj start' to enable classload hooks on all
+          active classloaders and intercept new classloader creation. Call
+          'fridaNj stop' to detach the hooks and clear the tracking buffer.
+          Requires an Android target with the Java VM available.
+        type: RZ_CMD_DESC_TYPE_ARGV_STATE
+        modes:
+          - RZ_OUTPUT_MODE_JSON
+        args:
+          - name: mode
+            type: RZ_CMD_ARG_TYPE_STRING
+            optional: true
       - name: fridaD
         cname: cmd_fridaD
         summary: "Describe a Java class in the target"

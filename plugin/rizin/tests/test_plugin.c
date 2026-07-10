@@ -453,6 +453,22 @@ static bool test_import_batch_without_session(RzCore *core) {
 	mu_end;
 }
 
+static bool test_new_classes_without_session(RzCore *core) {
+	char *n = rz_core_cmd_str(core, "fridaNj");
+	mu_assert_notnull(n, "fridaNj returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaNj without an open session reports the precondition failure");
+	RZ_FREE(n);
+	n = rz_core_cmd_str(core, "fridaNj start");
+	mu_assert_notnull(n, "fridaNj start returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaNj start without an open session reports the precondition failure");
+	RZ_FREE(n);
+	mu_end;
+}
+
 static bool test_invalid_open_uri(RzCore *core) {
 	char *open = rz_core_cmd_str(core, "fridaoj gdb://attach/local//1234");
 	mu_assert_notnull(open, "open command returns output");
@@ -590,6 +606,7 @@ int all_tests(void) {
 	mu_run_test(test_describe_without_session, core);
 	mu_run_test(test_import_without_session, core);
 	mu_run_test(test_import_batch_without_session, core);
+	mu_run_test(test_new_classes_without_session, core);
 	mu_run_test(test_invalid_open_uri, core);
 	mu_run_test(test_open_command, core);
 	mu_run_test(test_open_usb_command, core);

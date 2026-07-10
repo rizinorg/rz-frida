@@ -115,6 +115,48 @@ const KNOWN_JAVA_CLASSES = [
 	'android.app.Activity', 'android.os.Bundle'
 ];
 
+// dynamic class tracking in mock
+const newlyLoadedInTest = [];
+let classLoaderInitHooked = false;
+
+function makeClassLoaderObj() {
+	let originalImpl = function (name, resolve) {
+		const key = (typeof resolve === 'boolean') ? name + '|' + resolve : name;
+		newlyLoadedInTest.push(key);
+		return null;
+	};
+	let hookedImpl = null;
+	let inHook = false;
+	const obj = {};
+	obj.loadClass = function (name, resolve) {
+		if (inHook) {
+			return originalImpl.call(this, name, resolve);
+		}
+		if (hookedImpl) {
+			inHook = true;
+			const r = hookedImpl.call(this, name, resolve);
+			inHook = false;
+			return r;
+		}
+		return originalImpl.call(this, name, resolve);
+	};
+	obj.loadClass.overload = function () {
+		return {
+			set implementation(fn) { hookedImpl = fn; },
+			detach: function () { hookedImpl = null; },
+		};
+	};
+	obj.$init = {
+		overload: function () {
+			classLoaderInitHooked = true;
+			return {
+				set implementation(fn) { /* nop in mock, just store */ },
+			};
+		},
+	};
+	return obj;
+}
+
 const fakeFields = {
 	're.frida.minapp.SampleModel': [
 		{ getName: function () { return 'id'; }, getType: function () { return { getName: function () { return 'int'; } }; }, getModifiers: function () { return 0x0002; } },
@@ -220,6 +262,9 @@ function fakeKlass(name) {
 }
 
 function findClass(name) {
+	if (name === 'java.lang.ClassLoader') {
+		return makeClassLoaderObj();
+	}
 	if (KNOWN_JAVA_CLASSES.indexOf(name) < 0) {
 		throw new Error('java.lang.ClassNotFoundException: ' + name);
 	}
@@ -714,5 +759,49 @@ assert.strictEqual(descNotFound.ok, false, 'missing class returns error');
 // class describe -- missing className
 const descNoName = roundtrip({ id: 95, type: 'classDescribe', params: {} });
 assert.strictEqual(descNoName.ok, false, 'missing className returns error');
+
+// class load monitor -- enable
+const monOn = roundtrip({ id: 100, type: 'classLoadMonitor', params: { enable: true } });
+assert.strictEqual(monOn.ok, true, 'classLoadMonitor enable returns ok');
+assert.strictEqual(monOn.result.enabled, true, 'classLoadMonitor reports enabled');
+assert.ok(classLoaderInitHooked, 'classLoader $init was hooked for new loaders');
+
+// class load monitor -- idempotent re-enable
+const monRe = roundtrip({ id: 101, type: 'classLoadMonitor', params: { enable: true } });
+assert.strictEqual(monRe.ok, true, 'classLoadMonitor re-enable returns ok');
+
+// newly loaded classes -- before any load, returns empty
+const nlcEmpty = roundtrip({ id: 102, type: 'newlyLoadedClasses', params: {} });
+assert.strictEqual(nlcEmpty.ok, true, 'newlyLoadedClasses returns ok');
+assert.deepStrictEqual(nlcEmpty.result.classes, [], 'new classes list is initially empty');
+assert.strictEqual(nlcEmpty.result.count, 0, 'count is 0 when empty');
+
+// simulate class load via the mock loadClass hook on the ClassLoader class
+const testLoader = makeClassLoaderObj();
+
+testLoader.loadClass.overload().implementation = function (name) {
+	if (name !== 'com.dynamic.TestClass') {
+		return this.loadClass(name);
+	}
+	return null;
+};
+
+testLoader.loadClass('com.dynamic.TestClass');
+const nlcAfter = roundtrip({ id: 103, type: 'newlyLoadedClasses', params: {} });
+assert.strictEqual(nlcAfter.ok, true, 'newlyLoadedClasses returns ok after load');
+
+// class load monitor -- disable
+const monOff = roundtrip({ id: 104, type: 'classLoadMonitor', params: { enable: false } });
+assert.strictEqual(monOff.ok, true, 'classLoadMonitor disable returns ok');
+assert.strictEqual(monOff.result.enabled, false, 'classLoadMonitor reports disabled');
+
+// newly loaded classes -- after disable, returns empty
+const nlcAfterOff = roundtrip({ id: 105, type: 'newlyLoadedClasses', params: {} });
+assert.strictEqual(nlcAfterOff.ok, true, 'newlyLoadedClasses returns ok after monitor off');
+assert.strictEqual(nlcAfterOff.result.count, 0, 'count is 0 after monitor stopped');
+
+// class load monitor -- missing enable boolean
+const monBad = roundtrip({ id: 106, type: 'classLoadMonitor', params: {} });
+assert.strictEqual(monBad.ok, false, 'classLoadMonitor without enable boolean returns error');
 
 console.log('ok - agent script protocol');

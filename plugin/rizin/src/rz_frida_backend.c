@@ -2065,6 +2065,73 @@ RZ_IPI bool rz_frida_backend_classes(RZ_NONNULL RzFridaSession *session,
 	return ok;
 }
 
+RZ_IPI bool rz_frida_backend_class_load_monitor(RZ_NONNULL RzFridaSession *session, bool enable, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && pj, false);
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return false;
+	}
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
+
+	PJ *params = pj_new();
+	if (!params) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
+	pj_o(params);
+	pj_kb(params, "enable", enable);
+	pj_end(params);
+	char *params_json = pj_drain(params);
+	if (!params_json) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "classLoadMonitor", params_json,
+		&response, &fail_code, &fail_msg);
+	free(params_json);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+	bool ok = backend_emit_response(pj, &response);
+	rz_frida_response_fini(&response);
+	return ok;
+}
+
+RZ_IPI bool rz_frida_backend_newly_loaded_classes(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && pj, false);
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return false;
+	}
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "newlyLoadedClasses", NULL,
+		&response, &fail_code, &fail_msg);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+	bool ok = backend_emit_response(pj, &response);
+	rz_frida_response_fini(&response);
+	return ok;
+}
+
 /**
  * \brief Describe a Java class in the target through the agent.
  *
@@ -2388,7 +2455,10 @@ RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 	}
 
 	PJ *params = pj_new();
-	if (!params) { rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request"); return false; }
+	if (!params) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
 	pj_o(params);
 	pj_ks(params, "className", className);
 	if (loaderId) {
@@ -2396,7 +2466,10 @@ RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 	}
 	pj_end(params);
 	char *pp = pj_drain(params);
-	if (!pp) { rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request"); return false; }
+	if (!pp) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
 
 	RzFridaResponse response = { 0 };
 	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
@@ -2417,7 +2490,10 @@ RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 
 	char *json_copy = rz_str_dup(response.result);
 	rz_frida_response_fini(&response);
-	if (!json_copy) { rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "out of memory"); return false; }
+	if (!json_copy) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "out of memory");
+		return false;
+	}
 
 	RzJson *root = rz_json_parse(json_copy);
 	if (!root || root->type != RZ_JSON_OBJECT) {

@@ -14,6 +14,9 @@ let exceptionHandlerReady = false;
 const loaderIds = new Map(); // classloader wrapper -> stable integer id
 const idToLoader = new Map(); // stable integer id -> classloader wrapper
 let nextLoaderId = 1;
+let loadClassMonitorEnabled = false;
+const newlyLoadedClasses = [];
+const seenLoadedClasses = new Set();
 
 function isJavaAvailable() {
   return { available: typeof Java !== 'undefined' && Java.available };
@@ -505,7 +508,11 @@ function ensureExceptionHandler() {
       watchpoints.clear();
     }
     let wpCtx = {};
-    try { wpCtx = serialize(details.context); } catch (_) { /* keep empty */ }
+	try {
+		wpCtx = serialize(details.context);
+	} catch (_) {
+		/* keep empty */
+	}
     send({
       type: 'frida.wp',
       threadId: Process.getCurrentThreadId(),
@@ -581,6 +588,61 @@ function wpRemove(params) {
   return { address: key, removed: 1 };
 }
 
+function classLoadMonitor(params) {
+    if (typeof Java === 'undefined' || !Java.available) {
+        throw new Error('Java VM is not available');
+    }
+    if (typeof params.enable !== 'boolean') {
+        throw new Error('classLoadMonitor requires an enable boolean');
+    }
+    if (params.enable) {
+        if (loadClassMonitorEnabled) {
+            return { enabled: true };
+        }
+        Java.performNow(function () {
+            const clClass = Java.use('java.lang.ClassLoader');
+            clClass.loadClass.overload('java.lang.String').implementation = function (name) {
+                if (!seenLoadedClasses.has(name)) {
+                    seenLoadedClasses.add(name);
+                    newlyLoadedClasses.push(name);
+                }
+                return this.loadClass(name);
+            };
+            clClass.loadClass.overload('java.lang.String', 'boolean').implementation = function (name, resolve) {
+                if (!seenLoadedClasses.has(name)) {
+                    seenLoadedClasses.add(name);
+                    newlyLoadedClasses.push(name);
+                }
+                return this.loadClass(name, resolve);
+            };
+            clClass.$init.overload('java.lang.ClassLoader').implementation = function (parent) {
+                return this.$init(parent);
+            };
+        });
+        loadClassMonitorEnabled = true;
+        return { enabled: true };
+    }
+    loadClassMonitorEnabled = false;
+    try {
+        const clClass = Java.use('java.lang.ClassLoader');
+        clClass.loadClass.overload('java.lang.String').implementation = null;
+        clClass.loadClass.overload('java.lang.String', 'boolean').implementation = null;
+        clClass.$init.overload('java.lang.ClassLoader').implementation = null;
+    } catch (e) {
+        /* ignore */
+    }
+    const remaining = newlyLoadedClasses.length;
+    newlyLoadedClasses.length = 0;
+    seenLoadedClasses.clear();
+    return { enabled: false, cleared: remaining };
+}
+
+function newlyLoadedClassesGet() {
+    const classes = newlyLoadedClasses.slice();
+    newlyLoadedClasses.length = 0;
+    return { classes: classes, count: classes.length };
+}
+
 function invalidateCaches() {
   rangeCache = null;
   moduleCache = null;
@@ -644,6 +706,10 @@ function handleRequest(request) {
       return classList(params);
     case 'classDescribe':
       return classDescribe(params);
+    case 'classLoadMonitor':
+      return classLoadMonitor(params);
+    case 'newlyLoadedClasses':
+      return newlyLoadedClassesGet();
     default:
       throw new Error('unknown request type: ' + String(type));
   }

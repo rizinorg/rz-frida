@@ -49,6 +49,7 @@ static const RzCmdDescArg cmd_fridaB_args[4];
 static const RzCmdDescArg cmd_fridaW_args[4];
 static const RzCmdDescArg cmd_fridaW_minus_args[2];
 static const RzCmdDescArg cmd_fridaC_args[2];
+static const RzCmdDescArg cmd_fridaN_args[2];
 static const RzCmdDescArg cmd_fridaD_args[3];
 static const RzCmdDescArg cmd_fridaIm_args[3];
 
@@ -763,6 +764,22 @@ static const RzCmdDescHelp cmd_fridaC_help = {
 	.args = cmd_fridaC_args,
 };
 
+static const RzCmdDescArg cmd_fridaN_args[] = {
+	{
+		.name = "mode",
+		.type = RZ_CMD_ARG_TYPE_STRING,
+		.flags = RZ_CMD_ARG_FLAG_LAST,
+		.optional = true,
+
+	},
+	{ 0 },
+};
+static const RzCmdDescHelp cmd_fridaN_help = {
+	.summary = "Monitor newly loaded Java classes in the target",
+	.description = "When called without arguments, lists classes loaded since the monitor was last started. Call 'fridaNj start' to enable classload hooks on all active classloaders and intercept new classloader creation. Call 'fridaNj stop' to detach the hooks and clear the tracking buffer. Requires an Android target with the Java VM available.",
+	.args = cmd_fridaN_args,
+};
+
 static const RzCmdDescDetailEntry cmd_fridaD_Examples_detail_entries[] = {
 	{ .text = "fridaDj ", .arg_str = "java.lang.String", .comment = "Describe String using the default system loader, Tab to autocomplete class names" },
 	{ .text = "fridaDj ", .arg_str = "com.example.Foo 3", .comment = "Describe Foo loaded by classloader id 3" },
@@ -917,6 +934,9 @@ RZ_IPI void rzshell_cmddescs_init(RzCore *core) {
 
 	RzCmdDesc *cmd_fridaC_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaC", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaC_handler, &cmd_fridaC_help);
 	rz_warn_if_fail(cmd_fridaC_cd);
+
+	RzCmdDesc *cmd_fridaN_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaN", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaN_handler, &cmd_fridaN_help);
+	rz_warn_if_fail(cmd_fridaN_cd);
 
 	RzCmdDesc *cmd_fridaD_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaD", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaD_handler, &cmd_fridaD_help);
 	rz_warn_if_fail(cmd_fridaD_cd);
