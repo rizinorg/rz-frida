@@ -72,7 +72,7 @@ def main(argv):
     if os.path.isfile(frida_compile) and os.path.isfile(entry_js):
         try:
             subprocess.run(
-                [frida_compile, "-o", bundle_js, entry_js],
+                [frida_compile, "-Sc", "-o", bundle_js, entry_js],
                 cwd=script_dir,
                 check=True,
                 capture_output=True,
