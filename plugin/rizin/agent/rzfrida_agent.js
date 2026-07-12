@@ -645,6 +645,8 @@ function rnSet(params) {
             return { enabled: true, invocations: rnBuffer.length };
         }
         // libart symbols
+        const env = Java.vm.getEnv();
+        const ps = Process.pointerSize;
         let rnAddr = null;
         try {
             const art = Process.findModuleByName('libart.so');
@@ -664,13 +666,11 @@ function rnSet(params) {
         } catch (e) {
             /* not available */
         }
-        // fallback
+        // fallback: JNI table index 218 (fcn 215 + 3 reserved slots)
         if (!rnAddr) {
-            const env = Java.vm.getEnv();
             const tablePtr = env.handle.readPointer();
             if (!tablePtr.isNull()) {
-                const ps = Process.pointerSize;
-                rnAddr = tablePtr.add(218 * ps).readPointer(); // RN is fcn 215 & 3 reserved slots
+                rnAddr = tablePtr.add(218 * ps).readPointer();
                 if (rnAddr.isNull()) {
                     rnAddr = tablePtr.add(215 * ps).readPointer();
                 }

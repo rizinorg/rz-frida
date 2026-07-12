@@ -320,7 +320,6 @@ const sandbox = {
 		ClassFactory: { get: function (loader) { return { use: function (name) { return findClass(name); } }; } },
 		vm: {
 			getEnv: function () {
-				const rnAddr = new FakePtr(0xbeef0000);
 				const tablePtr = new FakePtr(0xcafe0000);
 				return {
 					handle: {
