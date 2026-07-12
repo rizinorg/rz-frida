@@ -728,6 +728,36 @@ commands:
           - name: mode
             type: RZ_CMD_ARG_TYPE_STRING
             optional: true
+      - name: fridaRN
+        cname: cmd_fridaRN
+        summary: "Hook RegisterNatives to map native methods to addresses"
+        description: >
+          When called without arguments, lists captured JNI RegisterNatives
+          invocations with className, method names, signatures and native
+          function addresses. Call 'fridaRNj on' to arm the low-level JNI
+          hook on the ART runtime (JNI function table offset 215).
+          'fridaRNj off' disarms and clears the buffer.
+          'fridaRNj import' imports the captured native method addresses
+          into the rizin analysis class database.
+          Requires an Android target with the Java VM available.
+        type: RZ_CMD_DESC_TYPE_ARGV_STATE
+        modes:
+          - RZ_OUTPUT_MODE_JSON
+        args:
+          - name: mode
+            type: RZ_CMD_ARG_TYPE_STRING
+            optional: true
+      - name: fridaf
+        cname: cmd_fridaf
+        summary: "Import runtime modules as rizin flags"
+        description: >
+          Enumerates the target process modules via the rz-frida agent and
+          imports their base addresses into the frida.libs flag space as
+          rizin flags. Returns the count of modules imported.
+        type: RZ_CMD_DESC_TYPE_ARGV_STATE
+        modes:
+          - RZ_OUTPUT_MODE_JSON
+        args: []
       - name: fridaD
         cname: cmd_fridaD
         summary: "Describe a Java class in the target"

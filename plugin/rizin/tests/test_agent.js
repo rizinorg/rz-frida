@@ -45,6 +45,18 @@ FakePtr.prototype.compare = function (other) {
 FakePtr.prototype.add = function (n) {
 	return new FakePtr(this.value + n);
 };
+FakePtr.prototype.readPointer = function () {
+	return new FakePtr(this.value + 0x100);
+};
+FakePtr.prototype.isNull = function () {
+	return this.value === 0;
+};
+FakePtr.prototype.toInt32 = function () {
+	return this.value & 0xffffffff;
+};
+FakePtr.prototype.readUtf8String = function () {
+	return 'nativeMethod';
+};
 FakePtr.prototype.toJSON = function () {
 	return this.toString();
 };
@@ -116,13 +128,8 @@ const KNOWN_JAVA_CLASSES = [
 ];
 
 // dynamic class tracking in mock
-const newlyLoadedInTest = [];
-let classLoaderInitHooked = false;
-
 function makeClassLoaderObj() {
 	let originalImpl = function (name, resolve) {
-		const key = (typeof resolve === 'boolean') ? name + '|' + resolve : name;
-		newlyLoadedInTest.push(key);
 		return null;
 	};
 	let hookedImpl = null;
@@ -148,9 +155,8 @@ function makeClassLoaderObj() {
 	};
 	obj.$init = {
 		overload: function () {
-			classLoaderInitHooked = true;
 			return {
-				set implementation(fn) { /* nop in mock, just store */ },
+				set implementation(fn) { /* nop in mock */ },
 			};
 		},
 	};
@@ -280,7 +286,8 @@ const sandbox = {
 		enumerateThreads: function () { return fakeThreads; },
 		enumerateModules: function () { modulesEnumerated++; return fakeModules; },
 		getCurrentThreadId: function () { return 4242; },
-		setExceptionHandler: function (cb) { exceptionHandler = cb; }
+		setExceptionHandler: function (cb) { exceptionHandler = cb; },
+		findModuleByName: function (name) { return null; }
 	},
 	Java: {
 		available: true,
@@ -310,7 +317,19 @@ const sandbox = {
 			return KNOWN_JAVA_CLASSES;
 		},
 		use: function (name) { return findClass(name); },
-		ClassFactory: { get: function (loader) { return { use: function (name) { return findClass(name); } }; } }
+		ClassFactory: { get: function (loader) { return { use: function (name) { return findClass(name); } }; } },
+		vm: {
+			getEnv: function () {
+				const rnAddr = new FakePtr(0xbeef0000);
+				const tablePtr = new FakePtr(0xcafe0000);
+				return {
+					handle: {
+						readPointer: function () { return tablePtr; }
+					},
+					getClassName: function (cls) { return 'com.example.TestClass'; }
+				};
+			}
+		}
 },
 // untyped recv stores the handler, typed recv(type, cb) is a parked thread waiter.
 	recv: function (type, cb) {
@@ -336,6 +355,9 @@ const sandbox = {
 			interceptors.set(key, { onEnter: callbacks.onEnter, listener: listener });
 			return listener;
 		}
+	},
+	Module: {
+		findExportByName: function (mod, name) { return null; }
 	},
 	rpc: {},
 	console: console
@@ -764,7 +786,6 @@ assert.strictEqual(descNoName.ok, false, 'missing className returns error');
 const monOn = roundtrip({ id: 100, type: 'classLoadMonitor', params: { enable: true } });
 assert.strictEqual(monOn.ok, true, 'classLoadMonitor enable returns ok');
 assert.strictEqual(monOn.result.enabled, true, 'classLoadMonitor reports enabled');
-assert.ok(classLoaderInitHooked, 'classLoader $init was hooked for new loaders');
 
 // class load monitor -- idempotent re-enable
 const monRe = roundtrip({ id: 101, type: 'classLoadMonitor', params: { enable: true } });
@@ -803,5 +824,33 @@ assert.strictEqual(nlcAfterOff.result.count, 0, 'count is 0 after monitor stoppe
 // class load monitor -- missing enable boolean
 const monBad = roundtrip({ id: 106, type: 'classLoadMonitor', params: {} });
 assert.strictEqual(monBad.ok, false, 'classLoadMonitor without enable boolean returns error');
+
+// RegisterNatives -- enable
+const rnOn = roundtrip({ id: 110, type: 'rnSet', params: { enable: true } });
+assert.strictEqual(rnOn.ok, true, 'rnSet enable returns ok');
+assert.strictEqual(rnOn.result.enabled, true, 'rnSet reports enabled');
+
+// RegisterNatives -- re-enable
+const rnRe = roundtrip({ id: 111, type: 'rnSet', params: { enable: true } });
+assert.strictEqual(rnRe.ok, true, 'rnSet re-enable returns ok');
+
+// RegisterNatives -- list (empty until invoked)
+const rnList1 = roundtrip({ id: 112, type: 'rnList', params: {} });
+assert.strictEqual(rnList1.ok, true, 'rnList returns ok');
+assert.deepStrictEqual(rnList1.result.invocations, [], 'rn list is initially empty');
+
+// RegisterNatives -- disable
+const rnOff = roundtrip({ id: 113, type: 'rnSet', params: { enable: false } });
+assert.strictEqual(rnOff.ok, true, 'rnSet disable returns ok');
+assert.strictEqual(rnOff.result.enabled, false, 'rnSet reports disabled');
+
+// RegisterNatives -- missing enable bool
+const rnBad = roundtrip({ id: 114, type: 'rnSet', params: {} });
+assert.strictEqual(rnBad.ok, false, 'rnSet without enable boolean returns error');
+
+// flag modules
+const fm = roundtrip({ id: 120, type: 'flagModules', params: {} });
+assert.strictEqual(fm.ok, true, 'flagModules returns ok');
+assert.ok(fm.result.count >= 0, 'flagModules reports module count');
 
 console.log('ok - agent script protocol');

@@ -15,8 +15,11 @@ const loaderIds = new Map(); // classloader wrapper -> stable integer id
 const idToLoader = new Map(); // stable integer id -> classloader wrapper
 let nextLoaderId = 1;
 let loadClassMonitorEnabled = false;
-const newlyLoadedClasses = [];
 const seenLoadedClasses = new Set();
+let rnHookEnabled = false;
+let rnInterceptor = null;
+const rnBuffer = [];
+const RN_BUFFER_MAX = 512;
 
 function isJavaAvailable() {
   return { available: typeof Java !== 'undefined' && Java.available };
@@ -600,47 +603,152 @@ function classLoadMonitor(params) {
             return { enabled: true };
         }
         Java.performNow(function () {
-            const clClass = Java.use('java.lang.ClassLoader');
-            clClass.loadClass.overload('java.lang.String').implementation = function (name) {
-                if (!seenLoadedClasses.has(name)) {
-                    seenLoadedClasses.add(name);
-                    newlyLoadedClasses.push(name);
-                }
-                return this.loadClass(name);
-            };
-            clClass.loadClass.overload('java.lang.String', 'boolean').implementation = function (name, resolve) {
-                if (!seenLoadedClasses.has(name)) {
-                    seenLoadedClasses.add(name);
-                    newlyLoadedClasses.push(name);
-                }
-                return this.loadClass(name, resolve);
-            };
-            clClass.$init.overload('java.lang.ClassLoader').implementation = function (parent) {
-                return this.$init(parent);
-            };
+            var current = Java.enumerateLoadedClassesSync();
+            for (var i = 0; i < current.length; i++) {
+                seenLoadedClasses.add(current[i]);
+            }
         });
         loadClassMonitorEnabled = true;
         return { enabled: true };
     }
     loadClassMonitorEnabled = false;
-    try {
-        const clClass = Java.use('java.lang.ClassLoader');
-        clClass.loadClass.overload('java.lang.String').implementation = null;
-        clClass.loadClass.overload('java.lang.String', 'boolean').implementation = null;
-        clClass.$init.overload('java.lang.ClassLoader').implementation = null;
-    } catch (e) {
-        /* ignore */
-    }
-    const remaining = newlyLoadedClasses.length;
-    newlyLoadedClasses.length = 0;
     seenLoadedClasses.clear();
-    return { enabled: false, cleared: remaining };
+    return { enabled: false };
 }
 
 function newlyLoadedClassesGet() {
-    const classes = newlyLoadedClasses.slice();
-    newlyLoadedClasses.length = 0;
-    return { classes: classes, count: classes.length };
+    if (!loadClassMonitorEnabled) {
+        return { classes: [], count: 0, monitor: false };
+    }
+    var result = [];
+    Java.performNow(function () {
+        var current = Java.enumerateLoadedClassesSync();
+        for (var i = 0; i < current.length; i++) {
+            if (!seenLoadedClasses.has(current[i])) {
+                seenLoadedClasses.add(current[i]);
+                result.push(current[i]);
+            }
+        }
+    });
+    return { classes: result, count: result.length };
+}
+
+function rnSet(params) {
+    if (typeof Java === 'undefined' || !Java.available) {
+        throw new Error('Java VM is not available');
+    }
+    if (typeof params.enable !== 'boolean') {
+        throw new Error('rnSet requires an enable boolean');
+    }
+    if (params.enable) {
+        if (rnHookEnabled) {
+            return { enabled: true, invocations: rnBuffer.length };
+        }
+        // libart symbols
+        let rnAddr = null;
+        try {
+            const art = Process.findModuleByName('libart.so');
+            if (art) {
+                const symbols = art.enumerateSymbols();
+                for (let i = 0; i < symbols.length; i++) {
+                    const name = symbols[i].name;
+                    if (name.indexOf('art') >= 0 &&
+                        name.indexOf('JNI') >= 0 &&
+                        name.indexOf('RegisterNatives') >= 0 &&
+                        name.indexOf('CheckJNI') < 0) {
+                        rnAddr = symbols[i].address;
+                        break;
+                    }
+                }
+            }
+        } catch (e) {
+            /* not available */
+        }
+        // fallback
+        if (!rnAddr) {
+            const env = Java.vm.getEnv();
+            const tablePtr = env.handle.readPointer();
+            if (!tablePtr.isNull()) {
+                const ps = Process.pointerSize;
+                rnAddr = tablePtr.add(218 * ps).readPointer(); // RN is fcn 215 & 3 reserved slots
+                if (rnAddr.isNull()) {
+                    rnAddr = tablePtr.add(215 * ps).readPointer();
+                }
+            }
+        }
+        if (!rnAddr || rnAddr.isNull()) {
+            throw new Error('RegisterNatives entry not found; is this an Android target with libart.so?');
+        }
+        rnInterceptor = Interceptor.attach(rnAddr, {
+            onEnter: function (args) {
+                try {
+                    const nMethods = args[3].toInt32();
+                    if (nMethods <= 0 || nMethods > 16384) {
+                        return;
+                    }
+                    if (rnBuffer.length >= RN_BUFFER_MAX) {
+                        return;
+                    }
+                    const methodsPtr = args[2];
+                    if (methodsPtr.isNull()) {
+                        return;
+                    }
+                    const clsName = env.getClassName(args[1]);
+                    const methods = [];
+                    for (let i = 0; i < nMethods; i++) {
+                        const off = i * 3 * ps;
+                        const namePtr = methodsPtr.add(off).readPointer();
+                        if (namePtr.isNull()) {
+                            continue;
+                        }
+                        const sigPtr = methodsPtr.add(off + ps).readPointer();
+                        const fnPtr = methodsPtr.add(off + 2 * ps).readPointer();
+                        if (fnPtr.isNull()) {
+                            continue;
+                        }
+                        methods.push({
+                            name: namePtr.readUtf8String(),
+                            signature: sigPtr.isNull() ? '' : sigPtr.readUtf8String(),
+                            address: fnPtr.toString()
+                        });
+                    }
+                    if (methods.length) {
+                        const entry = { className: clsName, methods: methods };
+                        rnBuffer.push(entry);
+                        send({ type: 'frida.rn', className: clsName, methods: methods });
+                    }
+                } catch (e) {
+                    /* ignore malformed invocations */
+                }
+            }
+        });
+        rnHookEnabled = true;
+        return { enabled: true, invocations: rnBuffer.length };
+    }
+    rnHookEnabled = false;
+    if (rnInterceptor) {
+        rnInterceptor.detach();
+        rnInterceptor = null;
+    }
+    const remaining = rnBuffer.length;
+    rnBuffer.length = 0;
+    return { enabled: false, cleared: remaining };
+}
+
+function rnList() {
+    const entries = rnBuffer.slice();
+    rnBuffer.length = 0;
+    return { invocations: entries, count: entries.length };
+}
+
+function flagModules() {
+    const modules = Process.enumerateModules();
+    const result = [];
+    for (let i = 0; i < modules.length; i++) {
+        const m = modules[i];
+        result.push({ name: m.name, base: m.base.toString(), size: m.size });
+    }
+    return { modules: result, count: result.length };
 }
 
 function invalidateCaches() {
@@ -710,6 +818,12 @@ function handleRequest(request) {
       return classLoadMonitor(params);
     case 'newlyLoadedClasses':
       return newlyLoadedClassesGet();
+    case 'rnSet':
+      return rnSet(params);
+    case 'rnList':
+      return rnList();
+    case 'flagModules':
+      return flagModules();
     default:
       throw new Error('unknown request type: ' + String(type));
   }

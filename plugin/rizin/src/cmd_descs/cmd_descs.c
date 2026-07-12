@@ -50,6 +50,7 @@ static const RzCmdDescArg cmd_fridaW_args[4];
 static const RzCmdDescArg cmd_fridaW_minus_args[2];
 static const RzCmdDescArg cmd_fridaC_args[2];
 static const RzCmdDescArg cmd_fridaN_args[2];
+static const RzCmdDescArg cmd_fridaRN_args[2];
 static const RzCmdDescArg cmd_fridaD_args[3];
 static const RzCmdDescArg cmd_fridaIm_args[3];
 
@@ -780,6 +781,31 @@ static const RzCmdDescHelp cmd_fridaN_help = {
 	.args = cmd_fridaN_args,
 };
 
+static const RzCmdDescArg cmd_fridaRN_args[] = {
+	{
+		.name = "mode",
+		.type = RZ_CMD_ARG_TYPE_STRING,
+		.flags = RZ_CMD_ARG_FLAG_LAST,
+		.optional = true,
+
+	},
+	{ 0 },
+};
+static const RzCmdDescHelp cmd_fridaRN_help = {
+	.summary = "Hook RegisterNatives to map native methods to addresses",
+	.description = "When called without arguments, lists captured JNI RegisterNatives invocations with className, method names, signatures and native function addresses. Call 'fridaRNj on' to arm the low-level JNI hook on the ART runtime (JNI function table offset 215). 'fridaRNj off' disarms and clears the buffer. 'fridaRNj import' imports the captured native method addresses into the rizin analysis class database. Requires an Android target with the Java VM available.",
+	.args = cmd_fridaRN_args,
+};
+
+static const RzCmdDescArg cmd_fridaf_args[] = {
+	{ 0 },
+};
+static const RzCmdDescHelp cmd_fridaf_help = {
+	.summary = "Import runtime modules as rizin flags",
+	.description = "Enumerates the target process modules via the rz-frida agent and imports their base addresses into the frida.libs flag space as rizin flags. Returns the count of modules imported.",
+	.args = cmd_fridaf_args,
+};
+
 static const RzCmdDescDetailEntry cmd_fridaD_Examples_detail_entries[] = {
 	{ .text = "fridaDj ", .arg_str = "java.lang.String", .comment = "Describe String using the default system loader, Tab to autocomplete class names" },
 	{ .text = "fridaDj ", .arg_str = "com.example.Foo 3", .comment = "Describe Foo loaded by classloader id 3" },
@@ -937,6 +963,12 @@ RZ_IPI void rzshell_cmddescs_init(RzCore *core) {
 
 	RzCmdDesc *cmd_fridaN_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaN", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaN_handler, &cmd_fridaN_help);
 	rz_warn_if_fail(cmd_fridaN_cd);
+
+	RzCmdDesc *cmd_fridaRN_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaRN", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaRN_handler, &cmd_fridaRN_help);
+	rz_warn_if_fail(cmd_fridaRN_cd);
+
+	RzCmdDesc *cmd_fridaf_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaf", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaf_handler, &cmd_fridaf_help);
+	rz_warn_if_fail(cmd_fridaf_cd);
 
 	RzCmdDesc *cmd_fridaD_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaD", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaD_handler, &cmd_fridaD_help);
 	rz_warn_if_fail(cmd_fridaD_cd);

@@ -2132,6 +2132,99 @@ RZ_IPI bool rz_frida_backend_newly_loaded_classes(RZ_NONNULL RzFridaSession *ses
 	return ok;
 }
 
+RZ_IPI bool rz_frida_backend_rn_set(RZ_NONNULL RzFridaSession *session, bool enable, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && pj, false);
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return false;
+	}
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
+
+	PJ *params = pj_new();
+	if (!params) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
+	pj_o(params);
+	pj_kb(params, "enable", enable);
+	pj_end(params);
+	char *params_json = pj_drain(params);
+	if (!params_json) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "rnSet", params_json,
+		&response, &fail_code, &fail_msg);
+	free(params_json);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+	bool ok = backend_emit_response(pj, &response);
+	rz_frida_response_fini(&response);
+	return ok;
+}
+
+RZ_IPI bool rz_frida_backend_rn_list(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && pj, false);
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return false;
+	}
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "rnList", NULL,
+		&response, &fail_code, &fail_msg);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+	bool ok = backend_emit_response(pj, &response);
+	rz_frida_response_fini(&response);
+	return ok;
+}
+
+RZ_IPI bool rz_frida_backend_flag_modules(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && pj, false);
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return false;
+	}
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "flagModules", NULL,
+		&response, &fail_code, &fail_msg);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+	bool ok = backend_emit_response(pj, &response);
+	rz_frida_response_fini(&response);
+	return ok;
+}
+
 /**
  * \brief Describe a Java class in the target through the agent.
  *
