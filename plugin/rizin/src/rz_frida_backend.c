@@ -2225,6 +2225,92 @@ RZ_IPI bool rz_frida_backend_flag_modules(RZ_NONNULL RzFridaSession *session, RZ
 	return ok;
 }
 
+static int strptr_cmp(const void *a, const void *b) {
+	return strcmp(*(const char **)a, *(const char **)b);
+}
+
+RZ_IPI bool rz_frida_backend_dex_diff(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NULLABLE const char *prefix, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && core && pj, false);
+
+	ut64 dex_max = rz_config_get_integer(core->config, "frida.dex.max");
+	if (!dex_max) {
+		dex_max = (ut64)UINT32_MAX;
+	}
+	size_t count = 0;
+	char **names = rz_frida_backend_class_list(session, prefix, dex_max, &count);
+
+	// sort for binary search
+	if (names && count > 1) {
+		qsort(names, count, sizeof(char *), strptr_cmp);
+	}
+
+	size_t static_count = 0;
+	char **static_names = NULL;
+	if (core->bin && core->bin->cur && core->bin->cur->o) {
+		const RzPVector *classes = rz_bin_object_get_classes(core->bin->cur->o);
+		if (classes) {
+			static_count = rz_pvector_len(classes);
+			if (static_count) {
+				static_names = RZ_NEWS0(char *, static_count);
+				if (static_names) {
+					void **iter;
+					size_t idx = 0;
+					rz_pvector_foreach (classes, iter) {
+						RzBinClass *cls = *iter;
+						if (cls && cls->name && idx < static_count) {
+							static_names[idx++] = cls->name;
+						}
+					}
+					static_count = idx;
+					if (static_count > 1) {
+						qsort(static_names, static_count, sizeof(char *), strptr_cmp);
+					}
+				}
+			}
+		}
+	}
+
+	bool got_static = (static_names != NULL);
+	size_t only_static_c = 0, only_runtime_c = 0, both_c = 0;
+
+	// static count
+	for (size_t i = 0; i < static_count; i++) {
+		bool found = (names && count && bsearch(&static_names[i], names, count, sizeof(char *), strptr_cmp));
+		if (found) {
+			both_c++;
+		} else {
+			only_static_c++;
+		}
+	}
+
+	// runtime count
+	if (names) {
+		for (size_t i = 0; i < count; i++) {
+			bool found = (static_names && bsearch(&names[i], static_names, static_count, sizeof(char *), strptr_cmp));
+			if (!found) {
+				only_runtime_c++;
+			}
+		}
+	} else {
+		only_runtime_c = count;
+	}
+
+	rz_frida_json_ok_begin(pj);
+	pj_kb(pj, "loaded_bin", got_static);
+	pj_kn(pj, "only_static", (ut64)only_static_c);
+	pj_kn(pj, "only_runtime", (ut64)only_runtime_c);
+	pj_kn(pj, "both", (ut64)both_c);
+
+	if (names) {
+		for (size_t i = 0; i < count; i++) { free(names[i]); }
+		free(names);
+	}
+	free(static_names);
+
+	rz_frida_json_ok_end(pj);
+	return true;
+}
+
 /**
  * \brief Describe a Java class in the target through the agent.
  *

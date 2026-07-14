@@ -74,6 +74,8 @@ RZ_IPI RzCmdStatus rz_cmd_fridaN_handler(RzCore *core, int argc, const char **ar
 RZ_IPI RzCmdStatus rz_cmd_fridaRN_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "fridaf"
 RZ_IPI RzCmdStatus rz_cmd_fridaf_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+// "fridaX"
+RZ_IPI RzCmdStatus rz_cmd_fridaX_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "fridaD"
 RZ_IPI RzCmdStatus rz_cmd_fridaD_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 RZ_IPI char **rz_frida_autocomplete_class(RzCore *core);

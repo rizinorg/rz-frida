@@ -977,6 +977,25 @@ RZ_IPI RzCmdStatus rz_cmd_fridaf_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 	return RZ_CMD_STATUS_OK;
 }
 
+RZ_IPI RzCmdStatus rz_cmd_fridaX_handler(RZ_NONNULL RzCore *core, int argc,
+	RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
+	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
+	if (state->mode != RZ_OUTPUT_MODE_JSON) {
+		return RZ_CMD_STATUS_WRONG_ARGS;
+	}
+	PJ *pj = state->d.pj;
+	RzFridaCoreContext *ctx = frida_context(core);
+	if (!ctx || !ctx->session) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return RZ_CMD_STATUS_OK;
+	}
+	const char *prefix = (argc > 1 && RZ_STR_ISNOTEMPTY(argv[1])) ? argv[1] : NULL;
+	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_frida_backend_dex_diff(ctx->session, core, prefix, pj);
+	rz_cons_break_pop();
+	return RZ_CMD_STATUS_OK;
+}
+
 RZ_IPI RzCmdStatus rz_cmd_fridaD_handler(RZ_NONNULL RzCore *core, int argc,
 	RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
 	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
@@ -1193,6 +1212,7 @@ static bool rz_frida_plugin_init(RzCore *core, void **user) {
 	rz_config_add_integer(core->config, "frida.timeout", "Frida session and agent request timeout in milliseconds", RZ_FRIDA_DEFAULT_TIMEOUT_MS);
 	rz_config_add_integer(core->config, "frida.hw.watchpoints", "Maximum hardware watchpoint slots fridaW may use, capped by the CPU", RZ_FRIDA_HW_WATCHPOINTS_DEFAULT);
 	rz_config_add_integer(core->config, "frida.java.max", "Maximum loaded classes fridaC returns per request, 0 for unlimited", RZ_FRIDA_JAVA_MAX_DEFAULT);
+	rz_config_add_integer(core->config, "frida.dex.max", "Maximum classes fridaX uses for comparison, 0 for no limit", 0);
 	rz_config_add_integer(core->config, "frida.ac.min", "Minimum characters typed before class autocomplete triggers", 2);
 	rz_config_add_integer(core->config, "frida.ac.max", "Maximum class autocomplete suggestions shown", 12);
 

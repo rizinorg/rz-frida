@@ -51,6 +51,7 @@ static const RzCmdDescArg cmd_fridaW_minus_args[2];
 static const RzCmdDescArg cmd_fridaC_args[2];
 static const RzCmdDescArg cmd_fridaN_args[2];
 static const RzCmdDescArg cmd_fridaRN_args[2];
+static const RzCmdDescArg cmd_fridaX_args[2];
 static const RzCmdDescArg cmd_fridaD_args[3];
 static const RzCmdDescArg cmd_fridaIm_args[3];
 
@@ -806,6 +807,22 @@ static const RzCmdDescHelp cmd_fridaf_help = {
 	.args = cmd_fridaf_args,
 };
 
+static const RzCmdDescArg cmd_fridaX_args[] = {
+	{
+		.name = "prefix",
+		.type = RZ_CMD_ARG_TYPE_STRING,
+		.flags = RZ_CMD_ARG_FLAG_LAST,
+		.optional = true,
+
+	},
+	{ 0 },
+};
+static const RzCmdDescHelp cmd_fridaX_help = {
+	.summary = "Compare static binary classes with runtime Frida classes",
+	.description = "Compares classes from a loaded binary (DEX, ELF, etc.) with classes enumerated at runtime through the Frida agent. Reports only_static (in binary but not runtime), only_runtime (runtime but not binary), and both (present in both) with per-category counts. An optional prefix filters both sides. If no binary is loaded, all runtime classes are reported as only_runtime with loaded_bin:false.",
+	.args = cmd_fridaX_args,
+};
+
 static const RzCmdDescDetailEntry cmd_fridaD_Examples_detail_entries[] = {
 	{ .text = "fridaDj ", .arg_str = "java.lang.String", .comment = "Describe String using the default system loader, Tab to autocomplete class names" },
 	{ .text = "fridaDj ", .arg_str = "com.example.Foo 3", .comment = "Describe Foo loaded by classloader id 3" },
@@ -969,6 +986,9 @@ RZ_IPI void rzshell_cmddescs_init(RzCore *core) {
 
 	RzCmdDesc *cmd_fridaf_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaf", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaf_handler, &cmd_fridaf_help);
 	rz_warn_if_fail(cmd_fridaf_cd);
+
+	RzCmdDesc *cmd_fridaX_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaX", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaX_handler, &cmd_fridaX_help);
+	rz_warn_if_fail(cmd_fridaX_cd);
 
 	RzCmdDesc *cmd_fridaD_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaD", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaD_handler, &cmd_fridaD_help);
 	rz_warn_if_fail(cmd_fridaD_cd);

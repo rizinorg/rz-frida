@@ -758,6 +758,23 @@ commands:
         modes:
           - RZ_OUTPUT_MODE_JSON
         args: []
+      - name: fridaX
+        cname: cmd_fridaX
+        summary: "Compare static binary classes with runtime Frida classes"
+        description: >
+          Compares classes from a loaded binary (DEX, ELF, etc.) with classes
+          enumerated at runtime through the Frida agent. Reports only_static
+          (in binary but not runtime), only_runtime (runtime but not binary),
+          and both (present in both) with per-category counts. An optional
+          prefix filters both sides. If no binary is loaded, all runtime
+          classes are reported as only_runtime with loaded_bin:false.
+        type: RZ_CMD_DESC_TYPE_ARGV_STATE
+        modes:
+          - RZ_OUTPUT_MODE_JSON
+        args:
+          - name: prefix
+            type: RZ_CMD_ARG_TYPE_STRING
+            optional: true
       - name: fridaD
         cname: cmd_fridaD
         summary: "Describe a Java class in the target"

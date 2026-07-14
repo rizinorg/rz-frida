@@ -469,6 +469,22 @@ static bool test_new_classes_without_session(RzCore *core) {
 	mu_end;
 }
 
+static bool test_dex_diff_without_session(RzCore *core) {
+	char *n = rz_core_cmd_str(core, "fridaXj");
+	mu_assert_notnull(n, "fridaXj returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaXj without an open session reports precondition failure");
+	RZ_FREE(n);
+	n = rz_core_cmd_str(core, "fridaXj com.example");
+	mu_assert_notnull(n, "fridaXj with prefix returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaXj with prefix without session reports precondition failure");
+	RZ_FREE(n);
+	mu_end;
+}
+
 static bool test_rn_without_session(RzCore *core) {
 	char *n = rz_core_cmd_str(core, "fridaRNj");
 	mu_assert_notnull(n, "fridaRNj returns output");
@@ -635,6 +651,7 @@ int all_tests(void) {
 	mu_run_test(test_new_classes_without_session, core);
 	mu_run_test(test_rn_without_session, core);
 	mu_run_test(test_flag_modules_without_session, core);
+	mu_run_test(test_dex_diff_without_session, core);
 	mu_run_test(test_invalid_open_uri, core);
 	mu_run_test(test_open_command, core);
 	mu_run_test(test_open_usb_command, core);

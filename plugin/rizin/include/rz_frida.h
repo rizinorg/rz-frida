@@ -252,6 +252,7 @@ RZ_IPI bool rz_frida_backend_newly_loaded_classes(RZ_NONNULL RzFridaSession *ses
 RZ_IPI bool rz_frida_backend_rn_set(RZ_NONNULL RzFridaSession *session, bool enable, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_rn_list(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_flag_modules(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj);
+RZ_IPI bool rz_frida_backend_dex_diff(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NULLABLE const char *prefix, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_ping(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_messages(RZ_NONNULL RZ_BORROW RzFridaSession *session, RZ_NONNULL RZ_BORROW PJ *pj);
 
