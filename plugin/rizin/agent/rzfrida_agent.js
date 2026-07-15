@@ -130,7 +130,34 @@ function classDescribe(params) {
 
     var meta = checkKotlin();
     if (meta !== null) {
-      result.kotlin = { k: meta.k(), mv: [meta.mv()[0], meta.mv()[1]] };
+      var mv = meta.mv();
+      var metaObj = { k: meta.k(), mv: [mv[0], mv[1]] };
+      if (mv.length > 2) {
+        metaObj.mv.push(mv[2]);
+        metaObj.mv.push(mv[3]);
+      }
+      try {
+        metaObj.xi = meta.xi();
+      } catch (_) {}
+      try {
+        var bv = meta.bv();
+        if (bv && bv.length) {
+          metaObj.bv = [bv[0], bv[1]];
+        }
+      } catch (_) {}
+      try {
+        var d1 = meta.d1();
+        if (d1 && d1.length) {
+          metaObj.data1Len = d1.length;
+        }
+      } catch (_) {}
+      try {
+        var d2 = meta.d2();
+        if (d2 && d2.length) {
+          metaObj.data2Len = d2.length;
+        }
+      } catch (_) {}
+      result.kotlin = metaObj;
     }
 
     result.fields = klass.getDeclaredFields().map(function (fd) {
