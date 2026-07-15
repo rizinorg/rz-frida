@@ -2226,7 +2226,52 @@ RZ_IPI bool rz_frida_backend_flag_modules(RZ_NONNULL RzFridaSession *session, RZ
 }
 
 static int strptr_cmp(const void *a, const void *b) {
-	return strcmp(*(const char **)a, *(const char **)b);
+	const char *sa = *(const char **)a;
+	const char *sb = *(const char **)b;
+	if (!sa) {
+		return sb ? -1 : 0;
+	}
+	if (!sb) {
+		return 1;
+	}
+	return strcmp(sa, sb);
+}
+
+/**
+ * @return caller-owned sorted array of static class names from the loaded binary, or NULL.
+ * \p count_out is set to the number of names (may be 0).
+ */
+static RZ_OWN char **collect_static_class_names(RZ_NULLABLE RzBinObject *o, RZ_NONNULL size_t *count_out) {
+	rz_return_val_if_fail(count_out, NULL);
+	*count_out = 0;
+	if (!o) {
+		return NULL;
+	}
+	const RzPVector *classes = rz_bin_object_get_classes(o);
+	if (!classes) {
+		return NULL;
+	}
+	size_t n = rz_pvector_len(classes);
+	if (!n) {
+		return NULL;
+	}
+	char **names = RZ_NEWS0(char *, n);
+	if (!names) {
+		return NULL;
+	}
+	void **iter;
+	size_t idx = 0;
+	rz_pvector_foreach (classes, iter) {
+		RzBinClass *cls = *iter;
+		if (cls && cls->name && idx < n) {
+			names[idx++] = cls->name;
+		}
+	}
+	*count_out = idx;
+	if (*count_out > 1) {
+		qsort(names, *count_out, sizeof(char *), strptr_cmp);
+	}
+	return names;
 }
 
 RZ_IPI bool rz_frida_backend_dex_diff(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NULLABLE const char *prefix, RZ_NONNULL PJ *pj) {
@@ -2245,30 +2290,7 @@ RZ_IPI bool rz_frida_backend_dex_diff(RZ_NONNULL RzFridaSession *session, RZ_NON
 	}
 
 	size_t static_count = 0;
-	char **static_names = NULL;
-	if (core->bin && core->bin->cur && core->bin->cur->o) {
-		const RzPVector *classes = rz_bin_object_get_classes(core->bin->cur->o);
-		if (classes) {
-			static_count = rz_pvector_len(classes);
-			if (static_count) {
-				static_names = RZ_NEWS0(char *, static_count);
-				if (static_names) {
-					void **iter;
-					size_t idx = 0;
-					rz_pvector_foreach (classes, iter) {
-						RzBinClass *cls = *iter;
-						if (cls && cls->name && idx < static_count) {
-							static_names[idx++] = cls->name;
-						}
-					}
-					static_count = idx;
-					if (static_count > 1) {
-						qsort(static_names, static_count, sizeof(char *), strptr_cmp);
-					}
-				}
-			}
-		}
-	}
+	char **static_names = collect_static_class_names(core->bin && core->bin->cur ? core->bin->cur->o : NULL, &static_count);
 
 	bool got_static = (static_names != NULL);
 	size_t only_static_c = 0, only_runtime_c = 0, both_c = 0;

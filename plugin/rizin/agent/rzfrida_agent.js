@@ -20,6 +20,9 @@ let rnHookEnabled = false;
 let rnInterceptor = null;
 const rnBuffer = [];
 const RN_BUFFER_MAX = 512;
+const RN_JNI_TABLE_OFFSET = 218;         // JNI function table entry for RegisterNatives (fcn 215 + 3 reserved slots)
+const RN_JNI_TABLE_OFFSET_FALLBACK = 215; // fallback for older ART where reserved slots arent there
+const RN_MAX_METHODS = 16384;
 
 function isJavaAvailable() {
   return { available: typeof Java !== 'undefined' && Java.available };
@@ -136,6 +139,9 @@ function classDescribe(params) {
         metaObj.mv.push(mv[2]);
         metaObj.mv.push(mv[3]);
       }
+      // These fields are optional in kotlin metadata annotation.
+      // A missing field throws when accessed via frida's java wrapper,
+      // skip it, caller gets whatever subset was present.
       try {
         metaObj.xi = meta.xi();
       } catch (_) {}
@@ -538,11 +544,11 @@ function ensureExceptionHandler() {
       watchpoints.clear();
     }
     let wpCtx = {};
-	try {
-		wpCtx = serialize(details.context);
-	} catch (_) {
-		/* keep empty */
-	}
+    try {
+      wpCtx = serialize(details.context);
+    } catch (_) {
+      /* keep empty */
+    }
     send({
       type: 'frida.wp',
       threadId: Process.getCurrentThreadId(),
@@ -697,9 +703,9 @@ function rnSet(params) {
         if (!rnAddr) {
             const tablePtr = env.handle.readPointer();
             if (!tablePtr.isNull()) {
-                rnAddr = tablePtr.add(218 * ps).readPointer();
+                rnAddr = tablePtr.add(RN_JNI_TABLE_OFFSET * ps).readPointer();
                 if (rnAddr.isNull()) {
-                    rnAddr = tablePtr.add(215 * ps).readPointer();
+                    rnAddr = tablePtr.add(RN_JNI_TABLE_OFFSET_FALLBACK * ps).readPointer();
                 }
             }
         }
@@ -710,14 +716,19 @@ function rnSet(params) {
             onEnter: function (args) {
                 try {
                     const nMethods = args[3].toInt32();
-                    if (nMethods <= 0 || nMethods > 16384) {
+                    if (nMethods <= 0 || nMethods > RN_MAX_METHODS) {
+                        if (nMethods > RN_MAX_METHODS) {
+                            send({ type: 'frida.rn.warn', message: 'RegisterNatives called with ' + nMethods + ' methods, exceeds cap ' + RN_MAX_METHODS });
+                        }
                         return;
                     }
                     if (rnBuffer.length >= RN_BUFFER_MAX) {
+                        send({ type: 'frida.rn.warn', message: 'rnBuffer full (' + RN_BUFFER_MAX + ' entries), dropping RegisterNatives invocation' });
                         return;
                     }
                     const methodsPtr = args[2];
                     if (methodsPtr.isNull()) {
+                        send({ type: 'frida.rn.warn', message: 'RegisterNatives called with null methodsPtr' });
                         return;
                     }
                     const clsName = env.getClassName(args[1]);
