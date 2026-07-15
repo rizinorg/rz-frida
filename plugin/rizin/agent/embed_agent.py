@@ -22,6 +22,7 @@ import sys
 
 
 BYTES_PER_ROW = 12
+FRIDA_COMPILE_DELIMITER = b"\xe2\x9c\x84\n"
 
 
 def render(data):
@@ -57,6 +58,24 @@ def embed(input_path, output_path):
         out.write(render(data))
 
 
+def strip_bundle_wrapper(raw):
+    """Strip frida-compile bundle wrapper (📦…✄\n), keeping only JS.
+
+    frida-compile output has the form:
+      📦\\n<size> /entry.js\\n✄\\n<JavaScript>
+
+    The scissors emoji ✄ (U+2704, UTF-8 e2 9c 84) is the delimiter
+    between the module-listing header and the bundled JS body.
+    Stripping it avoids the bundle format version check in frida-core
+    17.x, which rejects the 📦-prefixed text format (byte 0xf0 == 240
+    is not a recognised version number).
+    """
+    js_start = raw.find(FRIDA_COMPILE_DELIMITER)
+    if js_start >= 0:
+        return raw[js_start + len(FRIDA_COMPILE_DELIMITER):]
+    return raw
+
+
 def main(argv):
     if len(argv) < 2:
         sys.stderr.write("usage: embed_agent.py <output.h>\n")
@@ -80,10 +99,7 @@ def main(argv):
             )
             with open(bundle_js, "rb") as f:
                 raw = f.read()
-            # keep only js
-            js_start = raw.find(b"\xe2\x9c\x84\n")
-            if js_start >= 0:
-                raw = raw[js_start + 4:]
+            raw = strip_bundle_wrapper(raw)
             with open(bundle_js, "wb") as f:
                 f.write(raw)
             embed(bundle_js, output_path)
