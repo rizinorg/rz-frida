@@ -734,7 +734,7 @@ function rnSet(params) {
                     const clsName = env.getClassName(args[1]);
                     const methods = [];
                     for (let i = 0; i < nMethods; i++) {
-                        const off = i * 3 * ps;
+                        const off = i * 3 * ps; // i-th JNINativeMethod: {name, signature, fnPtr} x pointerSize
                         const namePtr = methodsPtr.add(off).readPointer();
                         if (namePtr.isNull()) {
                             continue;
