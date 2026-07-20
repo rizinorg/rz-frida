@@ -712,6 +712,69 @@ commands:
           - name: prefix
             type: RZ_CMD_ARG_TYPE_STRING
             optional: true
+      - name: fridaN
+        cname: cmd_fridaN
+        summary: "Monitor newly loaded Java classes in the target"
+        description: >
+          When called without arguments, lists classes loaded since the monitor was
+          last started. Call 'fridaNj start' to enable classload hooks on all
+          active classloaders and intercept new classloader creation. Call
+          'fridaNj stop' to detach the hooks and clear the tracking buffer.
+          Requires an Android target with the Java VM available.
+        type: RZ_CMD_DESC_TYPE_ARGV_STATE
+        modes:
+          - RZ_OUTPUT_MODE_JSON
+        args:
+          - name: mode
+            type: RZ_CMD_ARG_TYPE_STRING
+            optional: true
+      - name: fridaRN
+        cname: cmd_fridaRN
+        summary: "Hook RegisterNatives to map native methods to addresses"
+        description: >
+          When called without arguments, lists captured JNI RegisterNatives
+          invocations with className, method names, signatures and native
+          function addresses. Call 'fridaRNj on' to arm the low-level JNI
+          hook on the ART runtime (JNI function table offset 215).
+          'fridaRNj off' disarms and clears the buffer.
+          'fridaRNj import' imports the captured native method addresses
+          into the rizin analysis class database.
+          Requires an Android target with the Java VM available.
+        type: RZ_CMD_DESC_TYPE_ARGV_STATE
+        modes:
+          - RZ_OUTPUT_MODE_JSON
+        args:
+          - name: mode
+            type: RZ_CMD_ARG_TYPE_STRING
+            optional: true
+      - name: fridaf
+        cname: cmd_fridaf
+        summary: "Import runtime modules as rizin flags"
+        description: >
+          Enumerates the target process modules via the rz-frida agent and
+          imports their base addresses into the frida.libs flag space as
+          rizin flags. Returns the count of modules imported.
+        type: RZ_CMD_DESC_TYPE_ARGV_STATE
+        modes:
+          - RZ_OUTPUT_MODE_JSON
+        args: []
+      - name: fridaX
+        cname: cmd_fridaX
+        summary: "Compare static binary classes with runtime Frida classes"
+        description: >
+          Compares classes from a loaded binary (DEX, ELF, etc.) with classes
+          enumerated at runtime through the Frida agent. Reports only_static
+          (in binary but not runtime), only_runtime (runtime but not binary),
+          and both (present in both) with per-category counts. An optional
+          prefix filters both sides. If no binary is loaded, all runtime
+          classes are reported as only_runtime with loaded_bin:false.
+        type: RZ_CMD_DESC_TYPE_ARGV_STATE
+        modes:
+          - RZ_OUTPUT_MODE_JSON
+        args:
+          - name: prefix
+            type: RZ_CMD_ARG_TYPE_STRING
+            optional: true
       - name: fridaD
         cname: cmd_fridaD
         summary: "Describe a Java class in the target"

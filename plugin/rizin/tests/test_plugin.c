@@ -48,6 +48,7 @@ static bool test_config_defaults(RzCore *core) {
 	mu_assert_true(rz_config_get_i(core->config, "frida.timeout") == RZ_FRIDA_DEFAULT_TIMEOUT_MS, "frida.timeout default is registered");
 	mu_assert_true(rz_config_get_i(core->config, "frida.hw.watchpoints") == RZ_FRIDA_HW_WATCHPOINTS_DEFAULT, "frida.hw.watchpoints default is registered");
 	mu_assert_true(rz_config_get_i(core->config, "frida.java.max") == RZ_FRIDA_JAVA_MAX_DEFAULT, "frida.java.max default is registered");
+	mu_assert_true(rz_config_get_i(core->config, "frida.dex.max") == 0, "frida.dex.max defaults to 0 (no limit)");
 	mu_end;
 }
 
@@ -453,6 +454,86 @@ static bool test_import_batch_without_session(RzCore *core) {
 	mu_end;
 }
 
+static bool test_new_classes_without_session(RzCore *core) {
+	char *n = rz_core_cmd_str(core, "fridaNj");
+	mu_assert_notnull(n, "fridaNj returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaNj without an open session reports the precondition failure");
+	RZ_FREE(n);
+	n = rz_core_cmd_str(core, "fridaNj start");
+	mu_assert_notnull(n, "fridaNj start returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaNj start without an open session reports the precondition failure");
+	RZ_FREE(n);
+	mu_end;
+}
+
+static bool test_dex_diff_without_session(RzCore *core) {
+	char *n = rz_core_cmd_str(core, "fridaXj");
+	mu_assert_notnull(n, "fridaXj returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaXj without an open session reports precondition failure");
+	RZ_FREE(n);
+	n = rz_core_cmd_str(core, "fridaXj com.example");
+	mu_assert_notnull(n, "fridaXj with prefix returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaXj with prefix without session reports precondition failure");
+	RZ_FREE(n);
+	mu_end;
+}
+
+static bool test_rn_without_session(RzCore *core) {
+	char *n = rz_core_cmd_str(core, "fridaRNj");
+	mu_assert_notnull(n, "fridaRNj returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaRNj without an open session reports precondition failure");
+	RZ_FREE(n);
+	n = rz_core_cmd_str(core, "fridaRNj on");
+	mu_assert_notnull(n, "fridaRNj on returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaRNj on without session reports precondition failure");
+	RZ_FREE(n);
+	n = rz_core_cmd_str(core, "fridaRNj off");
+	mu_assert_notnull(n, "fridaRNj off returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaRNj off without session reports precondition failure");
+	RZ_FREE(n);
+	n = rz_core_cmd_str(core, "fridaRNj import");
+	mu_assert_notnull(n, "fridaRNj import returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaRNj import without session reports precondition failure");
+	RZ_FREE(n);
+	mu_end;
+}
+
+static bool test_new_classes_stop_without_session(RzCore *core) {
+	char *n = rz_core_cmd_str(core, "fridaNj stop");
+	mu_assert_notnull(n, "fridaNj stop returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridaNj stop without session reports precondition failure");
+	RZ_FREE(n);
+	mu_end;
+}
+
+static bool test_flag_modules_without_session(RzCore *core) {
+	char *n = rz_core_cmd_str(core, "fridafj");
+	mu_assert_notnull(n, "fridafj returns output");
+	mu_assert_streq(n,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"fridafj without an open session reports precondition failure");
+	RZ_FREE(n);
+	mu_end;
+}
+
 static bool test_invalid_open_uri(RzCore *core) {
 	char *open = rz_core_cmd_str(core, "fridaoj gdb://attach/local//1234");
 	mu_assert_notnull(open, "open command returns output");
@@ -590,6 +671,11 @@ int all_tests(void) {
 	mu_run_test(test_describe_without_session, core);
 	mu_run_test(test_import_without_session, core);
 	mu_run_test(test_import_batch_without_session, core);
+	mu_run_test(test_new_classes_without_session, core);
+	mu_run_test(test_new_classes_stop_without_session, core);
+	mu_run_test(test_rn_without_session, core);
+	mu_run_test(test_flag_modules_without_session, core);
+	mu_run_test(test_dex_diff_without_session, core);
 	mu_run_test(test_invalid_open_uri, core);
 	mu_run_test(test_open_command, core);
 	mu_run_test(test_open_usb_command, core);

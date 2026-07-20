@@ -45,6 +45,18 @@ FakePtr.prototype.compare = function (other) {
 FakePtr.prototype.add = function (n) {
 	return new FakePtr(this.value + n);
 };
+FakePtr.prototype.readPointer = function () {
+	return new FakePtr(this.value + 0x100);
+};
+FakePtr.prototype.isNull = function () {
+	return this.value === 0;
+};
+FakePtr.prototype.toInt32 = function () {
+	return this.value & 0xffffffff;
+};
+FakePtr.prototype.readUtf8String = function () {
+	return 'nativeMethod';
+};
 FakePtr.prototype.toJSON = function () {
 	return this.toString();
 };
@@ -112,8 +124,47 @@ const KNOWN_JAVA_CLASSES = [
 	're.frida.minapp.DerivedModel', 're.frida.minapp.NativeLib',
 	're.frida.minapp.ReflectionTarget', 're.frida.minapp.BaseModel',
 	'java.lang.String', 'java.lang.System',
-	'android.app.Activity', 'android.os.Bundle'
+	'android.app.Activity', 'android.os.Bundle',
+	'kotlin.Metadata'
 ];
+
+let dynamicJavaClasses = [];
+
+// dynamic class tracking in mock
+function makeClassLoaderObj() {
+	let originalImpl = function (name, resolve) {
+		return null;
+	};
+	let hookedImpl = null;
+	let inHook = false;
+	const obj = {};
+	obj.loadClass = function (name, resolve) {
+		if (inHook) {
+			return originalImpl.call(this, name, resolve);
+		}
+		if (hookedImpl) {
+			inHook = true;
+			const r = hookedImpl.call(this, name, resolve);
+			inHook = false;
+			return r;
+		}
+		return originalImpl.call(this, name, resolve);
+	};
+	obj.loadClass.overload = function () {
+		return {
+			set implementation(fn) { hookedImpl = fn; },
+			detach: function () { hookedImpl = null; },
+		};
+	};
+	obj.$init = {
+		overload: function () {
+			return {
+				set implementation(fn) { /* nop in mock */ },
+			};
+		},
+	};
+	return obj;
+}
 
 const fakeFields = {
 	're.frida.minapp.SampleModel': [
@@ -205,6 +256,18 @@ function fakeInterfaces(name) {
 	return [];
 }
 
+const kotlinAnnotatedClasses = new Set(['re.frida.minapp.SampleModel']);
+function makeKotlinMeta() {
+	return {
+		k: function () { return 1; },
+		mv: function () { return [1, 4]; },
+		xi: function () { return 0; },
+		bv: function () { return [1, 0]; },
+		d1: function () { return [0xca, 0xfe, 0xba, 0xbe]; },
+		d2: function () { return [0xde, 0xad]; }
+	};
+}
+
 function fakeKlass(name) {
 	var cachedFields = (fakeFields[name] || []);
 	return {
@@ -215,11 +278,19 @@ function fakeKlass(name) {
 		getDeclaredFields: function () { return cachedFields; },
 		getDeclaredMethods: function () { return fakeMethods(name); },
 		getDeclaredConstructors: function () { return fakeCtors(name); },
-		getAnnotation: function () { return null; }
+		getAnnotation: function (annotationKlass) {
+			if (annotationKlass && annotationKlass.getName && annotationKlass.getName() === 'kotlin.Metadata' && kotlinAnnotatedClasses.has(name)) {
+				return makeKotlinMeta();
+			}
+			return null;
+		}
 	};
 }
 
 function findClass(name) {
+	if (name === 'java.lang.ClassLoader') {
+		return makeClassLoaderObj();
+	}
 	if (KNOWN_JAVA_CLASSES.indexOf(name) < 0) {
 		throw new Error('java.lang.ClassNotFoundException: ' + name);
 	}
@@ -235,7 +306,8 @@ const sandbox = {
 		enumerateThreads: function () { return fakeThreads; },
 		enumerateModules: function () { modulesEnumerated++; return fakeModules; },
 		getCurrentThreadId: function () { return 4242; },
-		setExceptionHandler: function (cb) { exceptionHandler = cb; }
+		setExceptionHandler: function (cb) { exceptionHandler = cb; },
+		findModuleByName: function (name) { return null; }
 	},
 	Java: {
 		available: true,
@@ -262,10 +334,21 @@ const sandbox = {
 			];
 		},
 		enumerateLoadedClassesSync: function () {
-			return KNOWN_JAVA_CLASSES;
+			return KNOWN_JAVA_CLASSES.concat(dynamicJavaClasses);
 		},
 		use: function (name) { return findClass(name); },
-		ClassFactory: { get: function (loader) { return { use: function (name) { return findClass(name); } }; } }
+		ClassFactory: { get: function (loader) { return { use: function (name) { return findClass(name); } }; } },
+		vm: {
+			getEnv: function () {
+				const tablePtr = new FakePtr(0xcafe0000);
+				return {
+					handle: {
+						readPointer: function () { return tablePtr; }
+					},
+					getClassName: function (cls) { return 'com.example.TestClass'; }
+				};
+			}
+		}
 },
 // untyped recv stores the handler, typed recv(type, cb) is a parked thread waiter.
 	recv: function (type, cb) {
@@ -292,9 +375,14 @@ const sandbox = {
 			return listener;
 		}
 	},
+	Module: {
+		findExportByName: function (mod, name) { return null; }
+	},
 	rpc: {},
 	console: console
 };
+sandbox.dynamicJavaClasses = [];
+sandbox.kotlinAnnotatedClasses = kotlinAnnotatedClasses;
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox, { filename: 'rzfrida_agent.js' });
 
@@ -634,8 +722,8 @@ assert.deepStrictEqual(roundtrip({ id: 82, type: 'classList' }),
 		{ name: 're.frida.minapp.NativeLib' }, { name: 're.frida.minapp.ReflectionTarget' },
 		{ name: 're.frida.minapp.BaseModel' }, { name: 'java.lang.String' },
 		{ name: 'java.lang.System' }, { name: 'android.app.Activity' },
-		{ name: 'android.os.Bundle' }],
-		total: 10, truncated: false } },
+		{ name: 'android.os.Bundle' }, { name: 'kotlin.Metadata' }],
+		total: 11, truncated: false } },
 	'classList returns all loaded classes');
 
 // prefix filter
@@ -647,10 +735,10 @@ assert.deepStrictEqual(roundtrip({ id: 83, type: 'classList', params: { prefix: 
 		total: 6, truncated: false } },
 	'classList with prefix returns matching classes only');
 
-// negative prefix
+// negative prefix — kotlin prefix now matches kotlin.Metadata
 assert.deepStrictEqual(roundtrip({ id: 84, type: 'classList', params: { prefix: 'kotlin.' } }),
-	{ id: 84, ok: true, result: { classes: [], total: 0, truncated: false } },
-	'classList with absent prefix returns an empty list');
+	{ id: 84, ok: true, result: { classes: [{ name: 'kotlin.Metadata' }], total: 1, truncated: false } },
+	'classList with kotlin prefix returns the Metadata annotation class');
 
 // simple name match (matches class name after last dot)
 assert.deepStrictEqual(roundtrip({ id: 86, type: 'classList', params: { prefix: 'MainActivity' } }),
@@ -714,5 +802,199 @@ assert.strictEqual(descNotFound.ok, false, 'missing class returns error');
 // class describe -- missing className
 const descNoName = roundtrip({ id: 95, type: 'classDescribe', params: {} });
 assert.strictEqual(descNoName.ok, false, 'missing className returns error');
+
+// class load monitor -- enable
+const monOn = roundtrip({ id: 100, type: 'classLoadMonitor', params: { enable: true } });
+assert.strictEqual(monOn.ok, true, 'classLoadMonitor enable returns ok');
+assert.strictEqual(monOn.result.enabled, true, 'classLoadMonitor reports enabled');
+
+// class load monitor -- idempotent re-enable
+const monRe = roundtrip({ id: 101, type: 'classLoadMonitor', params: { enable: true } });
+assert.strictEqual(monRe.ok, true, 'classLoadMonitor re-enable returns ok');
+
+// newly loaded classes -- before any load, returns empty
+const nlcEmpty = roundtrip({ id: 102, type: 'newlyLoadedClasses', params: {} });
+assert.strictEqual(nlcEmpty.ok, true, 'newlyLoadedClasses returns ok');
+assert.deepStrictEqual(nlcEmpty.result.classes, [], 'new classes list is initially empty');
+assert.strictEqual(nlcEmpty.result.count, 0, 'count is 0 when empty');
+
+// simulate class load via the mock loadClass hook on the ClassLoader class
+const testLoader = makeClassLoaderObj();
+
+testLoader.loadClass.overload().implementation = function (name) {
+	if (name !== 'com.dynamic.TestClass') {
+		return this.loadClass(name);
+	}
+	return null;
+};
+
+testLoader.loadClass('com.dynamic.TestClass');
+const nlcAfter = roundtrip({ id: 103, type: 'newlyLoadedClasses', params: {} });
+assert.strictEqual(nlcAfter.ok, true, 'newlyLoadedClasses returns ok after load');
+
+// class load monitor -- disable
+const monOff = roundtrip({ id: 104, type: 'classLoadMonitor', params: { enable: false } });
+assert.strictEqual(monOff.ok, true, 'classLoadMonitor disable returns ok');
+assert.strictEqual(monOff.result.enabled, false, 'classLoadMonitor reports disabled');
+
+// newly loaded classes -- after disable, returns empty
+const nlcAfterOff = roundtrip({ id: 105, type: 'newlyLoadedClasses', params: {} });
+assert.strictEqual(nlcAfterOff.ok, true, 'newlyLoadedClasses returns ok after monitor off');
+assert.strictEqual(nlcAfterOff.result.count, 0, 'count is 0 after monitor stopped');
+
+// class load monitor -- missing enable boolean
+const monBad = roundtrip({ id: 106, type: 'classLoadMonitor', params: {} });
+assert.strictEqual(monBad.ok, false, 'classLoadMonitor without enable boolean returns error');
+
+// RegisterNatives -- enable
+const rnOn = roundtrip({ id: 110, type: 'rnSet', params: { enable: true } });
+assert.strictEqual(rnOn.ok, true, 'rnSet enable returns ok');
+assert.strictEqual(rnOn.result.enabled, true, 'rnSet reports enabled');
+
+// RegisterNatives -- re-enable
+const rnRe = roundtrip({ id: 111, type: 'rnSet', params: { enable: true } });
+assert.strictEqual(rnRe.ok, true, 'rnSet re-enable returns ok');
+
+// RegisterNatives -- list (empty until invoked)
+const rnList1 = roundtrip({ id: 112, type: 'rnList', params: {} });
+assert.strictEqual(rnList1.ok, true, 'rnList returns ok');
+assert.deepStrictEqual(rnList1.result.invocations, [], 'rn list is initially empty');
+
+// RegisterNatives -- disable
+const rnOff = roundtrip({ id: 113, type: 'rnSet', params: { enable: false } });
+assert.strictEqual(rnOff.ok, true, 'rnSet disable returns ok');
+assert.strictEqual(rnOff.result.enabled, false, 'rnSet reports disabled');
+
+// RegisterNatives -- missing enable bool
+const rnBad = roundtrip({ id: 114, type: 'rnSet', params: {} });
+assert.strictEqual(rnBad.ok, false, 'rnSet without enable boolean returns error');
+
+// rnSet onEnter hook, fire captured interceptor, verify rnList and async event.
+const rnOn2 = roundtrip({ id: 115, type: 'rnSet', params: { enable: true } });
+assert.strictEqual(rnOn2.ok, true, 'rnSet re-enable for onEnter test');
+const rnIntKey = Array.from(interceptors.keys()).pop();
+const beforeRnHit = sent.length;
+// simulate a RN call: 2 methods, valid ptrs
+const rnMethodsPtr = new FakePtr(0xf000);
+interceptors.get(rnIntKey).onEnter([
+	/* JNIEnv* */ 0,
+	/* jclass */  0,
+	/* methods */ rnMethodsPtr,
+	/* nMethods*/ new FakePtr(2)
+]);
+const rnHitEvt = sent[beforeRnHit].message;
+assert.strictEqual(rnHitEvt.type, 'frida.rn', 'a RegisterNatives call emits frida.rn');
+assert.strictEqual(rnHitEvt.className, 'com.example.TestClass', 'rn event carries the class name');
+assert.strictEqual(rnHitEvt.methods.length, 2, 'rn event carries the methods array');
+assert.strictEqual(rnHitEvt.methods[0].name, 'nativeMethod', 'rn method name is read from pointer');
+
+const rnList2 = roundtrip({ id: 116, type: 'rnList', params: {} });
+assert.strictEqual(rnList2.ok, true, 'rnList after invocation returns ok');
+assert.strictEqual(rnList2.result.invocations.length, 1, 'rnList has one entry after invocation');
+assert.strictEqual(rnList2.result.count, 1, 'rnList count matches');
+assert.strictEqual(rnList2.result.invocations[0].className, 'com.example.TestClass', 'entry class name is correct');
+assert.strictEqual(rnList2.result.invocations[0].methods[0].name, 'nativeMethod', 'entry method name is correct');
+
+// rnList drains the buffer each call
+const rnListDrain = roundtrip({ id: 117, type: 'rnList', params: {} });
+assert.deepStrictEqual(rnListDrain.result.invocations, [], 'rnList drains after read');
+
+// rnSet warnings — oversized nMethods
+roundtrip({ id: 118, type: 'rnSet', params: { enable: true } });
+const rnIntKey2 = Array.from(interceptors.keys()).pop();
+const beforeRnWarn1 = sent.length;
+interceptors.get(rnIntKey2).onEnter([
+	0, 0, rnMethodsPtr, new FakePtr(99999) // exceeds RN_MAX_METHODS
+]);
+assert.strictEqual(sent.length, beforeRnWarn1 + 1, 'oversized nMethods emits exactly one send');
+assert.strictEqual(sent[beforeRnWarn1].message.type, 'frida.rn.warn', 'oversized nMethods emits a warning');
+assert.ok(/exceeds cap/.test(sent[beforeRnWarn1].message.message), 'warning names the cap');
+
+// rnSet warnings — null methodsPtr (test before buffer fills)
+roundtrip({ id: 120, type: 'rnSet', params: { enable: true } });
+const rnIntKey3 = Array.from(interceptors.keys()).pop();
+const beforeNullPtr = sent.length;
+interceptors.get(rnIntKey3).onEnter([0, 0, new FakePtr(0), new FakePtr(1)]);
+assert.strictEqual(sent.length, beforeNullPtr + 1, 'null methodsPtr emits exactly one warning');
+assert.strictEqual(sent[beforeNullPtr].message.type, 'frida.rn.warn', 'null methodsPtr warning type is correct');
+
+// rnSet warnings — buffer full
+roundtrip({ id: 121, type: 'rnSet', params: { enable: true } });
+const rnIntKey4 = Array.from(interceptors.keys()).pop();
+// fill the buffer to RN_BUFFER_MAX (512) entries
+for (let i = 0; i < 512; i++) {
+	interceptors.get(rnIntKey4).onEnter([
+		0, 0, new FakePtr(0xf000 + i), new FakePtr(1)
+	]);
+}
+// next invocation should warn
+const beforeRnBufFull = sent.length;
+interceptors.get(rnIntKey4).onEnter([
+	0, 0, new FakePtr(0xffff), new FakePtr(1)
+]);
+const bufFullWarn = sent.find(function (s, idx) {
+	return idx >= beforeRnBufFull && s.message.type === 'frida.rn.warn';
+});
+assert.ok(bufFullWarn, 'buffer full emits a warning');
+assert.ok(/rnBuffer full/.test(bufFullWarn.message.message), 'warning names the buffer limit');
+
+// rnSet disable with entries, clears buffer
+const rnLocked = roundtrip({ id: 122, type: 'rnSet', params: { enable: false } });
+assert.strictEqual(rnLocked.ok, true, 'rnSet disable after invocation returns ok');
+assert.strictEqual(rnLocked.result.enabled, false, 'rnSet reports disabled after clearing');
+assert.strictEqual(rnLocked.result.cleared, 512, 'rnSet reports the number of entries cleared');
+const rnListDrained = roundtrip({ id: 123, type: 'rnList', params: {} });
+assert.deepStrictEqual(rnListDrained.result.invocations, [], 'rnList empty after disable+clear');
+
+// flag modules
+const fm = roundtrip({ id: 130, type: 'flagModules', params: {} });
+assert.strictEqual(fm.ok, true, 'flagModules returns ok');
+assert.ok(Array.isArray(fm.result.modules), 'flagModules has modules array');
+assert.strictEqual(fm.result.modules.length, fm.result.count, 'count matches modules array length');
+assert.strictEqual(fm.result.modules[0].name, 'app', 'first module name');
+assert.strictEqual(typeof fm.result.modules[0].base, 'string', 'module base is a hex string');
+assert.strictEqual(typeof fm.result.modules[0].size, 'number', 'module size is a number');
+
+// newlyLoadedClasses — add dynamic class and verify diff
+roundtrip({ id: 131, type: 'classLoadMonitor', params: { enable: true } });
+dynamicJavaClasses.push('com.dynamic.NewClass');
+const nlc = roundtrip({ id: 132, type: 'newlyLoadedClasses', params: {} });
+assert.strictEqual(nlc.ok, true, 'newlyLoadedClasses returns ok');
+assert.strictEqual(nlc.result.count, 1, 'one new class detected');
+assert.strictEqual(nlc.result.classes[0], 'com.dynamic.NewClass', 'the new class name is correct');
+dynamicJavaClasses.length = 0;
+const nlcAgain = roundtrip({ id: 133, type: 'newlyLoadedClasses', params: {} });
+assert.strictEqual(nlcAgain.result.count, 0, 'second call with no new classes returns empty');
+
+// classDescribe with Kotlin metadata
+const descKt = roundtrip({ id: 134, type: 'classDescribe', params: { className: 're.frida.minapp.SampleModel' } });
+assert.strictEqual(descKt.ok, true, 'classDescribe with kotlin metadata returns ok');
+assert.ok(descKt.result.kotlin !== undefined, 'kotlin key is present');
+assert.strictEqual(descKt.result.kotlin.k, 1, 'kotlin kind');
+assert.strictEqual(descKt.result.kotlin.mv.length, 2, 'kotlin metadata version array length');
+assert.strictEqual(descKt.result.kotlin.mv[0], 1, 'mv major');
+assert.strictEqual(descKt.result.kotlin.mv[1], 4, 'mv minor');
+assert.strictEqual(descKt.result.kotlin.xi, 0, 'kotlin xi flag');
+assert.deepStrictEqual(descKt.result.kotlin.bv, [1, 0], 'kotlin bytecode version');
+assert.strictEqual(descKt.result.kotlin.data1Len, 4, 'kotlin data1 length');
+assert.strictEqual(descKt.result.kotlin.data2Len, 2, 'kotlin data2 length');
+
+// classDescribe without Kotlin metadata — a class not in kotlinAnnotatedClasses
+const descNoKt = roundtrip({ id: 135, type: 'classDescribe', params: { className: 're.frida.minapp.MainActivity' } });
+assert.strictEqual(descNoKt.ok, true, 'classDescribe without kotlin returns ok');
+assert.strictEqual(descNoKt.result.kotlin, undefined, 'no kotlin key for non-kotlin class');
+
+// classLoadMonitor — Java not available
+const javaAvailOrig = sandbox.Java.available;
+sandbox.Java.available = false;
+const monNoJava = roundtrip({ id: 136, type: 'classLoadMonitor', params: { enable: true } });
+assert.strictEqual(monNoJava.ok, false, 'classLoadMonitor without Java is rejected');
+assert.strictEqual(monNoJava.error, 'Java VM is not available', 'error message names the precondition');
+
+// rnSet — Java not available
+const rnNoJava = roundtrip({ id: 137, type: 'rnSet', params: { enable: true } });
+assert.strictEqual(rnNoJava.ok, false, 'rnSet without Java is rejected');
+assert.strictEqual(rnNoJava.error, 'Java VM is not available', 'error message names the precondition');
+sandbox.Java.available = javaAvailOrig;
 
 console.log('ok - agent script protocol');

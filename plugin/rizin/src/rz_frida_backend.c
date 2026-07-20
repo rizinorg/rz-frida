@@ -2065,6 +2065,274 @@ RZ_IPI bool rz_frida_backend_classes(RZ_NONNULL RzFridaSession *session,
 	return ok;
 }
 
+RZ_IPI bool rz_frida_backend_class_load_monitor(RZ_NONNULL RzFridaSession *session, bool enable, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && pj, false);
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return false;
+	}
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
+
+	PJ *params = pj_new();
+	if (!params) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
+	pj_o(params);
+	pj_kb(params, "enable", enable);
+	pj_end(params);
+	char *params_json = pj_drain(params);
+	if (!params_json) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "classLoadMonitor", params_json,
+		&response, &fail_code, &fail_msg);
+	free(params_json);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+	bool ok = backend_emit_response(pj, &response);
+	rz_frida_response_fini(&response);
+	return ok;
+}
+
+RZ_IPI bool rz_frida_backend_newly_loaded_classes(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && pj, false);
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return false;
+	}
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "newlyLoadedClasses", NULL,
+		&response, &fail_code, &fail_msg);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+	bool ok = backend_emit_response(pj, &response);
+	rz_frida_response_fini(&response);
+	return ok;
+}
+
+RZ_IPI bool rz_frida_backend_rn_set(RZ_NONNULL RzFridaSession *session, bool enable, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && pj, false);
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return false;
+	}
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
+
+	PJ *params = pj_new();
+	if (!params) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
+	pj_o(params);
+	pj_kb(params, "enable", enable);
+	pj_end(params);
+	char *params_json = pj_drain(params);
+	if (!params_json) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "rnSet", params_json,
+		&response, &fail_code, &fail_msg);
+	free(params_json);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+	bool ok = backend_emit_response(pj, &response);
+	rz_frida_response_fini(&response);
+	return ok;
+}
+
+RZ_IPI bool rz_frida_backend_rn_list(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && pj, false);
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return false;
+	}
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "rnList", NULL,
+		&response, &fail_code, &fail_msg);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+	bool ok = backend_emit_response(pj, &response);
+	rz_frida_response_fini(&response);
+	return ok;
+}
+
+RZ_IPI bool rz_frida_backend_flag_modules(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && pj, false);
+
+	RzFridaBackendSession *backend = rz_frida_session_backend_state(session);
+	if (!backend) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return false;
+	}
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "flagModules", NULL,
+		&response, &fail_code, &fail_msg);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+	bool ok = backend_emit_response(pj, &response);
+	rz_frida_response_fini(&response);
+	return ok;
+}
+
+static int strptr_cmp(const void *a, const void *b) {
+	const char *sa = *(const char **)a;
+	const char *sb = *(const char **)b;
+	if (!sa) {
+		return sb ? -1 : 0;
+	}
+	if (!sb) {
+		return 1;
+	}
+	return strcmp(sa, sb);
+}
+
+/**
+ * @return caller-owned sorted array of static class names from the loaded binary, or NULL.
+ * \p count_out is set to the number of names (may be 0).
+ */
+static RZ_OWN char **collect_static_class_names(RZ_NULLABLE RzBinObject *o, RZ_NONNULL size_t *count_out) {
+	rz_return_val_if_fail(count_out, NULL);
+	*count_out = 0;
+	if (!o) {
+		return NULL;
+	}
+	const RzPVector *classes = rz_bin_object_get_classes(o);
+	if (!classes) {
+		return NULL;
+	}
+	size_t n = rz_pvector_len(classes);
+	if (!n) {
+		return NULL;
+	}
+	char **names = RZ_NEWS0(char *, n);
+	if (!names) {
+		return NULL;
+	}
+	void **iter;
+	size_t idx = 0;
+	rz_pvector_foreach (classes, iter) {
+		RzBinClass *cls = *iter;
+		if (cls && cls->name && idx < n) {
+			names[idx++] = cls->name;
+		}
+	}
+	*count_out = idx;
+	if (*count_out > 1) {
+		qsort(names, *count_out, sizeof(char *), strptr_cmp);
+	}
+	return names;
+}
+
+RZ_IPI bool rz_frida_backend_dex_diff(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NULLABLE const char *prefix, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && core && pj, false);
+
+	ut64 dex_max = rz_config_get_integer(core->config, "frida.dex.max");
+	if (!dex_max) {
+		dex_max = (ut64)UINT32_MAX;
+	}
+	size_t count = 0;
+	char **names = rz_frida_backend_class_list(session, prefix, dex_max, &count);
+
+	// sort for binary search
+	if (names && count > 1) {
+		qsort(names, count, sizeof(char *), strptr_cmp);
+	}
+
+	size_t static_count = 0;
+	char **static_names = collect_static_class_names(core->bin && core->bin->cur ? core->bin->cur->o : NULL, &static_count);
+
+	bool got_static = (static_names != NULL);
+	size_t only_static_c = 0, only_runtime_c = 0, both_c = 0;
+
+	// static count
+	for (size_t i = 0; i < static_count; i++) {
+		bool found = (names && count && bsearch(&static_names[i], names, count, sizeof(char *), strptr_cmp));
+		if (found) {
+			both_c++;
+		} else {
+			only_static_c++;
+		}
+	}
+
+	// runtime count
+	if (names) {
+		for (size_t i = 0; i < count; i++) {
+			bool found = (static_names && bsearch(&names[i], static_names, static_count, sizeof(char *), strptr_cmp));
+			if (!found) {
+				only_runtime_c++;
+			}
+		}
+	} else {
+		only_runtime_c = count;
+	}
+
+	rz_frida_json_ok_begin(pj);
+	pj_kb(pj, "loaded_bin", got_static);
+	pj_kn(pj, "only_static", (ut64)only_static_c);
+	pj_kn(pj, "only_runtime", (ut64)only_runtime_c);
+	pj_kn(pj, "both", (ut64)both_c);
+
+	if (names) {
+		for (size_t i = 0; i < count; i++) { free(names[i]); }
+		free(names);
+	}
+	free(static_names);
+
+	rz_frida_json_ok_end(pj);
+	return true;
+}
+
 /**
  * \brief Describe a Java class in the target through the agent.
  *
@@ -2388,7 +2656,10 @@ RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 	}
 
 	PJ *params = pj_new();
-	if (!params) { rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request"); return false; }
+	if (!params) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
 	pj_o(params);
 	pj_ks(params, "className", className);
 	if (loaderId) {
@@ -2396,7 +2667,10 @@ RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 	}
 	pj_end(params);
 	char *pp = pj_drain(params);
-	if (!pp) { rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request"); return false; }
+	if (!pp) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
 
 	RzFridaResponse response = { 0 };
 	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
@@ -2417,7 +2691,10 @@ RZ_IPI bool rz_frida_backend_import_class(RZ_NONNULL RzFridaSession *session,
 
 	char *json_copy = rz_str_dup(response.result);
 	rz_frida_response_fini(&response);
-	if (!json_copy) { rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "out of memory"); return false; }
+	if (!json_copy) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "out of memory");
+		return false;
+	}
 
 	RzJson *root = rz_json_parse(json_copy);
 	if (!root || root->type != RZ_JSON_OBJECT) {

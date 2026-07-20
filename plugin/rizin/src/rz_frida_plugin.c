@@ -746,6 +746,261 @@ RZ_IPI RzCmdStatus rz_cmd_fridaC_handler(RZ_NONNULL RzCore *core, int argc,
 	return RZ_CMD_STATUS_OK;
 }
 
+/**
+ * Extracts the "result" node from a parsed agent JSON response.
+ * If the response is an error envelope ({ok:false,error:{...}}),
+ * writes the error to \p pj and returns NULL.
+ */
+static RZ_NULLABLE const RzJson *get_result_or_error(RZ_NONNULL PJ *pj, RZ_NONNULL const RzJson *r) {
+	rz_return_val_if_fail(pj && r, NULL);
+	const RzJson *res = rz_json_get(r, "result");
+	if (res) {
+		return res;
+	}
+	const RzJson *err = rz_json_get(r, "error");
+	if (err && err->type == RZ_JSON_OBJECT) {
+		const RzJson *msg = rz_json_get(err, "message");
+		if (msg && msg->type == RZ_JSON_STRING && msg->str_value) {
+			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, msg->str_value);
+			return NULL;
+		}
+	}
+	rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "the agent returned an unexpected reply");
+	return NULL;
+}
+
+static void import_rn_methods(RZ_NONNULL RzCore *core, RZ_NONNULL const RzJson *res, RZ_NONNULL PJ *pj) {
+	rz_return_if_fail(core && res && pj);
+	const RzJson *inv = rz_json_get(res, "invocations");
+	size_t total = 0;
+	const RzJson *entry = (inv && inv->type == RZ_JSON_ARRAY) ? inv->children.first : NULL;
+	while (entry) {
+		const RzJson *cn = rz_json_get(entry, "className");
+		const RzJson *methods = rz_json_get(entry, "methods");
+		if (!cn || cn->type != RZ_JSON_STRING || !cn->str_value) {
+			entry = entry->next;
+			continue;
+		}
+		if (!methods || methods->type != RZ_JSON_ARRAY) {
+			entry = entry->next;
+			continue;
+		}
+		const RzJson *m = methods->children.first;
+		while (m) {
+			const RzJson *mn = rz_json_get(m, "name");
+			const RzJson *ma = rz_json_get(m, "address");
+			if (mn && ma && mn->type == RZ_JSON_STRING && mn->str_value &&
+				ma->type == RZ_JSON_STRING && ma->str_value) {
+				rz_analysis_class_create(core->analysis, cn->str_value);
+				RzAnalysisMethod meth = {
+					.name = rz_str_dup(mn->str_value),
+					.real_name = rz_str_dup(mn->str_value),
+					.addr = rz_num_math(core->num, ma->str_value),
+					.vtable_offset = -1,
+					.method_type = RZ_ANALYSIS_CLASS_METHOD_DEFAULT
+				};
+				rz_analysis_class_method_set(core->analysis, cn->str_value, &meth);
+				rz_analysis_class_method_fini(&meth);
+				total++;
+			}
+			m = m->next;
+		}
+		entry = entry->next;
+	}
+	rz_frida_json_ok_begin(pj);
+	pj_kb(pj, "imported", true);
+	pj_kn(pj, "methods", (ut64)total);
+	rz_frida_json_ok_end(pj);
+}
+
+RZ_IPI RzCmdStatus rz_cmd_fridaN_handler(RZ_NONNULL RzCore *core, int argc,
+	RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
+	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
+	if (state->mode != RZ_OUTPUT_MODE_JSON) {
+		return RZ_CMD_STATUS_WRONG_ARGS;
+	}
+	PJ *pj = state->d.pj;
+	RzFridaCoreContext *ctx = frida_context(core);
+	if (!ctx || !ctx->session) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return RZ_CMD_STATUS_OK;
+	}
+	bool enable = true;
+	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	if (argc > 1 && RZ_STR_ISNOTEMPTY(argv[1])) {
+		if (RZ_STR_EQ(argv[1], "start")) {
+			enable = true;
+		} else if (RZ_STR_EQ(argv[1], "stop")) {
+			enable = false;
+		} else {
+			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET,
+				"fridaNj expects start, stop, or no arguments to list");
+			rz_cons_break_pop();
+			return RZ_CMD_STATUS_OK;
+		}
+		rz_frida_backend_class_load_monitor(ctx->session, enable, pj);
+	} else {
+		rz_frida_backend_newly_loaded_classes(ctx->session, pj);
+	}
+	rz_cons_break_pop();
+	return RZ_CMD_STATUS_OK;
+}
+
+RZ_IPI RzCmdStatus rz_cmd_fridaRN_handler(RZ_NONNULL RzCore *core, int argc,
+	RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
+	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
+	if (state->mode != RZ_OUTPUT_MODE_JSON) {
+		return RZ_CMD_STATUS_WRONG_ARGS;
+	}
+	PJ *pj = state->d.pj;
+	RzFridaCoreContext *ctx = frida_context(core);
+	if (!ctx || !ctx->session) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return RZ_CMD_STATUS_OK;
+	}
+	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	if (argc > 1 && RZ_STR_ISNOTEMPTY(argv[1])) {
+		if (RZ_STR_EQ(argv[1], "on")) {
+			rz_frida_backend_rn_set(ctx->session, true, pj);
+		} else if (RZ_STR_EQ(argv[1], "off")) {
+			rz_frida_backend_rn_set(ctx->session, false, pj);
+		} else if (RZ_STR_EQ(argv[1], "import")) {
+			PJ *tmp = pj_new();
+			if (!tmp) {
+				rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the request");
+				rz_cons_break_pop();
+				return RZ_CMD_STATUS_OK;
+			}
+			rz_frida_backend_rn_list(ctx->session, tmp);
+			char *raw = pj_drain(tmp);
+			char *txt = raw ? rz_str_dup(raw) : NULL;
+			free(raw);
+			if (!txt) {
+				rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
+				rz_cons_break_pop();
+				return RZ_CMD_STATUS_OK;
+			}
+			RzJson *r = rz_json_parse(txt);
+			if (!r) {
+				rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
+				free(txt);
+				rz_cons_break_pop();
+				return RZ_CMD_STATUS_OK;
+			}
+			const RzJson *res = get_result_or_error(pj, r);
+			if (!res) {
+				free(txt);
+				rz_json_free(r);
+				rz_cons_break_pop();
+				return RZ_CMD_STATUS_OK;
+			}
+			import_rn_methods(core, res, pj);
+			free(txt);
+			rz_json_free(r);
+		} else {
+			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET,
+				"fridaRNj expects on, off, import, or no arguments to list");
+			rz_cons_break_pop();
+			return RZ_CMD_STATUS_OK;
+		}
+	} else {
+		rz_frida_backend_rn_list(ctx->session, pj);
+	}
+	rz_cons_break_pop();
+	return RZ_CMD_STATUS_OK;
+}
+
+RZ_IPI RzCmdStatus rz_cmd_fridaf_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int argc,
+	RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
+	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
+	if (state->mode != RZ_OUTPUT_MODE_JSON) {
+		return RZ_CMD_STATUS_WRONG_ARGS;
+	}
+	PJ *pj = state->d.pj;
+	RzFridaCoreContext *ctx = frida_context(core);
+	if (!ctx || !ctx->session) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return RZ_CMD_STATUS_OK;
+	}
+	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	PJ *tmp = pj_new();
+	if (!tmp) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the request");
+		rz_cons_break_pop();
+		return RZ_CMD_STATUS_OK;
+	}
+	rz_frida_backend_flag_modules(ctx->session, tmp);
+	char *raw = pj_drain(tmp);
+	char *txt = raw ? rz_str_dup(raw) : NULL;
+	free(raw);
+	if (!txt) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
+		rz_cons_break_pop();
+		return RZ_CMD_STATUS_OK;
+	}
+	RzJson *r = rz_json_parse(txt);
+	if (!r) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
+		free(txt);
+		rz_cons_break_pop();
+		return RZ_CMD_STATUS_OK;
+	}
+	const RzJson *res = get_result_or_error(pj, r);
+	if (!res) {
+		free(txt);
+		rz_json_free(r);
+		rz_cons_break_pop();
+		return RZ_CMD_STATUS_OK;
+	}
+	const RzJson *mods = rz_json_get(res, "modules");
+	size_t count = 0;
+	if (mods && mods->type == RZ_JSON_ARRAY) {
+		rz_flag_space_push(core->flags, "frida.libs");
+		const RzJson *m = mods->children.first;
+		while (m) {
+			const RzJson *mn = rz_json_get(m, "name");
+			const RzJson *mb = rz_json_get(m, "base");
+			const RzJson *ms = rz_json_get(m, "size");
+			if (mn && mb && mn->type == RZ_JSON_STRING && mn->str_value &&
+				mb->type == RZ_JSON_STRING && mb->str_value) {
+				ut64 base = rz_num_math(core->num, mb->str_value);
+				ut32 size = (ms && ms->type == RZ_JSON_INTEGER) ? (ut32)ms->num.u_value : 1;
+				rz_flag_set(core->flags, mn->str_value, base, size);
+				count++;
+			}
+			m = m->next;
+		}
+		rz_flag_space_pop(core->flags);
+	}
+	rz_frida_json_ok_begin(pj);
+	pj_kb(pj, "imported", true);
+	pj_kn(pj, "modules", (ut64)count);
+	rz_frida_json_ok_end(pj);
+	free(txt);
+	rz_json_free(r);
+	rz_cons_break_pop();
+	return RZ_CMD_STATUS_OK;
+}
+
+RZ_IPI RzCmdStatus rz_cmd_fridaX_handler(RZ_NONNULL RzCore *core, int argc,
+	RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
+	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
+	if (state->mode != RZ_OUTPUT_MODE_JSON) {
+		return RZ_CMD_STATUS_WRONG_ARGS;
+	}
+	PJ *pj = state->d.pj;
+	RzFridaCoreContext *ctx = frida_context(core);
+	if (!ctx || !ctx->session) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
+		return RZ_CMD_STATUS_OK;
+	}
+	const char *prefix = (argc > 1 && RZ_STR_ISNOTEMPTY(argv[1])) ? argv[1] : NULL;
+	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_frida_backend_dex_diff(ctx->session, core, prefix, pj);
+	rz_cons_break_pop();
+	return RZ_CMD_STATUS_OK;
+}
+
 RZ_IPI RzCmdStatus rz_cmd_fridaD_handler(RZ_NONNULL RzCore *core, int argc,
 	RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
 	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
@@ -962,6 +1217,7 @@ static bool rz_frida_plugin_init(RzCore *core, void **user) {
 	rz_config_add_integer(core->config, "frida.timeout", "Frida session and agent request timeout in milliseconds", RZ_FRIDA_DEFAULT_TIMEOUT_MS);
 	rz_config_add_integer(core->config, "frida.hw.watchpoints", "Maximum hardware watchpoint slots fridaW may use, capped by the CPU", RZ_FRIDA_HW_WATCHPOINTS_DEFAULT);
 	rz_config_add_integer(core->config, "frida.java.max", "Maximum loaded classes fridaC returns per request, 0 for unlimited", RZ_FRIDA_JAVA_MAX_DEFAULT);
+	rz_config_add_integer(core->config, "frida.dex.max", "Maximum classes fridaX uses for comparison, 0 for no limit", 0);
 	rz_config_add_integer(core->config, "frida.ac.min", "Minimum characters typed before class autocomplete triggers", 2);
 	rz_config_add_integer(core->config, "frida.ac.max", "Maximum class autocomplete suggestions shown", 12);
 

@@ -14,6 +14,15 @@ let exceptionHandlerReady = false;
 const loaderIds = new Map(); // classloader wrapper -> stable integer id
 const idToLoader = new Map(); // stable integer id -> classloader wrapper
 let nextLoaderId = 1;
+let loadClassMonitorEnabled = false;
+const seenLoadedClasses = new Set();
+let rnHookEnabled = false;
+let rnInterceptor = null;
+const rnBuffer = [];
+const RN_BUFFER_MAX = 512;
+const RN_JNI_TABLE_OFFSET = 218;         // JNI function table entry for RegisterNatives (fcn 215 + 3 reserved slots)
+const RN_JNI_TABLE_OFFSET_FALLBACK = 215; // fallback for older ART where reserved slots arent there
+const RN_MAX_METHODS = 16384;
 
 function isJavaAvailable() {
   return { available: typeof Java !== 'undefined' && Java.available };
@@ -124,7 +133,37 @@ function classDescribe(params) {
 
     var meta = checkKotlin();
     if (meta !== null) {
-      result.kotlin = { k: meta.k(), mv: [meta.mv()[0], meta.mv()[1]] };
+      var mv = meta.mv();
+      var metaObj = { k: meta.k(), mv: [mv[0], mv[1]] };
+      if (mv.length > 2) {
+        metaObj.mv.push(mv[2]);
+        metaObj.mv.push(mv[3]);
+      }
+      // These fields are optional in kotlin metadata annotation.
+      // A missing field throws when accessed via frida's java wrapper,
+      // skip it, caller gets whatever subset was present.
+      try {
+        metaObj.xi = meta.xi();
+      } catch (_) {}
+      try {
+        var bv = meta.bv();
+        if (bv && bv.length) {
+          metaObj.bv = [bv[0], bv[1]];
+        }
+      } catch (_) {}
+      try {
+        var d1 = meta.d1();
+        if (d1 && d1.length) {
+          metaObj.data1Len = d1.length;
+        }
+      } catch (_) {}
+      try {
+        var d2 = meta.d2();
+        if (d2 && d2.length) {
+          metaObj.data2Len = d2.length;
+        }
+      } catch (_) {}
+      result.kotlin = metaObj;
     }
 
     result.fields = klass.getDeclaredFields().map(function (fd) {
@@ -505,7 +544,11 @@ function ensureExceptionHandler() {
       watchpoints.clear();
     }
     let wpCtx = {};
-    try { wpCtx = serialize(details.context); } catch (_) { /* keep empty */ }
+    try {
+      wpCtx = serialize(details.context);
+    } catch (_) {
+      /* keep empty */
+    }
     send({
       type: 'frida.wp',
       threadId: Process.getCurrentThreadId(),
@@ -581,6 +624,171 @@ function wpRemove(params) {
   return { address: key, removed: 1 };
 }
 
+function classLoadMonitor(params) {
+    if (typeof Java === 'undefined' || !Java.available) {
+        throw new Error('Java VM is not available');
+    }
+    if (typeof params.enable !== 'boolean') {
+        throw new Error('classLoadMonitor requires an enable boolean');
+    }
+    if (params.enable) {
+        if (loadClassMonitorEnabled) {
+            return { enabled: true };
+        }
+        Java.performNow(function () {
+            var current = Java.enumerateLoadedClassesSync();
+            for (var i = 0; i < current.length; i++) {
+                seenLoadedClasses.add(current[i]);
+            }
+        });
+        loadClassMonitorEnabled = true;
+        return { enabled: true };
+    }
+    loadClassMonitorEnabled = false;
+    seenLoadedClasses.clear();
+    return { enabled: false };
+}
+
+function newlyLoadedClassesGet() {
+    if (!loadClassMonitorEnabled) {
+        return { classes: [], count: 0, monitor: false };
+    }
+    var result = [];
+    Java.performNow(function () {
+        var current = Java.enumerateLoadedClassesSync();
+        for (var i = 0; i < current.length; i++) {
+            if (!seenLoadedClasses.has(current[i])) {
+                seenLoadedClasses.add(current[i]);
+                result.push(current[i]);
+            }
+        }
+    });
+    return { classes: result, count: result.length };
+}
+
+function rnSet(params) {
+    if (typeof Java === 'undefined' || !Java.available) {
+        throw new Error('Java VM is not available');
+    }
+    if (typeof params.enable !== 'boolean') {
+        throw new Error('rnSet requires an enable boolean');
+    }
+    if (params.enable) {
+        if (rnHookEnabled) {
+            return { enabled: true, invocations: rnBuffer.length };
+        }
+        // libart symbols
+        const env = Java.vm.getEnv();
+        const ps = Process.pointerSize;
+        let rnAddr = null;
+        try {
+            const art = Process.findModuleByName('libart.so');
+            if (art) {
+                const symbols = art.enumerateSymbols();
+                for (let i = 0; i < symbols.length; i++) {
+                    const name = symbols[i].name;
+                    if (name.indexOf('art') >= 0 &&
+                        name.indexOf('JNI') >= 0 &&
+                        name.indexOf('RegisterNatives') >= 0 &&
+                        name.indexOf('CheckJNI') < 0) {
+                        rnAddr = symbols[i].address;
+                        break;
+                    }
+                }
+            }
+        } catch (e) {
+            /* not available */
+        }
+        // fallback: JNI table index 218 (fcn 215 + 3 reserved slots)
+        if (!rnAddr) {
+            const tablePtr = env.handle.readPointer();
+            if (!tablePtr.isNull()) {
+                rnAddr = tablePtr.add(RN_JNI_TABLE_OFFSET * ps).readPointer();
+                if (rnAddr.isNull()) {
+                    rnAddr = tablePtr.add(RN_JNI_TABLE_OFFSET_FALLBACK * ps).readPointer();
+                }
+            }
+        }
+        if (!rnAddr || rnAddr.isNull()) {
+            throw new Error('RegisterNatives entry not found; is this an Android target with libart.so?');
+        }
+        rnInterceptor = Interceptor.attach(rnAddr, {
+            onEnter: function (args) {
+                try {
+                    const nMethods = args[3].toInt32();
+                    if (nMethods <= 0 || nMethods > RN_MAX_METHODS) {
+                        if (nMethods > RN_MAX_METHODS) {
+                            send({ type: 'frida.rn.warn', message: 'RegisterNatives called with ' + nMethods + ' methods, exceeds cap ' + RN_MAX_METHODS });
+                        }
+                        return;
+                    }
+                    if (rnBuffer.length >= RN_BUFFER_MAX) {
+                        send({ type: 'frida.rn.warn', message: 'rnBuffer full (' + RN_BUFFER_MAX + ' entries), dropping RegisterNatives invocation' });
+                        return;
+                    }
+                    const methodsPtr = args[2];
+                    if (methodsPtr.isNull()) {
+                        send({ type: 'frida.rn.warn', message: 'RegisterNatives called with null methodsPtr' });
+                        return;
+                    }
+                    const clsName = env.getClassName(args[1]);
+                    const methods = [];
+                    for (let i = 0; i < nMethods; i++) {
+                        const off = i * 3 * ps; // i-th JNINativeMethod: {name, signature, fnPtr} x pointerSize
+                        const namePtr = methodsPtr.add(off).readPointer();
+                        if (namePtr.isNull()) {
+                            continue;
+                        }
+                        const sigPtr = methodsPtr.add(off + ps).readPointer();
+                        const fnPtr = methodsPtr.add(off + 2 * ps).readPointer();
+                        if (fnPtr.isNull()) {
+                            continue;
+                        }
+                        methods.push({
+                            name: namePtr.readUtf8String(),
+                            signature: sigPtr.isNull() ? '' : sigPtr.readUtf8String(),
+                            address: fnPtr.toString()
+                        });
+                    }
+                    if (methods.length) {
+                        const entry = { className: clsName, methods: methods };
+                        rnBuffer.push(entry);
+                        send({ type: 'frida.rn', className: clsName, methods: methods });
+                    }
+                } catch (e) {
+                    /* ignore malformed invocations */
+                }
+            }
+        });
+        rnHookEnabled = true;
+        return { enabled: true, invocations: rnBuffer.length };
+    }
+    rnHookEnabled = false;
+    if (rnInterceptor) {
+        rnInterceptor.detach();
+        rnInterceptor = null;
+    }
+    const remaining = rnBuffer.length;
+    rnBuffer.length = 0;
+    return { enabled: false, cleared: remaining };
+}
+
+function rnList() {
+    const entries = rnBuffer.slice();
+    rnBuffer.length = 0;
+    return { invocations: entries, count: entries.length };
+}
+
+function flagModules() {
+    const modules = Process.enumerateModules();
+    const result = [];
+    for (let i = 0; i < modules.length; i++) {
+        const m = modules[i];
+        result.push({ name: m.name, base: m.base.toString(), size: m.size });
+    }
+    return { modules: result, count: result.length };
+}
+
 function invalidateCaches() {
   rangeCache = null;
   moduleCache = null;
@@ -644,6 +852,16 @@ function handleRequest(request) {
       return classList(params);
     case 'classDescribe':
       return classDescribe(params);
+    case 'classLoadMonitor':
+      return classLoadMonitor(params);
+    case 'newlyLoadedClasses':
+      return newlyLoadedClassesGet();
+    case 'rnSet':
+      return rnSet(params);
+    case 'rnList':
+      return rnList();
+    case 'flagModules':
+      return flagModules();
     default:
       throw new Error('unknown request type: ' + String(type));
   }
