@@ -4,7 +4,9 @@
 #include <rz_cmd.h>
 #include <rz_cons.h>
 #include <rz_core.h>
+#ifdef HAVE_FRIDA_CORE
 #include <frida-core.h>
+#endif
 #include <rz_frida.h>
 #include <rz_lib.h>
 #include <rz_types.h>
