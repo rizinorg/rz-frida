@@ -4,6 +4,7 @@
 #include <rz_cmd.h>
 #include <rz_cons.h>
 #include <rz_core.h>
+#include <frida-core.h>
 #include <rz_frida.h>
 #include <rz_lib.h>
 #include <rz_types.h>
@@ -170,6 +171,8 @@ RZ_IPI RzCmdStatus rz_cmd_fridaa_handler(RZ_NONNULL RzCore *core, int argc, RZ_N
 	return run_device_listing(argc, argv, state, RZ_FRIDA_ACTION_APPS, rz_frida_apps_json);
 }
 
+static void frida_cancel_on_break(void *user);
+
 RZ_IPI RzCmdStatus rz_cmd_fridao_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int argc, RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
 	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
 	if (state->mode != RZ_OUTPUT_MODE_JSON) {
@@ -188,8 +191,15 @@ RZ_IPI RzCmdStatus rz_cmd_fridao_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 	}
 
 	RzFridaUri uri = { 0 };
-	if (!rz_frida_uri_parse(argv[1], &uri)) {
-		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_URI, "invalid Frida URI");
+	char uri_buf[2048];
+	if (rz_str_startswith(argv[1], "frida://")) {
+		snprintf(uri_buf, sizeof(uri_buf), "%s", argv[1]);
+	} else {
+		snprintf(uri_buf, sizeof(uri_buf), "frida://%s", argv[1]);
+	}
+	if (!rz_frida_uri_parse(uri_buf, &uri)) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_URI,
+			"invalid Frida URI");
 		return RZ_CMD_STATUS_OK;
 	}
 
@@ -201,9 +211,10 @@ RZ_IPI RzCmdStatus rz_cmd_fridao_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 	}
 
 	ut64 timeout = rz_config_get_integer(core->config, "frida.timeout");
-	if (timeout) {
-		rz_frida_session_set_timeout(session, timeout);
+	if (!timeout) {
+		timeout = RZ_FRIDA_DEFAULT_TIMEOUT_MS;
 	}
+	rz_frida_session_set_timeout(session, timeout);
 
 	bool stored = rz_frida_session_set_uri(session, &uri);
 	rz_frida_uri_fini(&uri);
@@ -214,7 +225,12 @@ RZ_IPI RzCmdStatus rz_cmd_fridao_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 	}
 
 	// backend_open writes the envelope either way. only keep the session if it opened.
-	if (!rz_frida_backend_open(session, pj)) {
+	// the cons break hook forwards a Cutter breakTask (or Ctrl-C) into the session's
+	// cancellable, which frida's blocking attach/connect uses.
+	rz_cons_break_push(frida_cancel_on_break, session);
+	bool opened = rz_frida_backend_open(session, pj);
+	rz_cons_break_pop();
+	if (!opened) {
 		rz_frida_session_free(session);
 		return RZ_CMD_STATUS_OK;
 	}

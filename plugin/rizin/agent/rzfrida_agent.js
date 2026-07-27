@@ -25,12 +25,20 @@ const RN_JNI_TABLE_OFFSET_FALLBACK = 215; // fallback for older ART where reserv
 const RN_MAX_METHODS = 16384;
 
 function isJavaAvailable() {
-  return { available: typeof Java !== 'undefined' && Java.available };
+  try {
+    return { available: typeof Java !== 'undefined' && Java.available };
+  } catch (_) {
+    return { available: false };
+  }
 }
 
 function loaderList() {
-  if (typeof Java === 'undefined' || !Java.available) {
-    throw new Error('Java VM is not available');
+  try {
+    if (typeof Java === 'undefined' || !Java.available) {
+      return { loaders: [], javaUnavailable: true };
+    }
+  } catch (_) {
+    return { loaders: [], javaUnavailable: true };
   }
   const loaders = [];
   Java.performNow(function () {
@@ -49,8 +57,12 @@ function loaderList() {
 }
 
 function classList(params) {
-  if (typeof Java === 'undefined' || !Java.available) {
-    throw new Error('Java VM is not available');
+  try {
+    if (typeof Java === 'undefined' || !Java.available) {
+      return { classes: [], total: 0, truncated: false, javaUnavailable: true };
+    }
+  } catch (_) {
+    return { classes: [], total: 0, truncated: false, javaUnavailable: true };
   }
   const prefix = typeof params.prefix === 'string' ? params.prefix : '';
   const max = (typeof params.max === 'number' && params.max > 0) ? params.max : 512;
@@ -91,8 +103,12 @@ function paramNames(paramTypes) {
 }
 
 function classDescribe(params) {
-  if (typeof Java === 'undefined' || !Java.available) {
-    throw new Error('Java VM is not available');
+  try {
+    if (typeof Java === 'undefined' || !Java.available) {
+      return { javaUnavailable: true };
+    }
+  } catch (_) {
+    return { javaUnavailable: true };
   }
   var className = params.className;
   if (typeof className !== 'string' || className === '') {
@@ -129,7 +145,8 @@ function classDescribe(params) {
       if (metaKlass && metaKlass.class) {
         checkKotlin = function () { return klass.getAnnotation(metaKlass.class); };
       }
-    } catch (_) { }
+    } catch (_) {
+    }
 
     var meta = checkKotlin();
     if (meta !== null) {
@@ -625,8 +642,12 @@ function wpRemove(params) {
 }
 
 function classLoadMonitor(params) {
-    if (typeof Java === 'undefined' || !Java.available) {
-        throw new Error('Java VM is not available');
+    try {
+      if (typeof Java === 'undefined' || !Java.available) {
+        return { enabled: false, javaUnavailable: true };
+      }
+    } catch (_) {
+      return { enabled: false, javaUnavailable: true };
     }
     if (typeof params.enable !== 'boolean') {
         throw new Error('classLoadMonitor requires an enable boolean');
@@ -667,8 +688,12 @@ function newlyLoadedClassesGet() {
 }
 
 function rnSet(params) {
-    if (typeof Java === 'undefined' || !Java.available) {
-        throw new Error('Java VM is not available');
+    try {
+      if (typeof Java === 'undefined' || !Java.available) {
+        return { enabled: false, javaUnavailable: true };
+      }
+    } catch (_) {
+      return { enabled: false, javaUnavailable: true };
     }
     if (typeof params.enable !== 'boolean') {
         throw new Error('rnSet requires an enable boolean');

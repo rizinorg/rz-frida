@@ -80,6 +80,69 @@ static FridaDevice *backend_resolve_device(FridaDeviceManager *manager, const Rz
 }
 
 /**
+ * \brief Pre-flight TCP reachability probe for a remote frida endpoint.
+ *
+ * frida's remote transport does its first TCP connect with no timeout on the
+ * Gio SocketClient, so an unreachable host blocks until the OS tcp stack gives
+ * up (~75-130s of syn retries) and the device_manager cancel hook only fires on
+ * the next frida operation, not during that initial connect. This opens a short
+ * throwaway connection with a timeout so an unreachable or refused
+ * endpoint fails in ~\p timeout_ms instead, and a cancel via \p cancellable
+ * aborts it immediately. The connection is closed at once, frida opens its own.
+ *
+ * \param host_port "host:port" string from the URI device field.
+ * \param timeout_ms clamped to at least 1s.
+ * \param cancellable Shared with backend_open so breakTask cancels this too.
+ * \param error Receives the Gio error on failure.
+ * \return true when the host accepted a TCP connection within the timeout.
+ */
+static bool backend_probe_remote(const char *host_port, gint timeout_ms, GCancellable *cancellable, GError **error) {
+	rz_return_val_if_fail(host_port, false);
+
+	const char *colon = strchr(host_port, ':');
+	if (!colon || colon == host_port || !*(colon + 1)) {
+		g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+			"remote device must be host:port");
+		return false;
+	}
+
+	char host[256];
+	size_t hlen = (size_t)(colon - host_port);
+	if (hlen >= sizeof(host)) {
+		hlen = sizeof(host) - 1;
+	}
+	memcpy(host, host_port, hlen);
+	host[hlen] = '\0';
+	guint16 port = (guint16)g_ascii_strtoull(colon + 1, NULL, 10);
+	if (port == 0) {
+		g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+			"remote device port is not a number");
+		return false;
+	}
+
+	gint timeout_s = timeout_ms / 1000;
+	if (timeout_s < 1) {
+		timeout_s = 1;
+	}
+
+	GSocketClient *client = g_socket_client_new();
+	if (!client) {
+		g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_FAILED,
+			"cannot create the reachability probe");
+		return false;
+	}
+	g_socket_client_set_timeout(client, timeout_s);
+
+	GSocketConnection *conn = g_socket_client_connect_to_host(client, host, port, cancellable, error);
+	bool reachable = conn != NULL;
+	if (conn) {
+		g_object_unref(conn);
+	}
+	g_object_unref(client);
+	return reachable;
+}
+
+/**
  * \brief Enumerate the available Frida devices into a JSON envelope.
  *
  * Writes an ok:true envelope carrying a "devices" array on success, or an
@@ -489,6 +552,17 @@ RZ_IPI bool rz_frida_backend_open(RzFridaSession *session, PJ *pj) {
 		goto cleanup;
 	}
 
+	// frida's remote connect has no socket timeout, so probe first to keep an
+	// unreachable host from blocking on os tcp timeout. shares the
+	// cancellable so a breakTask cancels the probe as well as frida after it.
+	if (uri->transport_type == RZ_FRIDA_TRANSPORT_REMOTE &&
+		RZ_STR_ISNOTEMPTY(uri->device) &&
+		!backend_probe_remote(uri->device, (gint)rz_frida_session_timeout(session), cancellable, &error)) {
+		rz_frida_json_error(pj, backend_error_code(cancellable, error),
+			error ? error->message : "remote host is unreachable");
+		goto cleanup;
+	}
+
 	device = backend_resolve_device(manager, uri, (gint)rz_frida_session_timeout(session), cancellable, &error);
 	if (!device) {
 		rz_frida_json_error(pj, backend_error_code(cancellable, error),
@@ -517,7 +591,12 @@ RZ_IPI bool rz_frida_backend_open(RzFridaSession *session, PJ *pj) {
 		spawned = true;
 	}
 
-	frida_session = frida_device_attach_sync(device, pid, NULL, cancellable, &error);
+	FridaSessionOptions *sopts = frida_session_options_new();
+	if (sopts) {
+		frida_session_options_set_realm(sopts, FRIDA_REALM_NATIVE);
+	}
+	frida_session = frida_device_attach_sync(device, pid, sopts, cancellable, &error);
+	g_clear_object(&sopts);
 	if (!frida_session) {
 		rz_frida_json_error(pj, backend_error_code(cancellable, error),
 			error ? error->message : "cannot attach to the target");
@@ -933,6 +1012,7 @@ static bool backend_ensure_script(RzFridaBackendSession *backend, RzFridaSession
 		return false;
 	}
 	frida_script_options_set_name(options, "rzfrida");
+	frida_script_options_set_runtime(options, FRIDA_SCRIPT_RUNTIME_V8);
 	// embedded agent is unsigned byte array, frida needs c string.
 	FridaScript *script = frida_session_create_script_sync(backend->session, (const char *)rz_frida_agent_source, options, backend->cancellable, &error);
 	frida_unref(options);

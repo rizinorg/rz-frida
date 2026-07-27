@@ -6,6 +6,8 @@
 
 #include <CutterPlugin.h>
 
+class FridaDockWidget;
+
 class FridaPlugin : public QObject, CutterPlugin
 {
     Q_OBJECT
@@ -20,6 +22,9 @@ public:
     QString getAuthor() const override { return "Alok Kumar Mishra"; }
     QString getDescription() const override { return "Frida integration frontend for Cutter."; }
     QString getVersion() const override { return "0.1.0"; }
+
+private:
+    FridaDockWidget *dock;
 };
 
 #endif

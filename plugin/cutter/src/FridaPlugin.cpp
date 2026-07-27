@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 #include "FridaPlugin.h"
+#include "FridaDockWidget.h"
 
 #include <MainWindow.h>
 
 void FridaPlugin::setupPlugin() {}
 
-void FridaPlugin::setupInterface(MainWindow *main) {
-    Q_UNUSED(main);
+void FridaPlugin::setupInterface(MainWindow *main)
+{
+	dock = new FridaDockWidget(main);
+	main->addPluginDockWidget(dock);
 }
-

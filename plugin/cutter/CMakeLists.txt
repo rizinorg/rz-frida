@@ -12,6 +12,13 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake/Cutter")
 find_package(Cutter REQUIRED)
 
 add_library(cutter_frida_plugin MODULE
+    src/FridaCmdRunner.cpp
+    src/FridaCmdRunner.h
+    src/FridaConnectDialog.cpp
+    src/FridaConnectDialog.h
+    src/FridaDescriptions.h
+    src/FridaDockWidget.cpp
+    src/FridaDockWidget.h
     src/FridaPlugin.cpp
     src/FridaPlugin.h
 )
