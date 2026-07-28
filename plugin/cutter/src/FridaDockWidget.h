@@ -37,6 +37,7 @@ private:
 	/// status bar widgets
 	QLabel *sessionLabel;
 	QLabel *targetLabel;
+	QLabel *agentLabel;
 	QPushButton *connectButton;
 	QPushButton *disconnectButton;
 	bool m_hasSession;
@@ -65,6 +66,12 @@ private:
 	QLineEdit *memAddrEdit;
 	QLineEdit *memSizeEdit;
 	QPlainTextEdit *memOutput;
+	QLineEdit *memHexEdit;
+	/// module detail
+	QTableView *moduleDetailTable;
+	QPushButton *modExportsBtn;
+	QPushButton *modImportsBtn;
+	QPushButton *modSymbolsBtn;
 
 	/// ----- Java tab -----
 	void setupJavaTab();
@@ -74,6 +81,12 @@ private:
 	QPushButton *describeBtn;
 	QPushButton *importBtn;
 	QPlainTextEdit *classDetailOutput;
+	/// class load monitor
+	QLabel *clmStatusLabel;
+	QPushButton *clmStartBtn;
+	QPushButton *clmStopBtn;
+	QPushButton *clmRefreshBtn;
+	QTableView *clmTable;
 
 	/// ----- Script tab -----
 	void setupScriptTab();
@@ -111,6 +124,33 @@ private:
 	void setupFlagsTab();
 	QPushButton *flagsImportBtn;
 	QPlainTextEdit *flagsOutput;
+
+	/// ----- Debug tab -----
+	void setupDebugTab();
+	QLineEdit *bpAddrEdit;
+	QPushButton *bpSetBtn;
+	QPushButton *bpRemoveBtn;
+	QPushButton *bpRemoveAllBtn;
+	QPushButton *bpListBtn;
+	QTableView *bpTable;
+	QLineEdit *bpContinueTidEdit;
+	QPushButton *bpContinueBtn;
+	QPushButton *bpContinueLastBtn;
+	QLineEdit *wpAddrEdit;
+	QLineEdit *wpSizeEdit;
+	QComboBox *wpCondCombo;
+	QPushButton *wpSetBtn;
+	QPushButton *wpRemoveBtn;
+	QPushButton *wpRemoveAllBtn;
+	QPushButton *wpListBtn;
+	QTableView *wpTable;
+	QLineEdit *regTidEdit;
+	QPushButton *regReadBtn;
+	QTableView *regTable;
+	QLineEdit *regNameEdit;
+	QLineEdit *regValueEdit;
+	QPushButton *regWriteBtn;
+	QPlainTextEdit *bpNotifyLog;
 
 	/// common helpers
 	void setSessionEnabled(bool enabled);

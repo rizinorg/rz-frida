@@ -408,15 +408,19 @@ The plugin `.so` lands in `<prefix>/share/rizin/cutter/plugins/native/`.
 
 ## FridaDockWidget
 
-The dock widget provides 8 tabs, behind a Frida session
+The dock widget provides 9 tabs, behind a Frida session
 (disabled when not connected, enabled on connect):
 
 - **Session** — inline transport/device/target/action controls with device and
   process listing, plus a direct Connect button that opens the session without
   the modal dialog
 - **Runtime** — subtabbed memory ranges, modules, and threads tables populated
-  via `fridaRj`/`fridaMj`/`fridatj` in parallel, memory read via `fridaxj`
-- **Java** — classloader enumeration (`fridaLj`), prefix-filtered class list
+  via `fridaRj`/`fridaMj`/`fridatj` in parallel, memory read via `fridaxj`,
+  memory write via `fridawj`, and module detail panel showing exports
+  (`fridaEj`), imports (`fridaIj`), and symbols (`fridaSj`) for the selected
+  module
+- **Java** — classloader enumeration (`fridaLj`), class load monitor
+  (`fridaNj` start/stop/refresh-newly-loaded), prefix-filtered class list
   (`fridaCj`), describe (`fridaDj`) with JSON detail, and import-to-analysis
   (`fridaImj`)
 - **Script** — file loading (`fridalj`) and inline JS eval (`fridaej`)
@@ -425,6 +429,11 @@ The dock widget provides 8 tabs, behind a Frida session
   only-in-static, only-in-runtime, and both
 - **RegNat** — RegisterNatives hook enable/disable/refresh/import (`fridaRNj`)
 - **Flags** — runtime module import into `frida.libs` flag space (`fridafj`)
+- **Debug** — native breakpoints (`fridabj` set/list, `fridab-j` remove/all),
+  breakpoint continue (`fridagj` with optional TID), hardware watchpoints
+  (`fridaWj` set/list with address/size/conditions, `fridaW-j` remove/all),
+  register r/w for stopped threads (`fridaBj`), and a break/watchpoint
+  notif log
 
 ## FridaCmdRunner
 

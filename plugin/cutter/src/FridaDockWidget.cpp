@@ -37,6 +37,7 @@ FridaDockWidget::FridaDockWidget(MainWindow *main)
 	setupDexDiffTab();
 	setupRnTab();
 	setupFlagsTab();
+	setupDebugTab();
 
 	// status bar
 	auto *statusWidget = new QWidget(this);
@@ -44,10 +45,12 @@ FridaDockWidget::FridaDockWidget(MainWindow *main)
 	statusLayout->setContentsMargins(4, 2, 4, 2);
 	sessionLabel = new QLabel(tr("Not connected"), statusWidget);
 	targetLabel = new QLabel(statusWidget);
+	agentLabel = new QLabel(statusWidget);
 	connectButton = new QPushButton(tr("Connect"), statusWidget);
 	disconnectButton = new QPushButton(tr("Disconnect"), statusWidget);
 	disconnectButton->setVisible(false);
 	statusLayout->addWidget(sessionLabel);
+	statusLayout->addWidget(agentLabel);
 	statusLayout->addWidget(targetLabel, 1);
 	statusLayout->addWidget(connectButton);
 	statusLayout->addWidget(disconnectButton);
@@ -77,8 +80,6 @@ void FridaDockWidget::updateSessionState()
 	} catch (const QString &) {
 		m_hasSession = false;
 	}
-	setSessionEnabled(m_hasSession);
-}
 	setSessionEnabled(m_hasSession);
 }
 
@@ -148,6 +149,13 @@ static QStandardItem *makeItem(const QString &text)
 	auto *item = new QStandardItem(text);
 	item->setFlags(item->flags() & ~Qt::ItemIsEditable);
 	return item;
+}
+
+static void clearModel(QTableView *table)
+{
+	auto *model = static_cast<QStandardItemModel *>(
+		static_cast<QSortFilterProxyModel *>(table->model())->sourceModel());
+	model->removeRows(0, model->rowCount());
 }
 
 // ---- Session tab ----
@@ -311,7 +319,7 @@ void FridaDockWidget::setupSessionTab()
 	tabs->addTab(page, tr("Session"));
 }
 
-// ---- Runtime, Java, Script, Messages, DexDiff, RegNat, Flags ----
+// ---- Runtime, Java, Script, Messages, DexDiff, RegNat, Flags, Debug ----
 
 void FridaDockWidget::setupRuntimeTab()
 {
@@ -335,6 +343,53 @@ void FridaDockWidget::setupRuntimeTab()
 	subTabs->addTab(threadsTable, tr("Threads"));
 	layout->addWidget(subTabs);
 
+	// module detail
+	auto *modDetailGroup = new QGroupBox(tr("Module Detail"), page);
+	auto *modDetailLayout = new QVBoxLayout(modDetailGroup);
+	auto *modBtnRow = new QHBoxLayout();
+	modExportsBtn = new QPushButton(tr("Exports"), modDetailGroup);
+	modImportsBtn = new QPushButton(tr("Imports"), modDetailGroup);
+	modSymbolsBtn = new QPushButton(tr("Symbols"), modDetailGroup);
+	modBtnRow->addWidget(modExportsBtn);
+	modBtnRow->addWidget(modImportsBtn);
+	modBtnRow->addWidget(modSymbolsBtn);
+	modBtnRow->addStretch();
+	modDetailLayout->addLayout(modBtnRow);
+	moduleDetailTable = setupFridaTable(modDetailGroup, {tr("Type"), tr("Name"), tr("Address")});
+	modDetailLayout->addWidget(moduleDetailTable);
+	layout->addWidget(modDetailGroup);
+
+	// memory
+	auto *memGroup = new QGroupBox(tr("Memory"), page);
+	auto *memLayout = new QVBoxLayout(memGroup);
+	auto *memRow1 = new QHBoxLayout();
+	memAddrEdit = new QLineEdit(memGroup);
+	memAddrEdit->setPlaceholderText("0x1000");
+	memSizeEdit = new QLineEdit(memGroup);
+	memSizeEdit->setPlaceholderText("64");
+	auto *readBtn = new QPushButton(tr("Read"), memGroup);
+	memRow1->addWidget(new QLabel(tr("Addr:"), memGroup));
+	memRow1->addWidget(memAddrEdit);
+	memRow1->addWidget(new QLabel(tr("Size:"), memGroup));
+	memRow1->addWidget(memSizeEdit);
+	memRow1->addWidget(readBtn);
+	memLayout->addLayout(memRow1);
+
+	auto *memRow2 = new QHBoxLayout();
+	memHexEdit = new QLineEdit(memGroup);
+	memHexEdit->setPlaceholderText(tr("hex bytes, e.g. deadbeef"));
+	auto *writeBtn = new QPushButton(tr("Write"), memGroup);
+	memRow2->addWidget(new QLabel(tr("Hex:"), memGroup));
+	memRow2->addWidget(memHexEdit, 1);
+	memRow2->addWidget(writeBtn);
+	memLayout->addLayout(memRow2);
+	layout->addWidget(memGroup);
+
+	memOutput = new QPlainTextEdit(page);
+	memOutput->setReadOnly(true);
+	memOutput->setMaximumBlockCount(1000);
+	layout->addWidget(memOutput);
+
 	connect(refreshBtn, &QPushButton::clicked, this, [this, refreshBtn]() {
 		if (!m_hasSession) return;
 		refreshBtn->setEnabled(false);
@@ -351,7 +406,7 @@ void FridaDockWidget::setupRuntimeTab()
 				refreshBtn->setEnabled(true);
 			}, [this, refreshBtn](const QString &) { refreshBtn->setEnabled(true); });
 		FridaCmdRunner::runAsyncQuiet("fridaMj", this,
-			[this, refreshBtn](const QJsonObject &result) {
+			[this](const QJsonObject &result) {
 				auto *mm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(modulesTable->model())->sourceModel());
 				mm->removeRows(0, mm->rowCount());
 				for (const auto &v : result["modules"].toArray()) {
@@ -373,25 +428,7 @@ void FridaDockWidget::setupRuntimeTab()
 			}, [this](const QString &) {});
 	});
 
-	auto *memGroup = new QGroupBox(tr("Memory Read"), page);
-	auto *memLayout = new QHBoxLayout(memGroup);
-	memAddrEdit = new QLineEdit(memGroup);
-	memAddrEdit->setPlaceholderText("0x1000");
-	memSizeEdit = new QLineEdit(memGroup);
-	memSizeEdit->setPlaceholderText("64");
-	auto *readBtn = new QPushButton(tr("Read"), memGroup);
-	memLayout->addWidget(new QLabel(tr("Addr:"), memGroup));
-	memLayout->addWidget(memAddrEdit);
-	memLayout->addWidget(new QLabel(tr("Size:"), memGroup));
-	memLayout->addWidget(memSizeEdit);
-	memLayout->addWidget(readBtn);
-	layout->addWidget(memGroup);
-
-	memOutput = new QPlainTextEdit(page);
-	memOutput->setReadOnly(true);
-	memOutput->setMaximumBlockCount(1000);
-	layout->addWidget(memOutput);
-
+	// memory read
 	connect(readBtn, &QPushButton::clicked, this, [this, readBtn]() {
 		QString addr = memAddrEdit->text().trimmed();
 		QString size = memSizeEdit->text().trimmed();
@@ -406,6 +443,86 @@ void FridaDockWidget::setupRuntimeTab()
 				memOutput->setPlainText(tr("Error: %1").arg(e));
 				readBtn->setEnabled(true);
 			});
+	});
+
+	// memory write
+	connect(writeBtn, &QPushButton::clicked, this, [this, writeBtn]() {
+		QString addr = memAddrEdit->text().trimmed();
+		QString hex = memHexEdit->text().trimmed();
+		if (addr.isEmpty() || hex.isEmpty()) return;
+		if (!m_hasSession) return;
+		writeBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet(QString("fridawj %1 %2").arg(addr, hex), this,
+			[this, writeBtn](const QJsonObject &result) {
+				memOutput->setPlainText(tr("Written %1 byte(s)").arg(result["size"].toInt()));
+				writeBtn->setEnabled(true);
+			}, [this, writeBtn](const QString &e) {
+				memOutput->setPlainText(tr("Error: %1").arg(e));
+				writeBtn->setEnabled(true);
+			});
+	});
+
+	// module detail: exports
+	connect(modExportsBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		auto *proxy = static_cast<QSortFilterProxyModel *>(modulesTable->model());
+		QModelIndex idx = modulesTable->currentIndex();
+		if (!idx.isValid()) return;
+		QString modName = proxy->data(proxy->index(idx.row(), 0)).toString();
+		modExportsBtn->setEnabled(false);
+		clearModel(moduleDetailTable);
+		FridaCmdRunner::runAsyncQuiet("fridaEj " + modName, this,
+			[this](const QJsonObject &result) {
+				auto *dm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(moduleDetailTable->model())->sourceModel());
+				for (const auto &v : result["exports"].toArray()) {
+					QJsonObject e = v.toObject();
+					dm->appendRow({makeItem(e["type"].toString()), makeItem(e["name"].toString()),
+						makeItem(e["address"].toString())});
+				}
+				modExportsBtn->setEnabled(true);
+			}, [this](const QString &) { modExportsBtn->setEnabled(true); });
+	});
+
+	// module detail: imports
+	connect(modImportsBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		auto *proxy = static_cast<QSortFilterProxyModel *>(modulesTable->model());
+		QModelIndex idx = modulesTable->currentIndex();
+		if (!idx.isValid()) return;
+		QString modName = proxy->data(proxy->index(idx.row(), 0)).toString();
+		modImportsBtn->setEnabled(false);
+		clearModel(moduleDetailTable);
+		FridaCmdRunner::runAsyncQuiet("fridaIj " + modName, this,
+			[this](const QJsonObject &result) {
+				auto *dm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(moduleDetailTable->model())->sourceModel());
+				for (const auto &v : result["imports"].toArray()) {
+					QJsonObject e = v.toObject();
+					dm->appendRow({makeItem(e["type"].toString()), makeItem(e["name"].toString()),
+						makeItem(e["address"].toString())});
+				}
+				modImportsBtn->setEnabled(true);
+			}, [this](const QString &) { modImportsBtn->setEnabled(true); });
+	});
+
+	// module detail: symbols
+	connect(modSymbolsBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		auto *proxy = static_cast<QSortFilterProxyModel *>(modulesTable->model());
+		QModelIndex idx = modulesTable->currentIndex();
+		if (!idx.isValid()) return;
+		QString modName = proxy->data(proxy->index(idx.row(), 0)).toString();
+		modSymbolsBtn->setEnabled(false);
+		clearModel(moduleDetailTable);
+		FridaCmdRunner::runAsyncQuiet("fridaSj " + modName, this,
+			[this](const QJsonObject &result) {
+				auto *dm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(moduleDetailTable->model())->sourceModel());
+				for (const auto &v : result["symbols"].toArray()) {
+					QJsonObject e = v.toObject();
+					dm->appendRow({makeItem(e["type"].toString()), makeItem(e["name"].toString()),
+						makeItem(e["address"].toString())});
+				}
+				modSymbolsBtn->setEnabled(true);
+			}, [this](const QString &) { modSymbolsBtn->setEnabled(true); });
 	});
 
 	tabs->addTab(page, tr("Runtime"));
@@ -441,6 +558,67 @@ void FridaDockWidget::setupJavaTab()
 				}
 				refreshLoadersBtn->setEnabled(true);
 			}, [this, refreshLoadersBtn](const QString &) { refreshLoadersBtn->setEnabled(true); });
+	});
+
+	// class load monitor
+	auto *clmGroup = new QGroupBox(tr("Class Load Monitor"), page);
+	auto *clmLayout = new QVBoxLayout(clmGroup);
+	auto *clmBtnRow = new QHBoxLayout();
+	clmStartBtn = new QPushButton(tr("Start"), clmGroup);
+	clmStopBtn = new QPushButton(tr("Stop"), clmGroup);
+	clmRefreshBtn = new QPushButton(tr("Refresh New"), clmGroup);
+	clmStatusLabel = new QLabel(tr("Status: stopped"), clmGroup);
+	clmBtnRow->addWidget(clmStartBtn);
+	clmBtnRow->addWidget(clmStopBtn);
+	clmBtnRow->addWidget(clmRefreshBtn);
+	clmBtnRow->addStretch();
+	clmBtnRow->addWidget(clmStatusLabel);
+	clmLayout->addLayout(clmBtnRow);
+	clmTable = setupFridaTable(clmGroup, {tr("New Class")});
+	clmLayout->addWidget(clmTable);
+	layout->addWidget(clmGroup);
+
+	connect(clmStartBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		clmStartBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridaNj start", this,
+			[this](const QJsonObject &result) {
+				bool ok = result["enabled"].toBool();
+				clmStatusLabel->setText(ok ? tr("Status: monitoring") : tr("Status: java unavailable"));
+				clmStartBtn->setEnabled(true);
+			}, [this](const QString &e) {
+				clmStatusLabel->setText(tr("Error: %1").arg(e));
+				clmStartBtn->setEnabled(true);
+			});
+	});
+
+	connect(clmStopBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		clmStopBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridaNj stop", this,
+			[this](const QJsonObject &result) {
+				clmStatusLabel->setText(tr("Status: stopped"));
+				clmStopBtn->setEnabled(true);
+			}, [this](const QString &e) {
+				clmStatusLabel->setText(tr("Error: %1").arg(e));
+				clmStopBtn->setEnabled(true);
+			});
+	});
+
+	connect(clmRefreshBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		clmRefreshBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridaNj", this,
+			[this](const QJsonObject &result) {
+				auto *cm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(clmTable->model())->sourceModel());
+				cm->removeRows(0, cm->rowCount());
+				for (const auto &v : result["classes"].toArray())
+					cm->appendRow({makeItem(v.toString())});
+				clmRefreshBtn->setEnabled(true);
+			}, [this](const QString &e) {
+				clmStatusLabel->setText(tr("Error: %1").arg(e));
+				clmRefreshBtn->setEnabled(true);
+			});
 	});
 
 	// classes
@@ -620,6 +798,7 @@ void FridaDockWidget::setupMessagesTab()
 	layout->addWidget(messageLog);
 
 	connect(messagesRefreshBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
 		messagesRefreshBtn->setEnabled(false);
 		FridaCmdRunner::runAsyncQuiet("fridamj", this,
 			[this](const QJsonObject &result) {
@@ -787,6 +966,319 @@ void FridaDockWidget::setupFlagsTab()
 	});
 
 	tabs->addTab(page, tr("Flags"));
+}
+
+// ---- Debug tab ----
+
+void FridaDockWidget::setupDebugTab()
+{
+	auto *page = new QWidget(this);
+	auto *layout = new QVBoxLayout(page);
+
+	// --- Breakpoints ---
+	auto *bpGroup = new QGroupBox(tr("Breakpoints"), page);
+	auto *bpLayout = new QVBoxLayout(bpGroup);
+
+	auto *bpRow1 = new QHBoxLayout();
+	bpAddrEdit = new QLineEdit(bpGroup);
+	bpAddrEdit->setPlaceholderText("0x1000");
+	bpSetBtn = new QPushButton(tr("Set"), bpGroup);
+	bpRemoveBtn = new QPushButton(tr("Remove"), bpGroup);
+	bpRemoveAllBtn = new QPushButton(tr("Remove All"), bpGroup);
+	bpListBtn = new QPushButton(tr("Refresh"), bpGroup);
+	bpRow1->addWidget(new QLabel(tr("Addr:"), bpGroup));
+	bpRow1->addWidget(bpAddrEdit);
+	bpRow1->addWidget(bpSetBtn);
+	bpRow1->addWidget(bpRemoveBtn);
+	bpRow1->addWidget(bpRemoveAllBtn);
+	bpRow1->addWidget(bpListBtn);
+	bpRow1->addStretch();
+	bpLayout->addLayout(bpRow1);
+
+	auto *bpRow2 = new QHBoxLayout();
+	bpContinueTidEdit = new QLineEdit(bpGroup);
+	bpContinueTidEdit->setPlaceholderText(tr("TID (blank = last)"));
+	bpContinueBtn = new QPushButton(tr("Continue"), bpGroup);
+	bpContinueLastBtn = new QPushButton(tr("Continue Last"), bpGroup);
+	bpRow2->addWidget(new QLabel(tr("TID:"), bpGroup));
+	bpRow2->addWidget(bpContinueTidEdit);
+	bpRow2->addWidget(bpContinueBtn);
+	bpRow2->addWidget(bpContinueLastBtn);
+	bpRow2->addStretch();
+	bpLayout->addLayout(bpRow2);
+
+	bpTable = setupFridaTable(bpGroup, {tr("ID"), tr("Address")});
+	bpLayout->addWidget(bpTable);
+	layout->addWidget(bpGroup);
+
+	// bp set
+	connect(bpSetBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		QString addr = bpAddrEdit->text().trimmed();
+		if (addr.isEmpty()) return;
+		bpSetBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridabj " + addr, this,
+			[this](const QJsonObject &) { bpSetBtn->setEnabled(true); bpListBtn->click(); },
+			[this](const QString &e) { bpSetBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("BP Error: %1").arg(e)); });
+	});
+
+	// bp remove
+	connect(bpRemoveBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		QString addr = bpAddrEdit->text().trimmed();
+		if (addr.isEmpty()) return;
+		bpRemoveBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridab-j " + addr, this,
+			[this](const QJsonObject &) { bpRemoveBtn->setEnabled(true); bpListBtn->click(); },
+			[this](const QString &e) { bpRemoveBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("BP Error: %1").arg(e)); });
+	});
+
+	// bp remove all
+	connect(bpRemoveAllBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		bpRemoveAllBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridab-j *", this,
+			[this](const QJsonObject &) { bpRemoveAllBtn->setEnabled(true); bpListBtn->click(); },
+			[this](const QString &e) { bpRemoveAllBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("BP Error: %1").arg(e)); });
+	});
+
+	// bp list
+	connect(bpListBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		bpListBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridabj", this,
+			[this](const QJsonObject &result) {
+				clearModel(bpTable);
+				auto *bm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(bpTable->model())->sourceModel());
+				for (const auto &v : result["breakpoints"].toArray()) {
+					QJsonObject bp = v.toObject();
+					bm->appendRow({makeItem(QString::number(bp["bp"].toInt())), makeItem(bp["address"].toString())});
+				}
+				bpListBtn->setEnabled(true);
+			}, [this](const QString &) { bpListBtn->setEnabled(true); });
+	});
+
+	// bp continue
+	connect(bpContinueBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		QString tid = bpContinueTidEdit->text().trimmed();
+		if (tid.isEmpty()) return;
+		bpContinueBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridagj " + tid, this,
+			[this](const QJsonObject &result) {
+				bpNotifyLog->appendPlainText(tr("Continue TID %1: resumed=%2").arg(
+					QString::number(result["threadId"].toInt()),
+					result["resumed"].toBool() ? "true" : "false"));
+				bpContinueBtn->setEnabled(true);
+				bpListBtn->click();
+			}, [this](const QString &e) {
+				bpNotifyLog->appendPlainText(tr("Continue Error: %1").arg(e));
+				bpContinueBtn->setEnabled(true);
+			});
+	});
+
+	// bp continue last
+	connect(bpContinueLastBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		bpContinueLastBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridagj", this,
+			[this](const QJsonObject &result) {
+				bpNotifyLog->appendPlainText(tr("Continue last: resumed=%1").arg(
+					result["resumed"].toBool() ? "true" : "false"));
+				bpContinueLastBtn->setEnabled(true);
+				bpListBtn->click();
+			}, [this](const QString &e) {
+				bpNotifyLog->appendPlainText(tr("Continue Error: %1").arg(e));
+				bpContinueLastBtn->setEnabled(true);
+			});
+	});
+
+	// --- Watchpoints ---
+	auto *wpGroup = new QGroupBox(tr("Watchpoints"), page);
+	auto *wpLayout = new QVBoxLayout(wpGroup);
+
+	auto *wpRow = new QHBoxLayout();
+	wpAddrEdit = new QLineEdit(wpGroup);
+	wpAddrEdit->setPlaceholderText("0x1000");
+	wpSizeEdit = new QLineEdit(wpGroup);
+	wpSizeEdit->setPlaceholderText("8");
+	wpCondCombo = new QComboBox(wpGroup);
+	wpCondCombo->addItem("rw");
+	wpCondCombo->addItem("w");
+	wpCondCombo->addItem("r");
+	wpSetBtn = new QPushButton(tr("Set"), wpGroup);
+	wpRemoveBtn = new QPushButton(tr("Remove"), wpGroup);
+	wpRemoveAllBtn = new QPushButton(tr("Remove All"), wpGroup);
+	wpListBtn = new QPushButton(tr("Refresh"), wpGroup);
+	wpRow->addWidget(new QLabel(tr("Addr:"), wpGroup));
+	wpRow->addWidget(wpAddrEdit);
+	wpRow->addWidget(new QLabel(tr("Size:"), wpGroup));
+	wpRow->addWidget(wpSizeEdit);
+	wpRow->addWidget(wpCondCombo);
+	wpRow->addWidget(wpSetBtn);
+	wpRow->addWidget(wpRemoveBtn);
+	wpRow->addWidget(wpRemoveAllBtn);
+	wpRow->addWidget(wpListBtn);
+	wpRow->addStretch();
+	wpLayout->addLayout(wpRow);
+
+	wpTable = setupFridaTable(wpGroup, {tr("Slot"), tr("Address"), tr("Size"), tr("Condition")});
+	wpLayout->addWidget(wpTable);
+	layout->addWidget(wpGroup);
+
+	// wp set
+	connect(wpSetBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		QString addr = wpAddrEdit->text().trimmed();
+		if (addr.isEmpty()) return;
+		QString size = wpSizeEdit->text().trimmed();
+		QString cond = wpCondCombo->currentText();
+		QString cmd = size.isEmpty() ? QString("fridaWj %1 %2").arg(addr, cond)
+			: QString("fridaWj %1 %2 %3").arg(addr, size, cond);
+		wpSetBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet(cmd, this,
+			[this](const QJsonObject &) { wpSetBtn->setEnabled(true); wpListBtn->click(); },
+			[this](const QString &e) { wpSetBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("WP Error: %1").arg(e)); });
+	});
+
+	// wp remove
+	connect(wpRemoveBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		QString addr = wpAddrEdit->text().trimmed();
+		if (addr.isEmpty()) return;
+		wpRemoveBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridaW-j " + addr, this,
+			[this](const QJsonObject &) { wpRemoveBtn->setEnabled(true); wpListBtn->click(); },
+			[this](const QString &e) { wpRemoveBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("WP Error: %1").arg(e)); });
+	});
+
+	// wp remove all
+	connect(wpRemoveAllBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		wpRemoveAllBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridaW-j *", this,
+			[this](const QJsonObject &) { wpRemoveAllBtn->setEnabled(true); wpListBtn->click(); },
+			[this](const QString &e) { wpRemoveAllBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("WP Error: %1").arg(e)); });
+	});
+
+	// wp list
+	connect(wpListBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		wpListBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridaWj", this,
+			[this](const QJsonObject &result) {
+				clearModel(wpTable);
+				auto *wm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(wpTable->model())->sourceModel());
+				for (const auto &v : result["watchpoints"].toArray()) {
+					QJsonObject wp = v.toObject();
+					wm->appendRow({makeItem(QString::number(wp["slot"].toInt())), makeItem(wp["address"].toString()),
+						makeItem(QString::number(wp["size"].toInt())), makeItem(wp["conditions"].toString())});
+				}
+				wpListBtn->setEnabled(true);
+			}, [this](const QString &) { wpListBtn->setEnabled(true); });
+	});
+
+	// --- Registers ---
+	auto *regGroup = new QGroupBox(tr("Registers (stopped thread)"), page);
+	auto *regLayout = new QVBoxLayout(regGroup);
+
+	auto *regRow = new QHBoxLayout();
+	regTidEdit = new QLineEdit(regGroup);
+	regTidEdit->setPlaceholderText(tr("Thread ID"));
+	regReadBtn = new QPushButton(tr("Read"), regGroup);
+	regRow->addWidget(new QLabel(tr("TID:"), regGroup));
+	regRow->addWidget(regTidEdit);
+	regRow->addWidget(regReadBtn);
+	regRow->addStretch();
+	regLayout->addLayout(regRow);
+
+	regTable = setupFridaTable(regGroup, {tr("Register"), tr("Value")});
+	regLayout->addWidget(regTable);
+
+	auto *regWriteRow = new QHBoxLayout();
+	regNameEdit = new QLineEdit(regGroup);
+	regNameEdit->setPlaceholderText(tr("reg name, e.g. pc"));
+	regValueEdit = new QLineEdit(regGroup);
+	regValueEdit->setPlaceholderText("0x401000");
+	regWriteBtn = new QPushButton(tr("Write"), regGroup);
+	regWriteRow->addWidget(new QLabel(tr("Reg:"), regGroup));
+	regWriteRow->addWidget(regNameEdit);
+	regWriteRow->addWidget(new QLabel(tr("Val:"), regGroup));
+	regWriteRow->addWidget(regValueEdit);
+	regWriteRow->addWidget(regWriteBtn);
+	regWriteRow->addStretch();
+	regLayout->addLayout(regWriteRow);
+	layout->addWidget(regGroup);
+
+	// reg read
+	connect(regReadBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		QString tid = regTidEdit->text().trimmed();
+		if (tid.isEmpty()) return;
+		regReadBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet("fridaBj " + tid, this,
+			[this](const QJsonObject &result) {
+				clearModel(regTable);
+				auto *rm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(regTable->model())->sourceModel());
+				// response: {threadId, bp, address}, context isn't returned directly
+				// but we can just show the stopped thread info
+				rm->appendRow({makeItem("threadId"), makeItem(QString::number(result["threadId"].toInt()))});
+				rm->appendRow({makeItem("bp"), makeItem(QString::number(result["bp"].toInt()))});
+				rm->appendRow({makeItem("address"), makeItem(result["address"].toString())});
+				// also read the context from msgs
+				regReadBtn->setEnabled(true);
+			}, [this](const QString &e) {
+				regReadBtn->setEnabled(true);
+				bpNotifyLog->appendPlainText(tr("Reg Error: %1").arg(e));
+			});
+	});
+
+	// reg write
+	connect(regWriteBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		QString tid = regTidEdit->text().trimmed();
+		QString reg = regNameEdit->text().trimmed();
+		QString val = regValueEdit->text().trimmed();
+		if (tid.isEmpty() || reg.isEmpty() || val.isEmpty()) return;
+		regWriteBtn->setEnabled(false);
+		FridaCmdRunner::runAsyncQuiet(QString("fridaBj %1 %2 %3").arg(tid, reg, val), this,
+			[this](const QJsonObject &result) {
+				bpNotifyLog->appendPlainText(tr("Write %1 = %2").arg(
+					result["register"].toString(), result["value"].toString()));
+				regWriteBtn->setEnabled(true);
+				regReadBtn->click();
+			}, [this](const QString &e) {
+				bpNotifyLog->appendPlainText(tr("Reg Write Error: %1").arg(e));
+				regWriteBtn->setEnabled(true);
+			});
+	});
+
+	// --- Notification log ---
+	auto *notifyGroup = new QGroupBox(tr("Break / Watchpoint Notifications"), page);
+	auto *notifyLayout = new QVBoxLayout(notifyGroup);
+	bpNotifyLog = new QPlainTextEdit(notifyGroup);
+	bpNotifyLog->setReadOnly(true);
+	bpNotifyLog->setMaximumBlockCount(500);
+	notifyLayout->addWidget(bpNotifyLog);
+	layout->addWidget(notifyGroup);
+
+	// check messages for bp/wp notifs
+	connect(bpListBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_hasSession) return;
+		FridaCmdRunner::runAsyncQuiet("fridamj", this,
+			[this](const QJsonObject &result) {
+				for (const auto &m : result["messages"].toArray()) {
+					QJsonObject msg = m.toObject();
+					QString payload = QJsonDocument(msg["payload"].toObject()).toJson(QJsonDocument::Compact);
+					if (payload.contains("frida.bp") || payload.contains("frida.wp")) {
+						bpNotifyLog->appendPlainText(QString("[%1] %2").arg(
+							msg["type"].toString(), payload));
+					}
+				}
+			}, [this](const QString &) {});
+	});
+
+	tabs->addTab(page, tr("Debug"));
 }
 
 // ---- helpers ----
