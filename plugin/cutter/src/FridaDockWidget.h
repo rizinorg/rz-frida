@@ -41,6 +41,7 @@ private:
 	QPushButton *connectButton;
 	QPushButton *disconnectButton;
 	bool m_hasSession;
+	bool m_hasJava;
 
 	/// tab container
 	QTabWidget *tabs;

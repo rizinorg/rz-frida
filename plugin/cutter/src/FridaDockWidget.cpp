@@ -22,7 +22,8 @@
 
 FridaDockWidget::FridaDockWidget(MainWindow *main)
 	: CutterDockWidget(main),
-	  m_hasSession(false)
+	  m_hasSession(false),
+	  m_hasJava(false)
 {
 	setObjectName("FridaDockWidget");
 	setWindowTitle(tr("Frida"));
@@ -80,6 +81,13 @@ void FridaDockWidget::updateSessionState()
 	} catch (const QString &) {
 		m_hasSession = false;
 	}
+	m_hasJava = false;
+	if (m_hasSession) {
+		try {
+			QJsonObject javaResult = FridaCmdRunner::runSync("fridaJj");
+			m_hasJava = javaResult["available"].toBool();
+		} catch (const QString &) {}
+	}
 	setSessionEnabled(m_hasSession);
 }
 
@@ -91,6 +99,13 @@ void FridaDockWidget::setSessionEnabled(bool enabled)
 
 	for (int i = 1; i < tabs->count(); i++) {
 		tabs->setTabEnabled(i, enabled);
+	}
+	// dex diff needs java
+	for (int i = 0; i < tabs->count(); i++) {
+		if (tabs->tabText(i) == tr("DEX Diff")) {
+			tabs->setTabEnabled(i, enabled && m_hasJava);
+			break;
+		}
 	}
 }
 

@@ -17,6 +17,7 @@ the raw agent source is embedded as-is so the script loads without Java.
 """
 
 import os
+import shutil
 import subprocess
 import sys
 
@@ -97,6 +98,27 @@ def main(argv):
                 capture_output=True,
                 text=True,
             )
+        except (subprocess.CalledProcessError, OSError):
+            # frida-compile uses es module syntax, node js 18 needs .mjs
+            # to detect that itself automatically, from a bin script.
+            try:
+                frida_compile_mjs = os.path.join(script_dir, "frida-compile.mjs")
+                shutil.copy2(frida_compile, frida_compile_mjs)
+                os.chmod(frida_compile_mjs, 0o755)
+                subprocess.run(
+                    [frida_compile_mjs, "-Sc", "-o", bundle_js, entry_js],
+                    cwd=script_dir,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            except (subprocess.CalledProcessError, OSError) as e:
+                sys.stderr.write(
+                    "embed_agent: frida-compile failed (%s), embedding raw agent\n" % e
+                )
+                embed(agent_js, output_path)
+                return 0
+        if os.path.isfile(bundle_js):
             with open(bundle_js, "rb") as f:
                 raw = f.read()
             raw = strip_bundle_wrapper(raw)
@@ -104,10 +126,6 @@ def main(argv):
                 f.write(raw)
             embed(bundle_js, output_path)
             return 0
-        except (subprocess.CalledProcessError, OSError) as e:
-            sys.stderr.write(
-                "embed_agent: frida-compile failed (%s), embedding raw agent\n" % e
-            )
 
     embed(agent_js, output_path)
     return 0
