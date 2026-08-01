@@ -26,7 +26,7 @@ pkg_check_modules(RZ_CORE REQUIRED rz_core)
 
 set(RZ_FRIDA_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../.." CACHE PATH "Path to rz-frida source root")
 
-# rizin dlopens cutter's plugin dir
+# copy in rizin's plugin dir, which cutter's rizin dlopens
 get_target_property(CUTTER_RIZIN_INCS Cutter::Rizin INTERFACE_INCLUDE_DIRECTORIES)
 if(CUTTER_RIZIN_INCS)
 	list(GET CUTTER_RIZIN_INCS 0 CUTTER_RIZIN_INC)
