@@ -151,12 +151,17 @@ typedef void (*RzFridaBackendDispose)(RZ_NONNULL RzFridaSession *session);
  */
 typedef void (*RzFridaCancelHook)(RZ_NULLABLE void *user);
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 RZ_IPI const char *rz_frida_action_string(RzFridaAction action);
 RZ_IPI RzFridaAction rz_frida_action_from_string(RZ_NULLABLE const char *action);
 RZ_IPI const char *rz_frida_transport_string(RzFridaTransport transport);
 RZ_IPI RzFridaTransport rz_frida_transport_from_string(RZ_NULLABLE const char *transport);
 
 RZ_IPI bool rz_frida_uri_parse(RZ_NONNULL const char *uri, RZ_NONNULL RzFridaUri *out);
+RZ_IPI bool rz_frida_uri_from_parts(RZ_NONNULL const char *action, RZ_NONNULL const char *transport, RZ_NULLABLE const char *device, RZ_NULLABLE const char *target, RZ_NONNULL RzFridaUri *out);
 RZ_IPI bool rz_frida_uri_copy(RZ_NONNULL RzFridaUri *dst, RZ_NONNULL const RzFridaUri *src);
 RZ_IPI void rz_frida_uri_fini(RZ_NULLABLE RzFridaUri *uri);
 
@@ -180,6 +185,9 @@ RZ_IPI void rz_frida_session_set_target_pid(RZ_NONNULL RzFridaSession *session, 
 RZ_IPI ut32 rz_frida_session_target_pid(RZ_NONNULL const RzFridaSession *session);
 RZ_IPI void rz_frida_session_set_backend_state(RZ_NONNULL RzFridaSession *session, RZ_NULLABLE void *backend_state, RZ_NULLABLE RzFridaBackendDispose dispose);
 RZ_IPI void *rz_frida_session_backend_state(RZ_NONNULL const RzFridaSession *session);
+
+RZ_IPI RzFridaSession *rz_frida_session_from_core(RZ_NONNULL RzCore *core);
+RZ_IPI void rz_frida_session_store_to_core(RZ_NONNULL RzCore *core, RZ_NULLABLE RzFridaSession *session);
 
 RZ_IPI void rz_frida_session_set_cancel_hook(RZ_NONNULL RzFridaSession *session, RZ_NULLABLE void *user, RZ_NULLABLE RzFridaCancelHook hook);
 
@@ -251,11 +259,17 @@ RZ_IPI bool rz_frida_backend_class_load_monitor(RZ_NONNULL RzFridaSession *sessi
 RZ_IPI bool rz_frida_backend_newly_loaded_classes(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_rn_set(RZ_NONNULL RzFridaSession *session, bool enable, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_rn_list(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj);
+RZ_IPI bool rz_frida_backend_rn_import(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_flag_modules(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj);
+RZ_IPI bool rz_frida_backend_flag_import(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_dex_diff(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NULLABLE const char *prefix, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_ping(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj);
 RZ_IPI bool rz_frida_backend_messages(RZ_NONNULL RZ_BORROW RzFridaSession *session, RZ_NONNULL RZ_BORROW PJ *pj);
 
 RZ_IPI RZ_OWN char **rz_frida_autocomplete_class(RZ_NONNULL RzCore *core);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

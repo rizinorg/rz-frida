@@ -92,7 +92,11 @@ RZ_IPI void rz_frida_agent_message_to_json(RZ_NONNULL const RzFridaAgentMessage 
 	case RZ_FRIDA_AGENT_MESSAGE_SEND:
 		pj_ks(pj, "kind", "send");
 		if (message->payload) {
-			pj_k(pj, "payload");
+			// pj_k + pj_raw leaves pj internal is_key flag set,
+			// which suppresses separator before next element and
+			// emits invalid json. so we write the pair raw, "kind" is
+			// always preceding, so comma is deterministic.
+			pj_raw(pj, ",\"payload\":");
 			pj_raw(pj, message->payload);
 		}
 		break;
@@ -122,7 +126,7 @@ RZ_IPI void rz_frida_agent_message_to_json(RZ_NONNULL const RzFridaAgentMessage 
 		ut64 data_size = rz_buf_size(message->data);
 		char *encoded = NULL;
 		if (data_size && data_size <= (ut64)ST64_MAX && data_size <= (ut64)SIZE_MAX) {
-			ut8 *data = malloc((size_t)data_size);
+			ut8 *data = RZ_NEWS(ut8, (size_t)data_size);
 			if (data && rz_buf_read_at(message->data, 0, data, data_size) == (st64)data_size) {
 				encoded = rz_base64_encode_dyn(data, (size_t)data_size);
 			}

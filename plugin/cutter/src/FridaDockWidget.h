@@ -18,6 +18,8 @@
 #include <core/MainWindow.h>
 
 #include "FridaDescriptions.h"
+#include "FridaApiBridge.h"
+#include "FridaTaskRunner.h"
 
 class FridaDockWidget : public CutterDockWidget
 {
@@ -25,7 +27,7 @@ class FridaDockWidget : public CutterDockWidget
 
 public:
 	explicit FridaDockWidget(MainWindow *main);
-	~FridaDockWidget() override = default;
+	~FridaDockWidget() override;
 
 private slots:
 	void onConnectClicked();
@@ -37,11 +39,12 @@ private:
 	/// status bar widgets
 	QLabel *sessionLabel;
 	QLabel *targetLabel;
-	QLabel *agentLabel;
 	QPushButton *connectButton;
 	QPushButton *disconnectButton;
 	bool m_hasSession;
 	bool m_hasJava;
+	FridaApiBridge *m_api;
+	FridaTaskRunner *m_tasks;
 
 	/// tab container
 	QTabWidget *tabs;
@@ -106,6 +109,7 @@ private:
 
 	/// ----- DEX Diff tab -----
 	void setupDexDiffTab();
+	int m_dexDiffTabIndex;
 	QLineEdit *dexPrefixEdit;
 	QPushButton *dexCompareBtn;
 	QLabel *dexLoadedBinLabel;
@@ -155,7 +159,6 @@ private:
 
 	/// common helpers
 	void setSessionEnabled(bool enabled);
-
 	QTableView *setupFridaTable(QWidget *parent, const QStringList &headers);
 };
 

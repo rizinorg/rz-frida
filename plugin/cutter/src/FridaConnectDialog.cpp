@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 #include "FridaConnectDialog.h"
-#include "FridaCmdRunner.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -11,7 +10,7 @@
 #include <QJsonObject>
 
 FridaConnectDialog::FridaConnectDialog(QWidget *parent)
-	: QDialog(parent)
+	: QDialog(parent), m_api(nullptr)
 {
 	setWindowTitle(tr("Connect to Frida Device"));
 	setMinimumWidth(480);
@@ -101,20 +100,29 @@ static QString deviceForTransport(QRadioButton *localRadio, QRadioButton *remote
 	return QString();
 }
 
-QString FridaConnectDialog::getUri() const
+QString FridaConnectDialog::action() const
 {
-	QString action = attachRadio->isChecked() ? "attach" : spawnRadio->isChecked() ? "spawn" : "launch";
-	QString transport = localRadio->isChecked() ? "local" : usbRadio->isChecked() ? "usb" : "remote";
-	QString device = deviceForTransport(localRadio, remoteRadio, hostPortEdit, deviceCombo, m_devices);
-	return QString("frida://%1/%2/%3/%4").arg(action, transport, device, targetEdit->text().trimmed());
+	return attachRadio->isChecked() ? "attach" : spawnRadio->isChecked() ? "spawn" : "launch";
 }
 
-QString FridaConnectDialog::getCommand() const
+QString FridaConnectDialog::transport() const
 {
-	QString action = attachRadio->isChecked() ? "attach" : spawnRadio->isChecked() ? "spawn" : "launch";
-	QString transport = localRadio->isChecked() ? "local" : usbRadio->isChecked() ? "usb" : "remote";
-	QString device = deviceForTransport(localRadio, remoteRadio, hostPortEdit, deviceCombo, m_devices);
-	return QString("fridaoj %1/%2/%3/%4").arg(action, transport, device, targetEdit->text().trimmed());
+	return localRadio->isChecked() ? "local" : usbRadio->isChecked() ? "usb" : "remote";
+}
+
+QString FridaConnectDialog::device() const
+{
+	return deviceForTransport(localRadio, remoteRadio, hostPortEdit, deviceCombo, m_devices);
+}
+
+QString FridaConnectDialog::target() const
+{
+	return targetEdit->text().trimmed();
+}
+
+void FridaConnectDialog::setApi(FridaApiBridge *api)
+{
+	m_api = api;
 }
 
 bool FridaConnectDialog::validate()
@@ -141,8 +149,12 @@ void FridaConnectDialog::onTransportChanged()
 void FridaConnectDialog::onRefreshDevices()
 {
 	statusLabel->setText(tr("Refreshing devices..."));
+	if (!m_api) {
+		statusLabel->setText(tr("Error: API not initialized"));
+		return;
+	}
 	try {
-		QJsonObject result = FridaCmdRunner::runSync("fridadj");
+		QJsonObject result = m_api->listDevices();
 		QJsonArray devices = result["devices"].toArray();
 		m_devices.clear();
 		deviceCombo->clear();
@@ -167,6 +179,10 @@ void FridaConnectDialog::onRefreshDevices()
 void FridaConnectDialog::onRefreshTargets()
 {
 	statusLabel->setText(tr("Refreshing targets..."));
+	if (!m_api) {
+		statusLabel->setText(tr("Error: API not initialized"));
+		return;
+	}
 	QString transport = localRadio->isChecked() ? "local" : usbRadio->isChecked() ? "usb" : "remote";
 	QString device;
 	if (localRadio->isChecked()) {
@@ -178,11 +194,10 @@ void FridaConnectDialog::onRefreshTargets()
 		if (idx >= 0 && idx < m_devices.size())
 			device = m_devices[idx].id;
 	}
-	QString uri = QString("frida://list/%1/%2/").arg(transport, device);
-	QString cmd = (targetTypeCombo->currentData().toString() == "package") ? ("fridaaj " + uri) : ("fridapj " + uri);
+	bool isPkg = (targetTypeCombo->currentData().toString() == "package");
 	try {
-		QJsonObject result = FridaCmdRunner::runSync(cmd);
-		if (targetTypeCombo->currentData().toString() == "package") {
+		QJsonObject result = isPkg ? m_api->listApps(transport, device) : m_api->listProcesses(transport, device);
+		if (isPkg) {
 			QJsonArray apps = result["apps"].toArray();
 			m_apps.clear();
 			for (const auto &a : apps) {

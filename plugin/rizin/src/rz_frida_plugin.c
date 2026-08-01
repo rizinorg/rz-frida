@@ -24,6 +24,20 @@ static RzFridaCoreContext *frida_context(RzCore *core) {
 	return (RzFridaCoreContext *)rz_core_plugin_context_get(core, &rz_core_plugin_frida);
 }
 
+RZ_IPI RzFridaSession *rz_frida_session_from_core(RzCore *core) {
+	rz_return_val_if_fail(core, NULL);
+	RzFridaCoreContext *ctx = frida_context(core);
+	return (ctx && ctx->session) ? ctx->session : NULL;
+}
+
+RZ_IPI void rz_frida_session_store_to_core(RzCore *core, RzFridaSession *session) {
+	rz_return_if_fail(core);
+	RzFridaCoreContext *ctx = frida_context(core);
+	if (ctx) {
+		ctx->session = session;
+	}
+}
+
 static RzCmdStatus print_status(RzCore *core, RzCmdStateOutput *state) {
 	rz_return_val_if_fail(core && state, RZ_CMD_STATUS_ERROR);
 
@@ -193,17 +207,20 @@ RZ_IPI RzCmdStatus rz_cmd_fridao_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 	}
 
 	RzFridaUri uri = { 0 };
-	char uri_buf[2048];
-	if (rz_str_startswith(argv[1], "frida://")) {
-		snprintf(uri_buf, sizeof(uri_buf), "%s", argv[1]);
-	} else {
-		snprintf(uri_buf, sizeof(uri_buf), "frida://%s", argv[1]);
+	char *uri_buf = rz_str_startswith(argv[1], "frida://")
+		? rz_str_dup(argv[1])
+		: rz_str_newf("frida://%s", argv[1]);
+	if (!uri_buf) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the URI");
+		return RZ_CMD_STATUS_OK;
 	}
 	if (!rz_frida_uri_parse(uri_buf, &uri)) {
+		free(uri_buf);
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_URI,
 			"invalid Frida URI");
 		return RZ_CMD_STATUS_OK;
 	}
+	free(uri_buf);
 
 	RzFridaSession *session = rz_frida_session_new();
 	if (!session) {
@@ -414,7 +431,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaw_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		return RZ_CMD_STATUS_OK;
 	}
 
-	ut8 *bytes = malloc(hexlen / 2);
+	ut8 *bytes = RZ_NEWS(ut8, hexlen / 2);
 	if (!bytes) {
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the write buffer");
 		return RZ_CMD_STATUS_OK;
@@ -764,73 +781,6 @@ RZ_IPI RzCmdStatus rz_cmd_fridaC_handler(RZ_NONNULL RzCore *core, int argc,
 	return RZ_CMD_STATUS_OK;
 }
 
-/**
- * Extracts the "result" node from a parsed agent JSON response.
- * If the response is an error envelope ({ok:false,error:{...}}),
- * writes the error to \p pj and returns NULL.
- */
-static RZ_NULLABLE const RzJson *get_result_or_error(RZ_NONNULL PJ *pj, RZ_NONNULL const RzJson *r) {
-	rz_return_val_if_fail(pj && r, NULL);
-	const RzJson *res = rz_json_get(r, "result");
-	if (res) {
-		return res;
-	}
-	const RzJson *err = rz_json_get(r, "error");
-	if (err && err->type == RZ_JSON_OBJECT) {
-		const RzJson *msg = rz_json_get(err, "message");
-		if (msg && msg->type == RZ_JSON_STRING && msg->str_value) {
-			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, msg->str_value);
-			return NULL;
-		}
-	}
-	rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "the agent returned an unexpected reply");
-	return NULL;
-}
-
-static void import_rn_methods(RZ_NONNULL RzCore *core, RZ_NONNULL const RzJson *res, RZ_NONNULL PJ *pj) {
-	rz_return_if_fail(core && res && pj);
-	const RzJson *inv = rz_json_get(res, "invocations");
-	size_t total = 0;
-	const RzJson *entry = (inv && inv->type == RZ_JSON_ARRAY) ? inv->children.first : NULL;
-	while (entry) {
-		const RzJson *cn = rz_json_get(entry, "className");
-		const RzJson *methods = rz_json_get(entry, "methods");
-		if (!cn || cn->type != RZ_JSON_STRING || !cn->str_value) {
-			entry = entry->next;
-			continue;
-		}
-		if (!methods || methods->type != RZ_JSON_ARRAY) {
-			entry = entry->next;
-			continue;
-		}
-		const RzJson *m = methods->children.first;
-		while (m) {
-			const RzJson *mn = rz_json_get(m, "name");
-			const RzJson *ma = rz_json_get(m, "address");
-			if (mn && ma && mn->type == RZ_JSON_STRING && mn->str_value &&
-				ma->type == RZ_JSON_STRING && ma->str_value) {
-				rz_analysis_class_create(core->analysis, cn->str_value);
-				RzAnalysisMethod meth = {
-					.name = rz_str_dup(mn->str_value),
-					.real_name = rz_str_dup(mn->str_value),
-					.addr = rz_num_math(core->num, ma->str_value),
-					.vtable_offset = -1,
-					.method_type = RZ_ANALYSIS_CLASS_METHOD_DEFAULT
-				};
-				rz_analysis_class_method_set(core->analysis, cn->str_value, &meth);
-				rz_analysis_class_method_fini(&meth);
-				total++;
-			}
-			m = m->next;
-		}
-		entry = entry->next;
-	}
-	rz_frida_json_ok_begin(pj);
-	pj_kb(pj, "imported", true);
-	pj_kn(pj, "methods", (ut64)total);
-	rz_frida_json_ok_end(pj);
-}
-
 RZ_IPI RzCmdStatus rz_cmd_fridaN_handler(RZ_NONNULL RzCore *core, int argc,
 	RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
 	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
@@ -883,38 +833,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaRN_handler(RZ_NONNULL RzCore *core, int argc,
 		} else if (RZ_STR_EQ(argv[1], "off")) {
 			rz_frida_backend_rn_set(ctx->session, false, pj);
 		} else if (RZ_STR_EQ(argv[1], "import")) {
-			PJ *tmp = pj_new();
-			if (!tmp) {
-				rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the request");
-				rz_cons_break_pop();
-				return RZ_CMD_STATUS_OK;
-			}
-			rz_frida_backend_rn_list(ctx->session, tmp);
-			char *raw = pj_drain(tmp);
-			char *txt = raw ? rz_str_dup(raw) : NULL;
-			free(raw);
-			if (!txt) {
-				rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
-				rz_cons_break_pop();
-				return RZ_CMD_STATUS_OK;
-			}
-			RzJson *r = rz_json_parse(txt);
-			if (!r) {
-				rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
-				free(txt);
-				rz_cons_break_pop();
-				return RZ_CMD_STATUS_OK;
-			}
-			const RzJson *res = get_result_or_error(pj, r);
-			if (!res) {
-				free(txt);
-				rz_json_free(r);
-				rz_cons_break_pop();
-				return RZ_CMD_STATUS_OK;
-			}
-			import_rn_methods(core, res, pj);
-			free(txt);
-			rz_json_free(r);
+			rz_frida_backend_rn_import(ctx->session, core, pj);
 		} else {
 			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET,
 				"fridaRNj expects on, off, import, or no arguments to list");
@@ -941,61 +860,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaf_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		return RZ_CMD_STATUS_OK;
 	}
 	rz_cons_break_push(frida_cancel_on_break, ctx->session);
-	PJ *tmp = pj_new();
-	if (!tmp) {
-		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the request");
-		rz_cons_break_pop();
-		return RZ_CMD_STATUS_OK;
-	}
-	rz_frida_backend_flag_modules(ctx->session, tmp);
-	char *raw = pj_drain(tmp);
-	char *txt = raw ? rz_str_dup(raw) : NULL;
-	free(raw);
-	if (!txt) {
-		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
-		rz_cons_break_pop();
-		return RZ_CMD_STATUS_OK;
-	}
-	RzJson *r = rz_json_parse(txt);
-	if (!r) {
-		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
-		free(txt);
-		rz_cons_break_pop();
-		return RZ_CMD_STATUS_OK;
-	}
-	const RzJson *res = get_result_or_error(pj, r);
-	if (!res) {
-		free(txt);
-		rz_json_free(r);
-		rz_cons_break_pop();
-		return RZ_CMD_STATUS_OK;
-	}
-	const RzJson *mods = rz_json_get(res, "modules");
-	size_t count = 0;
-	if (mods && mods->type == RZ_JSON_ARRAY) {
-		rz_flag_space_push(core->flags, "frida.libs");
-		const RzJson *m = mods->children.first;
-		while (m) {
-			const RzJson *mn = rz_json_get(m, "name");
-			const RzJson *mb = rz_json_get(m, "base");
-			const RzJson *ms = rz_json_get(m, "size");
-			if (mn && mb && mn->type == RZ_JSON_STRING && mn->str_value &&
-				mb->type == RZ_JSON_STRING && mb->str_value) {
-				ut64 base = rz_num_math(core->num, mb->str_value);
-				ut32 size = (ms && ms->type == RZ_JSON_INTEGER) ? (ut32)ms->num.u_value : 1;
-				rz_flag_set(core->flags, mn->str_value, base, size);
-				count++;
-			}
-			m = m->next;
-		}
-		rz_flag_space_pop(core->flags);
-	}
-	rz_frida_json_ok_begin(pj);
-	pj_kb(pj, "imported", true);
-	pj_kn(pj, "modules", (ut64)count);
-	rz_frida_json_ok_end(pj);
-	free(txt);
-	rz_json_free(r);
+	rz_frida_backend_flag_import(ctx->session, core, pj);
 	rz_cons_break_pop();
 	return RZ_CMD_STATUS_OK;
 }

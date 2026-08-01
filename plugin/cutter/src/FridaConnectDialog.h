@@ -12,10 +12,9 @@
 #include <QPushButton>
 #include <QDialogButtonBox>
 #include <QSettings>
-#include <QJsonObject>
 
-#include <core/Cutter.h>
 #include "FridaDescriptions.h"
+#include "FridaApiBridge.h"
 
 class FridaConnectDialog : public QDialog
 {
@@ -25,9 +24,12 @@ public:
 	explicit FridaConnectDialog(QWidget *parent = nullptr);
 	~FridaConnectDialog() override = default;
 
-	QString getUri() const;
-	QString getCommand() const;
+	QString action() const;
+	QString transport() const;
+	QString device() const;
+	QString target() const;
 	bool validate();
+	void setApi(FridaApiBridge *api);
 
 private slots:
 	void onTransportChanged();
@@ -54,6 +56,8 @@ private:
 	QList<FridaDevice> m_devices;
 	QList<FridaProcess> m_processes;
 	QList<FridaApp> m_apps;
+
+	FridaApiBridge *m_api = nullptr;
 
 	void restoreSettings();
 	void saveSettings();

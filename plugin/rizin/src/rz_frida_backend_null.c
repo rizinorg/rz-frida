@@ -223,7 +223,19 @@ RZ_IPI bool rz_frida_backend_rn_list(RZ_NONNULL RzFridaSession *session, RZ_NONN
 	return false;
 }
 
+RZ_IPI bool rz_frida_backend_rn_import(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && core && pj, false);
+	rz_frida_json_error(pj, RZ_FRIDA_ERROR_FRIDA_UNAVAILABLE, "frida-core support is not enabled");
+	return false;
+}
+
 RZ_IPI bool rz_frida_backend_flag_modules(RZ_NONNULL RzFridaSession *session, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && pj, false);
+	rz_frida_json_error(pj, RZ_FRIDA_ERROR_FRIDA_UNAVAILABLE, "frida-core support is not enabled");
+	return false;
+}
+
+RZ_IPI bool rz_frida_backend_flag_import(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RZ_UNUSED RzCore *core, RZ_NONNULL PJ *pj) {
 	rz_return_val_if_fail(session && pj, false);
 	rz_frida_json_error(pj, RZ_FRIDA_ERROR_FRIDA_UNAVAILABLE, "frida-core support is not enabled");
 	return false;

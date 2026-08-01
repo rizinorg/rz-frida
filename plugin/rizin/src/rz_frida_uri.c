@@ -104,6 +104,58 @@ RZ_IPI void rz_frida_uri_fini(RzFridaUri *uri) {
 	rz_mem_memzero(uri, sizeof(*uri));
 }
 
+/**
+ * \brief Build a frida:// URI from its components.
+ *
+ * Validates the action and transport names, the target requirement for the
+ * action, and the device rules per transport, then copies the parts into
+ * \p out. Components are not URL encoded.
+ *
+ * \param action Action name (attach, spawn, launch, list, apps).
+ * \param transport Transport name (local, usb, remote).
+ * \param device Device selector, empty for local, host:port for remote.
+ * \param target Target selector, required for attach, spawn, launch.
+ * \param out Receives the owned URI on success.
+ * \return true when the components form a valid URI, false otherwise.
+ */
+RZ_IPI bool rz_frida_uri_from_parts(const char *action, const char *transport,
+	const char *device, const char *target, RzFridaUri *out) {
+	rz_return_val_if_fail(action && transport && out, false);
+
+	RzFridaAction action_type = rz_frida_action_from_string(action);
+	RzFridaTransport transport_type = rz_frida_transport_from_string(transport);
+	if (action_type == RZ_FRIDA_ACTION_UNKNOWN || transport_type == RZ_FRIDA_TRANSPORT_UNKNOWN) {
+		return false;
+	}
+	if (target_action(action_type) && RZ_STR_ISEMPTY(target)) {
+		return false;
+	}
+	if (!target_action(action_type) && RZ_STR_ISNOTEMPTY(target)) {
+		return false;
+	}
+	if (transport_type == RZ_FRIDA_TRANSPORT_LOCAL && RZ_STR_ISNOTEMPTY(device)) {
+		return false;
+	}
+	if (transport_type == RZ_FRIDA_TRANSPORT_REMOTE &&
+		(RZ_STR_ISEMPTY(device) || !strchr(device, ':'))) {
+		return false;
+	}
+
+	RzFridaUri uri = { 0 };
+	uri.action_type = action_type;
+	uri.transport_type = transport_type;
+	uri.action = rz_str_dup(action);
+	uri.transport = rz_str_dup(transport);
+	uri.device = rz_str_dup(device ? device : "");
+	uri.target = rz_str_dup(target ? target : "");
+	if (!uri.action || !uri.transport || !uri.device || !uri.target) {
+		rz_frida_uri_fini(&uri);
+		return false;
+	}
+	*out = uri;
+	return true;
+}
+
 RZ_IPI bool rz_frida_uri_copy(RzFridaUri *dst, const RzFridaUri *src) {
 	rz_return_val_if_fail(dst && src, false);
 

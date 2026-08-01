@@ -666,12 +666,11 @@ function classLoadMonitor(params) {
         return { enabled: true };
     }
     loadClassMonitorEnabled = false;
-    seenLoadedClasses.clear();
     return { enabled: false };
 }
 
 function newlyLoadedClassesGet() {
-    if (!loadClassMonitorEnabled) {
+    if (seenLoadedClasses.size === 0) {
         return { classes: [], count: 0, monitor: false };
     }
     var result = [];
@@ -684,7 +683,7 @@ function newlyLoadedClassesGet() {
             }
         }
     });
-    return { classes: result, count: result.length };
+    return { classes: result, count: result.length, monitor: loadClassMonitorEnabled };
 }
 
 function rnSet(params) {

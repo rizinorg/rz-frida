@@ -401,6 +401,7 @@ typedef struct rz_frida_backend_session_t {
 	RzFridaMsgBuf *messages; ///< Async agent output not tied to a request.
 	GMutex lock; ///< Guards reply state and the async message buffer.
 	GCond reply_cond; ///< Signaled when reply_ready becomes true.
+	GRecMutex req_lock; ///< Serializes agent requests (single in-flight reply slot).
 } RzFridaBackendSession;
 
 static void backend_script_teardown(RzFridaBackendSession *backend);
@@ -437,6 +438,7 @@ static void backend_session_dispose(RzFridaSession *session) {
 	}
 	g_cond_clear(&backend->reply_cond);
 	g_mutex_clear(&backend->lock);
+	g_rec_mutex_clear(&backend->req_lock);
 	RZ_FREE(backend);
 }
 
@@ -620,6 +622,7 @@ RZ_IPI bool rz_frida_backend_open(RzFridaSession *session, PJ *pj) {
 	}
 	g_mutex_init(&backend->lock);
 	g_cond_init(&backend->reply_cond);
+	g_rec_mutex_init(&backend->req_lock);
 	backend->manager = manager;
 	backend->device = device;
 	backend->session = frida_session;
@@ -903,9 +906,14 @@ static bool backend_request(RzFridaBackendSession *backend, RzFridaSession *sess
 		return false;
 	}
 
+	// backend keeps a single reply slot (await_id), so requests must
+	// never overlap. recursive mutex lets nested requests (like rn
+	// import helper reusing rn_list) run on same thread w/o deadlock.
+	g_rec_mutex_lock(&backend->req_lock);
 	g_mutex_lock(&backend->lock);
 	if (!rz_frida_pending_add(backend->pending, id)) {
 		g_mutex_unlock(&backend->lock);
+		g_rec_mutex_unlock(&backend->req_lock);
 		free(request_json);
 		*fail_code = RZ_FRIDA_ERROR_INTERNAL;
 		*fail_msg = "cannot track the request";
@@ -943,6 +951,7 @@ static bool backend_request(RzFridaBackendSession *backend, RzFridaSession *sess
 			*fail_msg = "the request timed out";
 			break;
 		}
+		g_rec_mutex_unlock(&backend->req_lock);
 		return false;
 	}
 
@@ -950,6 +959,7 @@ static bool backend_request(RzFridaBackendSession *backend, RzFridaSession *sess
 	rz_mem_memzero(&backend->reply, sizeof(backend->reply));
 	backend->reply_ready = false;
 	g_mutex_unlock(&backend->lock);
+	g_rec_mutex_unlock(&backend->req_lock);
 	return true;
 }
 
@@ -975,12 +985,15 @@ static bool backend_emit_response(PJ *pj, const RzFridaResponse *response) {
 
 // create and load the agent script once per session, reload if died.
 static bool backend_ensure_script(RzFridaBackendSession *backend, RzFridaSession *session, PJ *pj) {
+	// similar to backend_request
+	g_rec_mutex_lock(&backend->req_lock);
 	// start each req with a clean cancellation state.
 	if (backend->cancellable) {
 		g_cancellable_reset(backend->cancellable);
 	}
 	rz_frida_session_reset_cancel(session);
 	if (backend->script && !frida_script_is_destroyed(backend->script)) {
+		g_rec_mutex_unlock(&backend->req_lock);
 		return true;
 	}
 	if (backend->script) {
@@ -989,12 +1002,14 @@ static bool backend_ensure_script(RzFridaBackendSession *backend, RzFridaSession
 	}
 	if (!backend->session || frida_session_is_detached(backend->session)) {
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "the session is not attached");
+		g_rec_mutex_unlock(&backend->req_lock);
 		return false;
 	}
 	if (!backend->pending) {
 		backend->pending = rz_frida_pending_new();
 		if (!backend->pending) {
 			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the request registry");
+			g_rec_mutex_unlock(&backend->req_lock);
 			return false;
 		}
 	}
@@ -1002,6 +1017,7 @@ static bool backend_ensure_script(RzFridaBackendSession *backend, RzFridaSession
 		backend->messages = rz_frida_msgbuf_new(0);
 		if (!backend->messages) {
 			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the message buffer");
+			g_rec_mutex_unlock(&backend->req_lock);
 			return false;
 		}
 	}
@@ -1009,6 +1025,7 @@ static bool backend_ensure_script(RzFridaBackendSession *backend, RzFridaSession
 	FridaScriptOptions *options = frida_script_options_new();
 	if (!options) {
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot create the script options");
+		g_rec_mutex_unlock(&backend->req_lock);
 		return false;
 	}
 	frida_script_options_set_name(options, "rzfrida");
@@ -1022,6 +1039,7 @@ static bool backend_ensure_script(RzFridaBackendSession *backend, RzFridaSession
 		if (error) {
 			g_error_free(error);
 		}
+		g_rec_mutex_unlock(&backend->req_lock);
 		return false;
 	}
 
@@ -1033,11 +1051,13 @@ static bool backend_ensure_script(RzFridaBackendSession *backend, RzFridaSession
 		g_signal_handler_disconnect(script, handler);
 		frida_unref(script);
 		g_error_free(error);
+		g_rec_mutex_unlock(&backend->req_lock);
 		return false;
 	}
 
 	backend->script = script;
 	backend->message_handler = handler;
+	g_rec_mutex_unlock(&backend->req_lock);
 	return true;
 }
 
@@ -1194,7 +1214,11 @@ RZ_IPI bool rz_frida_backend_mem_write(RZ_NONNULL RzFridaSession *session, ut64 
 		return false;
 	}
 
-	char *hex = malloc(len * 2 + 1);
+	if (len > (SIZE_MAX - 1) / 2) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "write size exceeds the addressable range");
+		return false;
+	}
+	char *hex = RZ_NEWS(char, len * 2 + 1);
 	if (!hex) {
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
 		return false;
@@ -2305,16 +2329,180 @@ RZ_IPI bool rz_frida_backend_flag_modules(RZ_NONNULL RzFridaSession *session, RZ
 	return ok;
 }
 
+/**
+ * Extracts the "result" node from a parsed agent JSON response.
+ * If the response is an error envelope ({ok:false,error:{...}}),
+ * writes the error to \p pj and returns NULL.
+ */
+static RZ_NULLABLE const RzJson *get_result_or_error(RZ_NONNULL PJ *pj, RZ_NONNULL const RzJson *r) {
+	rz_return_val_if_fail(pj && r, NULL);
+	const RzJson *res = rz_json_get(r, "result");
+	if (res) {
+		return res;
+	}
+	const RzJson *err = rz_json_get(r, "error");
+	if (err && err->type == RZ_JSON_OBJECT) {
+		const RzJson *msg = rz_json_get(err, "message");
+		if (msg && msg->type == RZ_JSON_STRING && msg->str_value) {
+			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, msg->str_value);
+			return NULL;
+		}
+	}
+	rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "the agent returned an unexpected reply");
+	return NULL;
+}
+
+static void import_rn_methods(RZ_NONNULL RzCore *core, RZ_NONNULL const RzJson *res, RZ_NONNULL PJ *pj) {
+	rz_return_if_fail(core && res && pj);
+	const RzJson *inv = rz_json_get(res, "invocations");
+	size_t total = 0;
+	const RzJson *entry = (inv && inv->type == RZ_JSON_ARRAY) ? inv->children.first : NULL;
+	while (entry) {
+		const RzJson *cn = rz_json_get(entry, "className");
+		const RzJson *methods = rz_json_get(entry, "methods");
+		if (!cn || cn->type != RZ_JSON_STRING || !cn->str_value) {
+			entry = entry->next;
+			continue;
+		}
+		if (!methods || methods->type != RZ_JSON_ARRAY) {
+			entry = entry->next;
+			continue;
+		}
+		const RzJson *m = methods->children.first;
+		while (m) {
+			const RzJson *mn = rz_json_get(m, "name");
+			const RzJson *ma = rz_json_get(m, "address");
+			if (mn && ma && mn->type == RZ_JSON_STRING && mn->str_value &&
+				ma->type == RZ_JSON_STRING && ma->str_value) {
+				rz_analysis_class_create(core->analysis, cn->str_value);
+				RzAnalysisMethod meth = {
+					.name = rz_str_dup(mn->str_value),
+					.real_name = rz_str_dup(mn->str_value),
+					.addr = rz_num_math(core->num, ma->str_value),
+					.vtable_offset = -1,
+					.method_type = RZ_ANALYSIS_CLASS_METHOD_DEFAULT
+				};
+				rz_analysis_class_method_set(core->analysis, cn->str_value, &meth);
+				rz_analysis_class_method_fini(&meth);
+				total++;
+			}
+			m = m->next;
+		}
+		entry = entry->next;
+	}
+	rz_frida_json_ok_begin(pj);
+	pj_kb(pj, "imported", true);
+	pj_kn(pj, "methods", (ut64)total);
+	rz_frida_json_ok_end(pj);
+}
+
+RZ_IPI bool rz_frida_backend_rn_import(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && core && pj, false);
+
+	PJ *tmp = pj_new();
+	if (!tmp) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the request");
+		return false;
+	}
+	rz_frida_backend_rn_list(session, tmp);
+	char *raw = pj_drain(tmp);
+	char *txt = raw ? rz_str_dup(raw) : NULL;
+	free(raw);
+	if (!txt) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
+		return false;
+	}
+	RzJson *r = rz_json_parse(txt);
+	if (!r) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
+		free(txt);
+		return false;
+	}
+	const RzJson *res = get_result_or_error(pj, r);
+	if (!res) {
+		free(txt);
+		rz_json_free(r);
+		return false;
+	}
+	import_rn_methods(core, res, pj);
+	free(txt);
+	rz_json_free(r);
+	return true;
+}
+
+
 static int strptr_cmp(const void *a, const void *b) {
-	const char *sa = *(const char **)a;
-	const char *sb = *(const char **)b;
-	if (!sa) {
-		return sb ? -1 : 0;
+	return rz_str_cmp(*(const char **)a, *(const char **)b, -1);
+}
+
+/**
+ * \brief Enumerate the target modules through the agent and import their base
+ * addresses into the frida.libs flag space.
+ *
+ * Lists the loaded modules via \ref rz_frida_backend_flag_modules, then
+ * creates a rizin flag for each module in the frida.libs space. The reply
+ * carries the number of imported modules.
+ *
+ * \param session Active session.
+ * \param core RzCore whose flag space receives the module flags.
+ * \param pj JSON builder that receives the reply envelope.
+ * \return true when the modules were imported, false on any error.
+ */
+RZ_IPI bool rz_frida_backend_flag_import(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NONNULL PJ *pj) {
+	rz_return_val_if_fail(session && core && pj, false);
+
+	PJ *tmp = pj_new();
+	if (!tmp) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the request");
+		return false;
 	}
-	if (!sb) {
-		return 1;
+	rz_frida_backend_flag_modules(session, tmp);
+	char *raw = pj_drain(tmp);
+	char *txt = raw ? rz_str_dup(raw) : NULL;
+	free(raw);
+	if (!txt) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
+		return false;
 	}
-	return strcmp(sa, sb);
+	RzJson *r = rz_json_parse(txt);
+	if (!r) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot parse the reply");
+		free(txt);
+		return false;
+	}
+	const RzJson *res = get_result_or_error(pj, r);
+	if (!res) {
+		free(txt);
+		rz_json_free(r);
+		return false;
+	}
+	const RzJson *mods = rz_json_get(res, "modules");
+	size_t count = 0;
+	if (mods && mods->type == RZ_JSON_ARRAY) {
+		rz_flag_space_push(core->flags, "frida.libs");
+		const RzJson *m = mods->children.first;
+		while (m) {
+			const RzJson *mn = rz_json_get(m, "name");
+			const RzJson *mb = rz_json_get(m, "base");
+			const RzJson *ms = rz_json_get(m, "size");
+			if (mn && mb && mn->type == RZ_JSON_STRING && mn->str_value &&
+				mb->type == RZ_JSON_STRING && mb->str_value) {
+				ut64 base = rz_num_math(core->num, mb->str_value);
+				ut32 size = (ms && ms->type == RZ_JSON_INTEGER) ? (ut32)ms->num.u_value : 1;
+				rz_flag_set(core->flags, mn->str_value, base, size);
+				count++;
+			}
+			m = m->next;
+		}
+		rz_flag_space_pop(core->flags);
+	}
+	rz_frida_json_ok_begin(pj);
+	pj_kb(pj, "imported", true);
+	pj_kn(pj, "modules", (ut64)count);
+	rz_frida_json_ok_end(pj);
+	free(txt);
+	rz_json_free(r);
+	return true;
 }
 
 /**

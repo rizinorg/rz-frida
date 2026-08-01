@@ -3,7 +3,8 @@
 
 #include "FridaDockWidget.h"
 #include "FridaConnectDialog.h"
-#include "FridaCmdRunner.h"
+#include "FridaApiBridge.h"
+#include "FridaTaskRunner.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -19,12 +20,13 @@
 #include <QSortFilterProxyModel>
 
 // ---- constructor ----
-
 FridaDockWidget::FridaDockWidget(MainWindow *main)
 	: CutterDockWidget(main),
 	  m_hasSession(false),
 	  m_hasJava(false)
 {
+	m_api = new FridaApiBridge();
+	m_tasks = new FridaTaskRunner(this);
 	setObjectName("FridaDockWidget");
 	setWindowTitle(tr("Frida"));
 
@@ -46,12 +48,10 @@ FridaDockWidget::FridaDockWidget(MainWindow *main)
 	statusLayout->setContentsMargins(4, 2, 4, 2);
 	sessionLabel = new QLabel(tr("Not connected"), statusWidget);
 	targetLabel = new QLabel(statusWidget);
-	agentLabel = new QLabel(statusWidget);
 	connectButton = new QPushButton(tr("Connect"), statusWidget);
 	disconnectButton = new QPushButton(tr("Disconnect"), statusWidget);
 	disconnectButton->setVisible(false);
 	statusLayout->addWidget(sessionLabel);
-	statusLayout->addWidget(agentLabel);
 	statusLayout->addWidget(targetLabel, 1);
 	statusLayout->addWidget(connectButton);
 	statusLayout->addWidget(disconnectButton);
@@ -72,19 +72,23 @@ FridaDockWidget::FridaDockWidget(MainWindow *main)
 }
 
 // ---- status bar + session management ----
+FridaDockWidget::~FridaDockWidget()
+	// waitForAll blocks until every queued/running task completes,
+	// preventing use-after-free of m_api by bg threads.
+	if (m_tasks) {
+		m_tasks->waitForAll();
+	}
+	delete m_api;
+}
+
 
 void FridaDockWidget::updateSessionState()
 {
-	try {
-		QJsonObject result = FridaCmdRunner::runSync("fridasj");
-		m_hasSession = result["active"].toBool();
-	} catch (const QString &) {
-		m_hasSession = false;
-	}
+	m_hasSession = m_api->hasSession();
 	m_hasJava = false;
 	if (m_hasSession) {
 		try {
-			QJsonObject javaResult = FridaCmdRunner::runSync("fridaJj");
+			QJsonObject javaResult = m_api->javaAvailable();
 			m_hasJava = javaResult["available"].toBool();
 		} catch (const QString &) {}
 	}
@@ -101,55 +105,52 @@ void FridaDockWidget::setSessionEnabled(bool enabled)
 		tabs->setTabEnabled(i, enabled);
 	}
 	// dex diff needs java
-	for (int i = 0; i < tabs->count(); i++) {
-		if (tabs->tabText(i) == tr("DEX Diff")) {
-			tabs->setTabEnabled(i, enabled && m_hasJava);
-			break;
-		}
-	}
+	tabs->setTabEnabled(m_dexDiffTabIndex, enabled && m_hasJava);
 }
 
 void FridaDockWidget::onConnectClicked()
 {
 	FridaConnectDialog dlg(this);
-	if (dlg.exec() != QDialog::Accepted) {
-		return;
-	}
-	const QString cmd = dlg.getCommand();
+	dlg.setApi(m_api);
+	if (dlg.exec() != QDialog::Accepted) return;
+
 	connectButton->setEnabled(false);
 	targetLabel->setText(tr("Connecting..."));
-	FridaCmdRunner::runAsyncQuiet(cmd, this,
-		[this](const QJsonObject &result) {
-			bool spawned = (result["action"].toString() == "spawn");
-			targetLabel->setText(tr("session opened"));
-			connectButton->setEnabled(true);
-			if (spawned) {
-				FridaCmdRunner::runAsyncQuiet("fridarj", this,
-					[this](const QJsonObject &) {
-						updateSessionState();
-					},
-					[this](const QString &) {
-						updateSessionState();
-					});
-			} else {
-				updateSessionState();
-			}
-		},
-		[this](const QString &err) {
-			QMessageBox::warning(this, tr("Connection Failed"), err);
-			targetLabel->setText(err);
-			connectButton->setEnabled(true);
-		});
+
+	QString action = dlg.action();
+	QString transport = dlg.transport();
+	QString device = dlg.device();
+	QString target = dlg.target();
+
+	m_tasks->run([this, action, transport, device, target]() -> QJsonObject {
+		return m_api->openSession(action, transport, device, target);
+	}, this,
+	[this](const QJsonObject &result) {
+		bool spawned = (result["action"].toString() == "spawn");
+		targetLabel->setText(tr("session opened"));
+		connectButton->setEnabled(true);
+		if (spawned) {
+			m_tasks->run([this]() -> QJsonObject {
+				return m_api->resumeSession();
+			}, this,
+			[this](const QJsonObject &) { updateSessionState(); },
+			[this](const QString &) { updateSessionState(); });
+		} else {
+			updateSessionState();
+		}
+	},
+	[this](const QString &err) {
+		QMessageBox::warning(this, tr("Connection Failed"), err);
+		targetLabel->setText(err);
+		connectButton->setEnabled(true);
+	});
 }
 
 void FridaDockWidget::onDisconnectClicked()
 {
-	try {
-		FridaCmdRunner::runSync("fridacj");
-		updateSessionState();
-	} catch (const QString &) {
-	} catch (...) {
-	}
+	m_tasks->waitForAll();
+	try { m_api->closeSession(); } catch (const QString &) {} catch (...) {}
+	updateSessionState();
 }
 
 void FridaDockWidget::refreshAll()
@@ -214,7 +215,7 @@ void FridaDockWidget::setupSessionTab()
 
 	connect(refreshDevicesBtn_session, &QPushButton::clicked, this, [this]() {
 		refreshDevicesBtn_session->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridadj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->listDevices(); }, this,
 			[this](const QJsonObject &result) {
 				QJsonArray devices = result["devices"].toArray();
 				m_devices.clear();
@@ -259,12 +260,11 @@ void FridaDockWidget::setupSessionTab()
 		QString device;
 		int idx = deviceCombo_session->currentIndex();
 		if (idx >= 0 && idx < m_devices.size()) device = m_devices[idx].id;
-		QString uri = QString("frida://list/%1/%2/").arg(transport, device);
-		QString cmd = (targetTypeCombo_session->currentData().toString() == "package")
-			? ("fridaaj " + uri) : ("fridapj " + uri);
 		bool isPkg = (targetTypeCombo_session->currentData().toString() == "package");
 		refreshTargetsBtn_session->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet(cmd, this,
+		m_tasks->run([this, transport, device, isPkg]() -> QJsonObject {
+			return isPkg ? m_api->listApps(transport, device) : m_api->listProcesses(transport, device);
+		}, this,
 			[this, isPkg](const QJsonObject &result) {
 				m_processes.clear();
 				QJsonArray arr = result[isPkg ? "apps" : "processes"].toArray();
@@ -298,24 +298,21 @@ void FridaDockWidget::setupSessionTab()
 			    deviceCombo_session->currentIndex() < m_devices.size())
 			   ? m_devices[deviceCombo_session->currentIndex()].id : QString());
 		QString target = targetEdit_session->text().trimmed();
-		QString uri = QString("%1/%2/%3/%4").arg(action, transport, device, target);
 		connectBtn->setEnabled(false);
 		connectButton->setEnabled(false);
 		targetLabel->setText(tr("Connecting..."));
-		FridaCmdRunner::runAsyncQuiet("fridaoj " + uri, this,
+		m_tasks->run([this, action, transport, device, target]() -> QJsonObject {
+			return m_api->openSession(action, transport, device, target);
+		}, this,
 			[this, connectBtn, transport, device, target](const QJsonObject &result) {
 				bool spawned = (result["action"].toString() == "spawn");
 				targetLabel->setText(QString("%1:%2 (%3)").arg(transport, device, target));
 				connectBtn->setEnabled(true);
 				connectButton->setEnabled(true);
 				if (spawned) {
-					FridaCmdRunner::runAsyncQuiet("fridarj", this,
-						[this](const QJsonObject &) {
-							updateSessionState();
-						},
-						[this](const QString &) {
-							updateSessionState();
-						});
+					m_tasks->run([this]() -> QJsonObject { return m_api->resumeSession(); }, this,
+						[this](const QJsonObject &) { updateSessionState(); },
+						[this](const QString &) { updateSessionState(); });
 				} else {
 					updateSessionState();
 				}
@@ -408,7 +405,7 @@ void FridaDockWidget::setupRuntimeTab()
 	connect(refreshBtn, &QPushButton::clicked, this, [this, refreshBtn]() {
 		if (!m_hasSession) return;
 		refreshBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaRj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->ranges(); }, this,
 			[this, refreshBtn](const QJsonObject &result) {
 				auto *rm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(rangesTable->model())->sourceModel());
 				rm->removeRows(0, rm->rowCount());
@@ -420,7 +417,7 @@ void FridaDockWidget::setupRuntimeTab()
 				}
 				refreshBtn->setEnabled(true);
 			}, [this, refreshBtn](const QString &) { refreshBtn->setEnabled(true); });
-		FridaCmdRunner::runAsyncQuiet("fridaMj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->modules(); }, this,
 			[this](const QJsonObject &result) {
 				auto *mm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(modulesTable->model())->sourceModel());
 				mm->removeRows(0, mm->rowCount());
@@ -430,7 +427,7 @@ void FridaDockWidget::setupRuntimeTab()
 						makeItem(QString::number(m["size"].toInt())), makeItem(m["path"].toString())});
 				}
 			}, [this](const QString &) {});
-		FridaCmdRunner::runAsyncQuiet("fridatj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->threads(); }, this,
 			[this](const QJsonObject &result) {
 				auto *tm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(threadsTable->model())->sourceModel());
 				tm->removeRows(0, tm->rowCount());
@@ -450,7 +447,9 @@ void FridaDockWidget::setupRuntimeTab()
 		if (addr.isEmpty() || size.isEmpty()) return;
 		if (!m_hasSession) return;
 		readBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet(QString("fridaxj %1 %2").arg(addr, size), this,
+		quint64 address = addr.toULongLong(nullptr, 0);
+		quint64 sz = size.toULongLong(nullptr, 0);
+		m_tasks->run([this, address, sz]() -> QJsonObject { return m_api->memRead(address, sz); }, this,
 			[this, readBtn](const QJsonObject &result) {
 				memOutput->setPlainText(result["bytes"].toString());
 				readBtn->setEnabled(true);
@@ -467,7 +466,9 @@ void FridaDockWidget::setupRuntimeTab()
 		if (addr.isEmpty() || hex.isEmpty()) return;
 		if (!m_hasSession) return;
 		writeBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet(QString("fridawj %1 %2").arg(addr, hex), this,
+		quint64 address = addr.toULongLong(nullptr, 0);
+		QByteArray hexBytes = hex.toUtf8();
+		m_tasks->run([this, address, hexBytes]() -> QJsonObject { return m_api->memWrite(address, hexBytes); }, this,
 			[this, writeBtn](const QJsonObject &result) {
 				memOutput->setPlainText(tr("Written %1 byte(s)").arg(result["size"].toInt()));
 				writeBtn->setEnabled(true);
@@ -486,7 +487,7 @@ void FridaDockWidget::setupRuntimeTab()
 		QString modName = proxy->data(proxy->index(idx.row(), 0)).toString();
 		modExportsBtn->setEnabled(false);
 		clearModel(moduleDetailTable);
-		FridaCmdRunner::runAsyncQuiet("fridaEj " + modName, this,
+		m_tasks->run([this, modName]() -> QJsonObject { return m_api->exports(modName); }, this,
 			[this](const QJsonObject &result) {
 				auto *dm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(moduleDetailTable->model())->sourceModel());
 				for (const auto &v : result["exports"].toArray()) {
@@ -507,7 +508,7 @@ void FridaDockWidget::setupRuntimeTab()
 		QString modName = proxy->data(proxy->index(idx.row(), 0)).toString();
 		modImportsBtn->setEnabled(false);
 		clearModel(moduleDetailTable);
-		FridaCmdRunner::runAsyncQuiet("fridaIj " + modName, this,
+		m_tasks->run([this, modName]() -> QJsonObject { return m_api->imports(modName); }, this,
 			[this](const QJsonObject &result) {
 				auto *dm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(moduleDetailTable->model())->sourceModel());
 				for (const auto &v : result["imports"].toArray()) {
@@ -528,7 +529,7 @@ void FridaDockWidget::setupRuntimeTab()
 		QString modName = proxy->data(proxy->index(idx.row(), 0)).toString();
 		modSymbolsBtn->setEnabled(false);
 		clearModel(moduleDetailTable);
-		FridaCmdRunner::runAsyncQuiet("fridaSj " + modName, this,
+		m_tasks->run([this, modName]() -> QJsonObject { return m_api->symbols(modName); }, this,
 			[this](const QJsonObject &result) {
 				auto *dm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(moduleDetailTable->model())->sourceModel());
 				for (const auto &v : result["symbols"].toArray()) {
@@ -563,7 +564,7 @@ void FridaDockWidget::setupJavaTab()
 	connect(refreshLoadersBtn, &QPushButton::clicked, this, [this, refreshLoadersBtn]() {
 		if (!m_hasSession) return;
 		refreshLoadersBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaLj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->loaders(); }, this,
 			[this, refreshLoadersBtn](const QJsonObject &result) {
 				auto *lm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(loaderTable->model())->sourceModel());
 				lm->removeRows(0, lm->rowCount());
@@ -596,11 +597,15 @@ void FridaDockWidget::setupJavaTab()
 	connect(clmStartBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		clmStartBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaNj start", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->classLoadMonitor(true); }, this,
 			[this](const QJsonObject &result) {
 				bool ok = result["enabled"].toBool();
 				clmStatusLabel->setText(ok ? tr("Status: monitoring") : tr("Status: java unavailable"));
 				clmStartBtn->setEnabled(true);
+				// to remove old entries, we clear
+				if (ok) {
+					clearModel(clmTable);
+				}
 			}, [this](const QString &e) {
 				clmStatusLabel->setText(tr("Error: %1").arg(e));
 				clmStartBtn->setEnabled(true);
@@ -610,10 +615,12 @@ void FridaDockWidget::setupJavaTab()
 	connect(clmStopBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		clmStopBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaNj stop", this,
-			[this](const QJsonObject &result) {
+		m_tasks->run([this]() -> QJsonObject { return m_api->classLoadMonitor(false); }, this,
+			[this](const QJsonObject &) {
 				clmStatusLabel->setText(tr("Status: stopped"));
 				clmStopBtn->setEnabled(true);
+				// show whatever was captured before stopping
+				clmRefreshBtn->click();
 			}, [this](const QString &e) {
 				clmStatusLabel->setText(tr("Error: %1").arg(e));
 				clmStopBtn->setEnabled(true);
@@ -623,7 +630,7 @@ void FridaDockWidget::setupJavaTab()
 	connect(clmRefreshBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		clmRefreshBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaNj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->newlyLoadedClasses(); }, this,
 			[this](const QJsonObject &result) {
 				auto *cm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(clmTable->model())->sourceModel());
 				cm->removeRows(0, cm->rowCount());
@@ -668,9 +675,8 @@ void FridaDockWidget::setupJavaTab()
 	connect(refreshClassesBtn, &QPushButton::clicked, this, [this, refreshClassesBtn]() {
 		if (!m_hasSession) return;
 		QString prefix = prefixFilter->text().trimmed();
-		QString cmd = prefix.isEmpty() ? QString("fridaCj") : QString("fridaCj %1").arg(prefix);
 		refreshClassesBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet(cmd, this,
+		m_tasks->run([this, prefix]() -> QJsonObject { return m_api->classes(prefix); }, this,
 			[this, refreshClassesBtn](const QJsonObject &result) {
 				auto *cm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(classTable->model())->sourceModel());
 				cm->removeRows(0, cm->rowCount());
@@ -690,7 +696,7 @@ void FridaDockWidget::setupJavaTab()
 		if (!idx.isValid()) return;
 		QString name = proxy->data(idx).toString();
 		describeBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaDj " + name, this,
+		m_tasks->run([this, name]() -> QJsonObject { return m_api->describeClass(name); }, this,
 			[this](const QJsonObject &result) {
 				classDetailOutput->setPlainText(QJsonDocument(result).toJson(QJsonDocument::Indented));
 				describeBtn->setEnabled(true);
@@ -707,7 +713,7 @@ void FridaDockWidget::setupJavaTab()
 		if (!idx.isValid()) return;
 		QString name = proxy->data(idx).toString();
 		importBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaImj " + name, this,
+		m_tasks->run([this, name]() -> QJsonObject { return m_api->importClass(name); }, this,
 			[this](const QJsonObject &) {
 				Core()->triggerRefreshAll();
 				importBtn->setEnabled(true);
@@ -765,7 +771,8 @@ void FridaDockWidget::setupScriptTab()
 		if (scriptPathEdit->text().isEmpty()) return;
 		if (!m_hasSession) return;
 		scriptLoadBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridalj '" + scriptPathEdit->text() + "'", this,
+		QString path = scriptPathEdit->text();
+		m_tasks->run([this, path]() -> QJsonObject { return m_api->loadScript(path); }, this,
 			[this](const QJsonObject &result) {
 				scriptOutput->setPlainText(tr("Loaded: %1").arg(result["loaded"].toBool() ? "OK" : "Failed"));
 				scriptLoadBtn->setEnabled(true);
@@ -780,7 +787,7 @@ void FridaDockWidget::setupScriptTab()
 		if (source.isEmpty()) return;
 		if (!m_hasSession) return;
 		evalBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaej '" + source + "'", this,
+		m_tasks->run([this, source]() -> QJsonObject { return m_api->eval(source); }, this,
 			[this](const QJsonObject &result) {
 				scriptOutput->setPlainText(QString("%1 (%2)").arg(
 					result["value"].toVariant().toString(), result["type"].toString()));
@@ -815,7 +822,7 @@ void FridaDockWidget::setupMessagesTab()
 	connect(messagesRefreshBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		messagesRefreshBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridamj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->messages(); }, this,
 			[this](const QJsonObject &result) {
 				messageLog->clear();
 				for (const auto &m : result["messages"].toArray()) {
@@ -868,9 +875,8 @@ void FridaDockWidget::setupDexDiffTab()
 	connect(dexCompareBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		QString prefix = dexPrefixEdit->text().trimmed();
-		QString cmd = prefix.isEmpty() ? QString("fridaXj") : QString("fridaXj %1").arg(prefix);
 		dexCompareBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet(cmd, this,
+		m_tasks->run([this, prefix]() -> QJsonObject { return m_api->dexDiff(prefix); }, this,
 			[this](const QJsonObject &result) {
 				dexLoadedBinLabel->setText(tr("%1").arg(result["loaded_bin"].toBool() ? "Yes" : "No"));
 				dexOnlyStaticLabel->setText(QString::number(result["only_static"].toInt()));
@@ -883,7 +889,7 @@ void FridaDockWidget::setupDexDiffTab()
 			});
 	});
 
-	tabs->addTab(page, tr("DEX Diff"));
+	m_dexDiffTabIndex = tabs->addTab(page, tr("DEX Diff"));
 }
 
 void FridaDockWidget::setupRnTab()
@@ -909,21 +915,21 @@ void FridaDockWidget::setupRnTab()
 	connect(rnOnBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		rnOnBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaRNj on", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->rnSet(true); }, this,
 			[this](const QJsonObject &) { rnOnBtn->setEnabled(true); },
 			[this](const QString &) { rnOnBtn->setEnabled(true); });
 	});
 	connect(rnOffBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		rnOffBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaRNj off", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->rnSet(false); }, this,
 			[this](const QJsonObject &) { rnOffBtn->setEnabled(true); },
 			[this](const QString &) { rnOffBtn->setEnabled(true); });
 	});
 	connect(rnRefreshBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		rnRefreshBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaRNj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->rnList(); }, this,
 			[this](const QJsonObject &result) {
 				auto *rm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(rnTable->model())->sourceModel());
 				rm->removeRows(0, rm->rowCount());
@@ -942,7 +948,9 @@ void FridaDockWidget::setupRnTab()
 	connect(rnImportBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		rnImportBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaRNj import", this,
+		m_tasks->run([this]() -> QJsonObject {
+			return m_api->rnImport();
+		}, this,
 			[this](const QJsonObject &) {
 				Core()->triggerRefreshAll();
 				rnImportBtn->setEnabled(true);
@@ -968,7 +976,7 @@ void FridaDockWidget::setupFlagsTab()
 	connect(flagsImportBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		flagsImportBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridafj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->flagImport(); }, this,
 			[this](const QJsonObject &result) {
 				flagsOutput->setPlainText(tr("Imported %1 module(s) into frida.libs flag space")
 					.arg(result["modules"].toInt()));
@@ -1032,7 +1040,8 @@ void FridaDockWidget::setupDebugTab()
 		QString addr = bpAddrEdit->text().trimmed();
 		if (addr.isEmpty()) return;
 		bpSetBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridabj " + addr, this,
+		quint64 address = addr.toULongLong(nullptr, 0);
+		m_tasks->run([this, address]() -> QJsonObject { return m_api->bpSet(address); }, this,
 			[this](const QJsonObject &) { bpSetBtn->setEnabled(true); bpListBtn->click(); },
 			[this](const QString &e) { bpSetBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("BP Error: %1").arg(e)); });
 	});
@@ -1043,7 +1052,7 @@ void FridaDockWidget::setupDebugTab()
 		QString addr = bpAddrEdit->text().trimmed();
 		if (addr.isEmpty()) return;
 		bpRemoveBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridab-j " + addr, this,
+		m_tasks->run([this, addr]() -> QJsonObject { return m_api->bpRemove(addr); }, this,
 			[this](const QJsonObject &) { bpRemoveBtn->setEnabled(true); bpListBtn->click(); },
 			[this](const QString &e) { bpRemoveBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("BP Error: %1").arg(e)); });
 	});
@@ -1052,7 +1061,7 @@ void FridaDockWidget::setupDebugTab()
 	connect(bpRemoveAllBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		bpRemoveAllBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridab-j *", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->bpRemoveAll(); }, this,
 			[this](const QJsonObject &) { bpRemoveAllBtn->setEnabled(true); bpListBtn->click(); },
 			[this](const QString &e) { bpRemoveAllBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("BP Error: %1").arg(e)); });
 	});
@@ -1061,7 +1070,7 @@ void FridaDockWidget::setupDebugTab()
 	connect(bpListBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		bpListBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridabj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->bpList(); }, this,
 			[this](const QJsonObject &result) {
 				clearModel(bpTable);
 				auto *bm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(bpTable->model())->sourceModel());
@@ -1079,7 +1088,7 @@ void FridaDockWidget::setupDebugTab()
 		QString tid = bpContinueTidEdit->text().trimmed();
 		if (tid.isEmpty()) return;
 		bpContinueBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridagj " + tid, this,
+		m_tasks->run([this, tid]() -> QJsonObject { return m_api->continueThread(tid); }, this,
 			[this](const QJsonObject &result) {
 				bpNotifyLog->appendPlainText(tr("Continue TID %1: resumed=%2").arg(
 					QString::number(result["threadId"].toInt()),
@@ -1096,7 +1105,7 @@ void FridaDockWidget::setupDebugTab()
 	connect(bpContinueLastBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		bpContinueLastBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridagj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->continueThread(); }, this,
 			[this](const QJsonObject &result) {
 				bpNotifyLog->appendPlainText(tr("Continue last: resumed=%1").arg(
 					result["resumed"].toBool() ? "true" : "false"));
@@ -1146,12 +1155,12 @@ void FridaDockWidget::setupDebugTab()
 		if (!m_hasSession) return;
 		QString addr = wpAddrEdit->text().trimmed();
 		if (addr.isEmpty()) return;
-		QString size = wpSizeEdit->text().trimmed();
+		QString sizeStr = wpSizeEdit->text().trimmed();
 		QString cond = wpCondCombo->currentText();
-		QString cmd = size.isEmpty() ? QString("fridaWj %1 %2").arg(addr, cond)
-			: QString("fridaWj %1 %2 %3").arg(addr, size, cond);
+		quint64 address = addr.toULongLong(nullptr, 0);
+		quint64 sz = sizeStr.isEmpty() ? 1 : sizeStr.toULongLong(nullptr, 0);
 		wpSetBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet(cmd, this,
+		m_tasks->run([this, address, sz, cond]() -> QJsonObject { return m_api->wpSet(address, sz, cond); }, this,
 			[this](const QJsonObject &) { wpSetBtn->setEnabled(true); wpListBtn->click(); },
 			[this](const QString &e) { wpSetBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("WP Error: %1").arg(e)); });
 	});
@@ -1162,7 +1171,7 @@ void FridaDockWidget::setupDebugTab()
 		QString addr = wpAddrEdit->text().trimmed();
 		if (addr.isEmpty()) return;
 		wpRemoveBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaW-j " + addr, this,
+		m_tasks->run([this, addr]() -> QJsonObject { return m_api->wpRemove(addr); }, this,
 			[this](const QJsonObject &) { wpRemoveBtn->setEnabled(true); wpListBtn->click(); },
 			[this](const QString &e) { wpRemoveBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("WP Error: %1").arg(e)); });
 	});
@@ -1171,7 +1180,7 @@ void FridaDockWidget::setupDebugTab()
 	connect(wpRemoveAllBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		wpRemoveAllBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaW-j *", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->wpRemoveAll(); }, this,
 			[this](const QJsonObject &) { wpRemoveAllBtn->setEnabled(true); wpListBtn->click(); },
 			[this](const QString &e) { wpRemoveAllBtn->setEnabled(true); bpNotifyLog->appendPlainText(tr("WP Error: %1").arg(e)); });
 	});
@@ -1180,7 +1189,7 @@ void FridaDockWidget::setupDebugTab()
 	connect(wpListBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
 		wpListBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaWj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->wpList(); }, this,
 			[this](const QJsonObject &result) {
 				clearModel(wpTable);
 				auto *wm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(wpTable->model())->sourceModel());
@@ -1231,7 +1240,8 @@ void FridaDockWidget::setupDebugTab()
 		QString tid = regTidEdit->text().trimmed();
 		if (tid.isEmpty()) return;
 		regReadBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet("fridaBj " + tid, this,
+		quint64 threadId = tid.toULongLong(nullptr, 0);
+		m_tasks->run([this, threadId]() -> QJsonObject { return m_api->regRead(threadId); }, this,
 			[this](const QJsonObject &result) {
 				clearModel(regTable);
 				auto *rm = static_cast<QStandardItemModel *>(static_cast<QSortFilterProxyModel *>(regTable->model())->sourceModel());
@@ -1256,7 +1266,8 @@ void FridaDockWidget::setupDebugTab()
 		QString val = regValueEdit->text().trimmed();
 		if (tid.isEmpty() || reg.isEmpty() || val.isEmpty()) return;
 		regWriteBtn->setEnabled(false);
-		FridaCmdRunner::runAsyncQuiet(QString("fridaBj %1 %2 %3").arg(tid, reg, val), this,
+		quint64 threadId = tid.toULongLong(nullptr, 0);
+		m_tasks->run([this, threadId, reg, val]() -> QJsonObject { return m_api->regWrite(threadId, reg, val); }, this,
 			[this](const QJsonObject &result) {
 				bpNotifyLog->appendPlainText(tr("Write %1 = %2").arg(
 					result["register"].toString(), result["value"].toString()));
@@ -1280,7 +1291,7 @@ void FridaDockWidget::setupDebugTab()
 	// check messages for bp/wp notifs
 	connect(bpListBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_hasSession) return;
-		FridaCmdRunner::runAsyncQuiet("fridamj", this,
+		m_tasks->run([this]() -> QJsonObject { return m_api->messages(); }, this,
 			[this](const QJsonObject &result) {
 				for (const auto &m : result["messages"].toArray()) {
 					QJsonObject msg = m.toObject();
