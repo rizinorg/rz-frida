@@ -73,6 +73,7 @@ FridaDockWidget::FridaDockWidget(MainWindow *main)
 
 // ---- status bar + session management ----
 FridaDockWidget::~FridaDockWidget()
+{
 	// waitForAll blocks until every queued/running task completes,
 	// preventing use-after-free of m_api by bg threads.
 	if (m_tasks) {

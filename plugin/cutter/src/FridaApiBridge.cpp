@@ -15,6 +15,22 @@
 FridaApiBridge::FridaApiBridge() = default;
 FridaApiBridge::~FridaApiBridge() = default;
 
+static QString envelopeError(const QString &json, const QString &fallback)
+{
+	QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+	if (!doc.isNull() && doc.isObject()) {
+		QJsonObject obj = doc.object();
+		if (!obj["ok"].toBool()) {
+			QJsonObject err = obj["error"].toObject();
+			QString message = err["message"].toString();
+			if (!message.isEmpty()) {
+				return message;
+			}
+		}
+	}
+	return fallback;
+}
+
 RzFridaSession *FridaApiBridge::session() const
 {
 	RzCoreLocked coreLocked = Core()->lock();
@@ -46,16 +62,7 @@ QJsonObject FridaApiBridge::callBackend(std::function<bool(RzFridaSession *, voi
 	QString jsonStr = QString::fromUtf8(json ? json : "");
 	free(json);
 	if (!ok) {
-		QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
-		if (!doc.isNull() && doc.isObject()) {
-			QJsonObject obj = doc.object();
-			if (!obj["ok"].toBool()) {
-				QJsonObject err = obj["error"].toObject();
-				throw err["message"].toString();
-			}
-			return obj["result"].toObject();
-		}
-		throw QString("Frida backend call failed");
+		throw envelopeError(jsonStr, "Frida backend call failed");
 	}
 	return parseEnvelope(jsonStr);
 }
@@ -71,16 +78,7 @@ QJsonObject FridaApiBridge::callBackendNoSession(std::function<bool(void *)> fn)
 	QString jsonStr = QString::fromUtf8(json ? json : "");
 	free(json);
 	if (!ok) {
-		QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
-		if (!doc.isNull() && doc.isObject()) {
-			QJsonObject obj = doc.object();
-			if (!obj["ok"].toBool()) {
-				QJsonObject err = obj["error"].toObject();
-				throw err["message"].toString();
-			}
-			return obj["result"].toObject();
-		}
-		throw QString("Frida backend call failed");
+		throw envelopeError(jsonStr, "Frida backend call failed");
 	}
 	return parseEnvelope(jsonStr);
 }
@@ -104,16 +102,7 @@ QJsonObject FridaApiBridge::callBackendWithCore(std::function<bool(RzFridaSessio
 	QString jsonStr = QString::fromUtf8(json ? json : "");
 	free(json);
 	if (!ok) {
-		QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
-		if (!doc.isNull() && doc.isObject()) {
-			QJsonObject obj = doc.object();
-			if (!obj["ok"].toBool()) {
-				QJsonObject err = obj["error"].toObject();
-				throw err["message"].toString();
-			}
-			return obj["result"].toObject();
-		}
-		throw QString("Frida backend call failed");
+		throw envelopeError(jsonStr, "Frida backend call failed");
 	}
 	return parseEnvelope(jsonStr);
 }
@@ -124,15 +113,7 @@ QJsonObject FridaApiBridge::drainAndParseResponse(PJ *pj, bool ok, const QString
 	QString jsonStr = QString::fromUtf8(json ? json : "");
 	free(json);
 	if (!ok) {
-		QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
-		if (!doc.isNull() && doc.isObject()) {
-			QJsonObject obj = doc.object();
-			if (!obj["ok"].toBool()) {
-				QJsonObject err = obj["error"].toObject();
-				throw err["message"].toString();
-			}
-		}
-		throw fallbackError;
+		throw envelopeError(jsonStr, fallbackError);
 	}
 	return parseEnvelope(jsonStr);
 }
@@ -256,15 +237,7 @@ QJsonObject FridaApiBridge::closeSession()
 	QString jsonStr = QString::fromUtf8(json ? json : "");
 	free(json);
 	if (!ok) {
-		QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
-		if (!doc.isNull() && doc.isObject()) {
-			QJsonObject obj = doc.object();
-			if (!obj["ok"].toBool()) {
-				QJsonObject err = obj["error"].toObject();
-				throw err["message"].toString();
-			}
-		}
-		throw QString("Failed to close Frida session");
+		throw envelopeError(jsonStr, "Failed to close Frida session");
 	}
 	return parseEnvelope(jsonStr);
 }
