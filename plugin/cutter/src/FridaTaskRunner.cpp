@@ -80,7 +80,8 @@ void FridaTaskRunner::workerLoop()
 			while (d->queue.isEmpty() && !d->quit) {
 				d->workCond.wait(&d->mutex);
 			}
-			if (d->queue.isEmpty() && d->quit) {
+			if (d->quit) {
+				// drop queued tasks instead of running them
 				break;
 			}
 			pending = d->queue.dequeue();
