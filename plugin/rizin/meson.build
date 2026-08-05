@@ -93,6 +93,7 @@ endif
 if frida_core_enabled
   rz_frida_deps += frida_core_dep
   rz_frida_backend_src = 'src/rz_frida_backend.c'
+  rz_frida_c_args += ['-DHAVE_FRIDA_CORE']
 else
   rz_frida_backend_src = 'src/rz_frida_backend_null.c'
 endif

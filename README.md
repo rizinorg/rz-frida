@@ -90,6 +90,16 @@ fridaJj
 fridaLj
 fridaCj
 fridaCj re.frida.minapp
+fridaXj
+fridaXj re.frida.minapp
+fridaNj
+fridaNj start
+fridaNj stop
+fridaRNj
+fridaRNj on
+fridaRNj off
+fridaRNj import
+fridafj
 ```
 
 `fridadj`, `fridapj`, `fridaaj`, and `fridaoj` return a structured `frida_unavailable`
@@ -304,26 +314,49 @@ the partially typed prefix from the line buffer, queries the agent for matching 
 classes, and shows suggestions. `frida.ac.min` (default 2) sets the minimum characters
 before autocomplete fires, and `frida.ac.max` (default 12) caps the number of suggestions.
 
+`fridaXj [prefix]` compares the runtime class list against the statically-loaded binary
+classes (when a binary is open in rizin) and returns counts: `only_static`, `only_runtime`,
+and `both`. An optional prefix filters both sides. The `frida.dex.max` config (default 0,
+unlimited) caps how many runtime classes are fetched during comparison.
+
+`fridaNj start` arms classload hooks on all active classloaders and intercepts new
+classloader creation, recording loaded classes until `fridaNj stop` detaches the hooks
+and clears the buffer. `fridaNj` with no arg lists the classes loaded since `start`.
+
+`fridaRNj on` hooks the low-level JNI RegisterNatives call on the ART runtime (JNI
+function table offset 215) to intercept native method registrations. `fridaRNj off`
+disarms the hook and clears the buffer. `fridaRNj` lists captured invocations with
+class name, method names, signatures, and native function addresses. `fridaRNj import`
+imports the captured native method entries into rizin's analysis class database.
+
+`fridafj` imports the target's loaded runtime modules as rizin flags in the `frida.libs`
+flag space so they're visible with commands like `f` (list flags) and `s <name>` (seek
+to a module's base).
+
 ## Configuration
 
-Six `e` config variables tune the runtime behaviour:
+Seven `e` config variables tune the runtime behaviour:
 
 ```
 e frida.mem.max=0x100000   # max bytes per fridaxj/fridawj transfer, 0 for no limit
 e frida.timeout=5000       # session and agent request timeout in milliseconds
 e frida.hw.watchpoints=4   # max hardware watchpoint slots fridaW may use, capped by the CPU
 e frida.java.max=512       # max loaded classes fridaC returns per request, 0 for unlimited
+e frida.dex.max=0          # max runtime classes fridaX compares, 0 for unlimited
 e frida.ac.min=2           # min chars before class autocomplete triggers
 e frida.ac.max=12          # max class autocomplete suggestions shown
 ```
 
-`frida.timeout` is applied when a session is opened with `fridaoj`. `frida.hw.watchpoints`
-defaults to 4 (the common arm64 and x86 count), raise it on a CPU with more slots.
-`frida.java.max` defaults to 512 to avoid dumping tens of thousands of classes at once,
-set it to 0 on a fast device when you need the complete list. `frida.ac.min` and
-`frida.ac.max` control class-name Tab-completion for `fridaDj` and `fridaImj`: the
-first autocomplete query is made only when at least `frida.ac.min` chars are typed,
-and at most `frida.ac.max` suggestions are shown at once.
+`frida.timeout` is applied when a session is opened with `fridaoj`. It also applies to
+the `backend_probe_remote` TCP pre-flight that tests reachability before frida-core's
+own connect, so unreachable remote hosts fail in bounded time instead of waiting for OS
+TCP retries. `frida.hw.watchpoints` defaults to 4 (the common arm64 and x86count), 
+raise it on a CPU with more slots. `frida.java.max` defaults to 512 to avoid
+dumping tens of thousands of classes at once, set it to 0 on a fast device when you need
+the complete list. `frida.dex.max` caps the runtime class list during `fridaXj` comparison,
+defaulting to 0 (unlimited). `frida.ac.min` and `frida.ac.max` control class-name
+Tab-completion for `fridaDj` and `fridaImj`. `frida.mem.max` guards mem r/w
+transfers against large allocs.
 
 ## Install
 
@@ -348,13 +381,82 @@ ninja -C build-asan
 
 # Cutter Plugin
 
-Requires Cutter headers and CMake package files to build the native plugin.
+A Cutter dock widget that connects to the rz-frida rizin plugin via
+`Core()->cmdRaw()`. All commands use the JSON (`j`) suffix for structured replies.
+
+## Build
+
+Requires the Cutter CMake config and headers from a Cutter installation or
+extracted AppImage.
 
 ```
 cmake -S plugin/cutter -B build-cutter -DCMAKE_PREFIX_PATH=/path/to/cutter/install
 cmake --build build-cutter
 cmake --install build-cutter
 ```
+
+Just for example, the Cutter v2.5.0 AppImage:
+
+```
+./Cutter-v2.5.0-x86_64.AppImage --appimage-extract
+cmake -S plugin/cutter -B build-cutter -DCMAKE_PREFIX_PATH=./squashfs-root/usr
+make -C build-cutter -j$(nproc)
+make install -C build-cutter
+```
+
+The plugin `.so` lands in `<prefix>/share/rizin/cutter/plugins/native/`.
+
+## FridaDockWidget
+
+The dock widget provides 9 tabs, behind a Frida session
+(disabled when not connected, enabled on connect):
+
+- **Session** — inline transport/device/target/action controls with device and
+  process listing, plus a direct Connect button that opens the session without
+  the modal dialog
+- **Runtime** — subtabbed memory ranges, modules, and threads tables populated
+  via `fridaRj`/`fridaMj`/`fridatj` in parallel, memory read via `fridaxj`,
+  memory write via `fridawj`, and module detail panel showing exports
+  (`fridaEj`), imports (`fridaIj`), and symbols (`fridaSj`) for the selected
+  module
+- **Java** — classloader enumeration (`fridaLj`), class load monitor
+  (`fridaNj` start/stop/refresh-newly-loaded), prefix-filtered class list
+  (`fridaCj`), describe (`fridaDj`) with JSON detail, and import-to-analysis
+  (`fridaImj`)
+- **Script** — file loading (`fridalj`) and inline JS eval (`fridaej`)
+- **Messages** — agent message buffer drain (`fridamj`) with dropped-message count
+- **DEX Diff** — runtime-vs-static class comparison (`fridaXj`) with counts for
+  only-in-static, only-in-runtime, and both
+- **RegNat** — RegisterNatives hook enable/disable/refresh/import (`fridaRNj`)
+- **Flags** — runtime module import into `frida.libs` flag space (`fridafj`)
+- **Debug** — native breakpoints (`fridabj` set/list, `fridab-j` remove/all),
+  breakpoint continue (`fridagj` with optional TID), hardware watchpoints
+  (`fridaWj` set/list with address/size/conditions, `fridaW-j` remove/all),
+  register r/w for stopped threads (`fridaBj`), and a break/watchpoint
+  notif log
+
+## FridaCmdRunner
+
+All agent roundtrips go through `FridaCmdRunner::runAsyncQuiet()`, a non-modal
+task runner that enqueues a `RizinCmdTask` on the background thread and fires
+callbacks on the Qt main thread when the result arrives. The caller disables the
+triggering button during flight and re-enables it on completion, so the UI
+never freezes. No `RizinTaskDialog` modal dialog is used.
+
+Quick session-state checks (`fridasj`, disconnect) use `FridaCmdRunner::runSync()`
+which calls `Core()->cmdRaw()` on the main thread. All responses are parsed
+through `parseEnvelope()` which validates the `ok`/`error`/`result` structure.
+
+## FridaConnectDialog
+
+A modal dialog for transport/device/target/action selection. Transport choices
+(local/USB/remote) toggle the host:port field and device combo. Refresh buttons
+populate the device and process/package table via JSON commands. Last-used
+settings persist in QSettings across restarts.
+
+The Connect command is `fridaoj attach|spawn|launch/<transport>/<device>/<target>`
+without the `frida://` prefix. The handler in the rizin plugin accepts URIs with
+or without the prefix.
 
 # References
 

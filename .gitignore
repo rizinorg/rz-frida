@@ -14,3 +14,4 @@ install-*/
 compile_commands.json
 frida-devkit/
 frida-artifacts/
+node_modules/

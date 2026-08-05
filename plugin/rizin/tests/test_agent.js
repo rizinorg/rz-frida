@@ -988,13 +988,13 @@ assert.strictEqual(descNoKt.result.kotlin, undefined, 'no kotlin key for non-kot
 const javaAvailOrig = sandbox.Java.available;
 sandbox.Java.available = false;
 const monNoJava = roundtrip({ id: 136, type: 'classLoadMonitor', params: { enable: true } });
-assert.strictEqual(monNoJava.ok, false, 'classLoadMonitor without Java is rejected');
-assert.strictEqual(monNoJava.error, 'Java VM is not available', 'error message names the precondition');
+assert.strictEqual(monNoJava.ok, true, 'classLoadMonitor without Java returns gracefully');
+assert.strictEqual(monNoJava.result.javaUnavailable, true, 'javaUnavailable flag is set');
 
 // rnSet — Java not available
 const rnNoJava = roundtrip({ id: 137, type: 'rnSet', params: { enable: true } });
-assert.strictEqual(rnNoJava.ok, false, 'rnSet without Java is rejected');
-assert.strictEqual(rnNoJava.error, 'Java VM is not available', 'error message names the precondition');
+assert.strictEqual(rnNoJava.ok, true, 'rnSet without Java returns gracefully');
+assert.strictEqual(rnNoJava.result.javaUnavailable, true, 'javaUnavailable flag is set');
 sandbox.Java.available = javaAvailOrig;
 
 console.log('ok - agent script protocol');
