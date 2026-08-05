@@ -61,8 +61,6 @@ add_library(cutter_frida_plugin MODULE
 	src/FridaPlugin.h
 	src/FridaTaskRunner.cpp
 	src/FridaTaskRunner.h
-	src/PjHandle.cpp
-	src/PjHandle.h
 )
 
 target_include_directories(cutter_frida_plugin PRIVATE

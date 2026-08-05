@@ -8,9 +8,9 @@
 #include <QList>
 #include <QMutex>
 #include <functional>
-#include "PjHandle.h"
 
 typedef struct rz_frida_session_t RzFridaSession;
+typedef struct pj_t PJ;
 
 class FridaApiBridge {
 public:
@@ -78,6 +78,6 @@ private:
 	QJsonObject callBackend(std::function<bool(RzFridaSession *, void *)> fn);
 	QJsonObject callBackendNoSession(std::function<bool(void *)> fn);
 	QJsonObject callBackendWithCore(std::function<bool(RzFridaSession *, void *, void *)> fn);
-	QJsonObject drainAndParseResponse(PjHandle &pj, bool ok, const QString &fallbackError);
+	QJsonObject drainAndParseResponse(PJ *pj, bool ok, const QString &fallbackError);
 	static QJsonObject parseEnvelope(const QString &json);
 };
