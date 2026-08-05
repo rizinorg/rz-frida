@@ -191,7 +191,7 @@ void FridaDockWidget::setupSessionTab()
 	transportCombo_session->addItem(tr("Remote"), "remote");
 	transportCombo_session->setCurrentIndex(1);
 	hostPortEdit_session = new QLineEdit(transportGroup);
-	hostPortEdit_session->setPlaceholderText("host:port");
+	hostPortEdit_session->setPlaceholderText(tr("host:port"));
 	hostPortEdit_session->setVisible(false);
 	transportLayout->addWidget(new QLabel(tr("Transport:"), transportGroup));
 	transportLayout->addWidget(transportCombo_session, 1);

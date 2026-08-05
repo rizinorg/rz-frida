@@ -86,3 +86,25 @@ set_target_properties(cutter_frida_plugin PROPERTIES
 )
 
 install(TARGETS cutter_frida_plugin DESTINATION "${CUTTER_INSTALL_PLUGDIR}")
+
+# Add a language by dropping translations/frida_<locale>.ts and listing it here.
+set(FRIDA_TS_FILES
+	# translations/frida_de_DE.ts (for ex)
+)
+# Install next to Cutter's own translation files, share/rizin/cutter/translations
+get_filename_component(FRIDA_CUTTER_DATA_DIR "${CUTTER_INSTALL_PLUGDIR}" DIRECTORY)
+get_filename_component(FRIDA_CUTTER_DATA_DIR "${FRIDA_CUTTER_DATA_DIR}" DIRECTORY)
+if(Qt5_FOUND)
+	find_package(Qt5LinguistTools QUIET)
+else()
+	find_package(Qt6LinguistTools QUIET)
+endif()
+if(FRIDA_TS_FILES AND (Qt5LinguistTools_FOUND OR Qt6LinguistTools_FOUND))
+	if(Qt6LinguistTools_FOUND)
+		qt6_add_translation(QM_FILES ${FRIDA_TS_FILES})
+	else()
+		qt5_add_translation(QM_FILES ${FRIDA_TS_FILES})
+	endif()
+	add_custom_target(frida_translations ALL DEPENDS ${QM_FILES} SOURCES ${FRIDA_TS_FILES})
+	install(FILES ${QM_FILES} DESTINATION "${FRIDA_CUTTER_DATA_DIR}/translations")
+endif()

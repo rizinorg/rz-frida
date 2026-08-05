@@ -9,6 +9,7 @@
 #include <rz_core.h>
 #include <rz_util.h>
 
+#include <QCoreApplication>
 #include <QJsonDocument>
 #include <QFile>
 
@@ -37,7 +38,7 @@ RzFridaSession *FridaApiBridge::session() const
 	RzCore *core = (RzCore *)coreLocked.operator->();
 	RzFridaSession *s = rz_frida_session_from_core(core);
 	if (!s) {
-		throw QString("No active Frida session");
+		throw QCoreApplication::translate("FridaApiBridge", "No active Frida session");
 	}
 	return s;
 }
@@ -55,14 +56,14 @@ QJsonObject FridaApiBridge::callBackend(std::function<bool(RzFridaSession *, voi
 	RzFridaSession *s = session();
 	PjHandle pj;
 	if (!pj) {
-		throw QString("JSON allocation failed");
+		throw QCoreApplication::translate("FridaApiBridge", "JSON allocation failed");
 	}
 	bool ok = fn(s, pj.get());
 	char *json = pj.drain();
 	QString jsonStr = QString::fromUtf8(json ? json : "");
 	free(json);
 	if (!ok) {
-		throw envelopeError(jsonStr, "Frida backend call failed");
+		throw envelopeError(jsonStr, QCoreApplication::translate("FridaApiBridge", "Frida backend call failed"));
 	}
 	return parseEnvelope(jsonStr);
 }
@@ -71,14 +72,14 @@ QJsonObject FridaApiBridge::callBackendNoSession(std::function<bool(void *)> fn)
 {
 	PjHandle pj;
 	if (!pj) {
-		throw QString("JSON allocation failed");
+		throw QCoreApplication::translate("FridaApiBridge", "JSON allocation failed");
 	}
 	bool ok = fn(pj.get());
 	char *json = pj.drain();
 	QString jsonStr = QString::fromUtf8(json ? json : "");
 	free(json);
 	if (!ok) {
-		throw envelopeError(jsonStr, "Frida backend call failed");
+		throw envelopeError(jsonStr, QCoreApplication::translate("FridaApiBridge", "Frida backend call failed"));
 	}
 	return parseEnvelope(jsonStr);
 }
@@ -88,20 +89,20 @@ QJsonObject FridaApiBridge::callBackendWithCore(std::function<bool(RzFridaSessio
 	QMutexLocker lock(&m_mutex);
 	PjHandle pj;
 	if (!pj) {
-		throw QString("JSON allocation failed");
+		throw QCoreApplication::translate("FridaApiBridge", "JSON allocation failed");
 	}
 	RzCoreLocked coreLocked = Core()->lock();
 	RzCore *core = (RzCore *)coreLocked.operator->();
 	RzFridaSession *s = rz_frida_session_from_core(core);
 	if (!s) {
-		throw QString("No active Frida session");
+		throw QCoreApplication::translate("FridaApiBridge", "No active Frida session");
 	}
 	bool ok = fn(s, core, pj.get());
 	char *json = pj.drain();
 	QString jsonStr = QString::fromUtf8(json ? json : "");
 	free(json);
 	if (!ok) {
-		throw envelopeError(jsonStr, "Frida backend call failed");
+		throw envelopeError(jsonStr, QCoreApplication::translate("FridaApiBridge", "Frida backend call failed"));
 	}
 	return parseEnvelope(jsonStr);
 }
@@ -120,11 +121,11 @@ QJsonObject FridaApiBridge::drainAndParseResponse(PjHandle &pj, bool ok, const Q
 QJsonObject FridaApiBridge::parseEnvelope(const QString &json)
 {
 	if (json.isEmpty()) {
-		throw QString("empty response from Frida backend");
+		throw QCoreApplication::translate("FridaApiBridge", "empty response from Frida backend");
 	}
 	QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
 	if (doc.isNull() || !doc.isObject()) {
-		throw QString("invalid JSON response: %1").arg(json.left(200));
+		throw QCoreApplication::translate("FridaApiBridge", "invalid JSON response: %1").arg(json.left(200));
 	}
 	QJsonObject obj = doc.object();
 	if (!obj["ok"].toBool()) {
@@ -145,7 +146,7 @@ QJsonObject FridaApiBridge::openSession(const QString &action, const QString &tr
 
 	PjHandle pj;
 	if (!pj) {
-		throw QString("JSON allocation failed");
+		throw QCoreApplication::translate("FridaApiBridge", "JSON allocation failed");
 	}
 
 	RzCoreLocked coreLocked = Core()->lock();
@@ -153,19 +154,19 @@ QJsonObject FridaApiBridge::openSession(const QString &action, const QString &tr
 
 	RzFridaSession *existing = rz_frida_session_from_core(core);
 	if (existing) {
-		throw QString("A session is already open");
+		throw QCoreApplication::translate("FridaApiBridge", "A session is already open");
 	}
 
 	RzFridaUri uri = {};
 	if (!rz_frida_uri_from_parts(actionBytes.constData(), transportBytes.constData(),
 		deviceBytes.constData(), targetBytes.constData(), &uri)) {
-		throw QString("Invalid Frida URI");
+		throw QCoreApplication::translate("FridaApiBridge", "Invalid Frida URI");
 	}
 
 	RzFridaSession *sess = rz_frida_session_new();
 	if (!sess) {
 		rz_frida_uri_fini(&uri);
-		throw QString("Cannot allocate session");
+		throw QCoreApplication::translate("FridaApiBridge", "Cannot allocate session");
 	}
 
 	ut64 timeout = rz_config_get_integer(core->config, "frida.timeout");
@@ -177,20 +178,20 @@ QJsonObject FridaApiBridge::openSession(const QString &action, const QString &tr
 	if (!rz_frida_session_set_uri(sess, &uri)) {
 		rz_frida_uri_fini(&uri);
 		rz_frida_session_free(sess);
-		throw QString("Cannot store session URI");
+		throw QCoreApplication::translate("FridaApiBridge", "Cannot store session URI");
 	}
 	rz_frida_uri_fini(&uri);
 
 	bool opened = rz_frida_backend_open(sess, pj.get());
 	if (!opened) {
 		rz_frida_session_free(sess);
-		return drainAndParseResponse(pj, false, "Failed to open Frida session");
+		return drainAndParseResponse(pj, false, QCoreApplication::translate("FridaApiBridge", "Failed to open Frida session"));
 	}
 
 	rz_frida_session_store_to_core(core, sess);
 	if (rz_frida_session_from_core(core) != sess) {
 		rz_frida_session_free(sess);
-		throw QString("Failed to store session in rizin plugin context");
+		throw QCoreApplication::translate("FridaApiBridge", "Failed to store session in rizin plugin context");
 	}
 
 	return drainAndParseResponse(pj, true, QString());
@@ -201,14 +202,14 @@ QJsonObject FridaApiBridge::closeSession()
 	QMutexLocker lock(&m_mutex);
 	PjHandle pj;
 	if (!pj) {
-		throw QString("JSON allocation failed");
+		throw QCoreApplication::translate("FridaApiBridge", "JSON allocation failed");
 	}
 
 	RzCoreLocked coreLocked = Core()->lock();
 	RzCore *core = (RzCore *)coreLocked.operator->();
 	RzFridaSession *s = rz_frida_session_from_core(core);
 	if (!s) {
-		throw QString("No active Frida session");
+		throw QCoreApplication::translate("FridaApiBridge", "No active Frida session");
 	}
 
 	bool ok = rz_frida_backend_close(s, pj.get());
@@ -219,7 +220,7 @@ QJsonObject FridaApiBridge::closeSession()
 	QString jsonStr = QString::fromUtf8(json ? json : "");
 	free(json);
 	if (!ok) {
-		throw envelopeError(jsonStr, "Failed to close Frida session");
+		throw envelopeError(jsonStr, QCoreApplication::translate("FridaApiBridge", "Failed to close Frida session"));
 	}
 	return parseEnvelope(jsonStr);
 }
@@ -336,16 +337,16 @@ QJsonObject FridaApiBridge::memWrite(quint64 address, const QByteArray &hexBytes
 	QByteArray cleanHex = hexBytes.simplified().replace(" ", "");
 	int len = cleanHex.length() / 2;
 	if (len <= 0 || cleanHex.length() % 2) {
-		throw QString("Expected an even-length hex byte string");
+		throw QCoreApplication::translate("FridaApiBridge", "Expected an even-length hex byte string");
 	}
 	ut8 *bytes = RZ_NEWS(ut8, len);
 	if (!bytes) {
-		throw QString("Cannot allocate write buffer");
+		throw QCoreApplication::translate("FridaApiBridge", "Cannot allocate write buffer");
 	}
 	int actual = rz_hex_str2bin(cleanHex.constData(), bytes);
 	if (actual < 1) {
 		free(bytes);
-		throw QString("Invalid hex byte string");
+		throw QCoreApplication::translate("FridaApiBridge", "Invalid hex byte string");
 	}
 	try {
 		auto result = callBackend([=](RzFridaSession *s, void *pjPtr) {
@@ -426,7 +427,7 @@ QJsonObject FridaApiBridge::loadScript(const QString &filePath)
 {
 	QFile file(filePath);
 	if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-		throw QString("Cannot read script file: %1").arg(filePath);
+		throw QCoreApplication::translate("FridaApiBridge", "Cannot read script file: %1").arg(filePath);
 	}
 	QByteArray source = file.readAll();
 	file.close();

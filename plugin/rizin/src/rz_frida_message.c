@@ -94,7 +94,7 @@ RZ_IPI void rz_frida_agent_message_to_json(RZ_NONNULL const RzFridaAgentMessage 
 		if (message->payload) {
 			// pj_k + pj_raw leaves pj internal is_key flag set,
 			// which suppresses separator before next element and
-			// emits invalid json. so we write the pair raw, "kind" is
+			// emits invalid JSON. Thus, we write the pair raw, "kind" is
 			// always preceding, so comma is deterministic.
 			pj_raw(pj, ",\"payload\":");
 			pj_raw(pj, message->payload);
