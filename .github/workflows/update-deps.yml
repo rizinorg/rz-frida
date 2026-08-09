@@ -1,0 +1,52 @@
+name: Update dependency pins
+
+# Checks latest rizin / frida / Cutter releases once a week and opens a
+# pr when a pinned version in the release workflow is outdated.
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-deps
+  cancel-in-progress: true
+
+jobs:
+  bump:
+    name: Check for newer dependency releases
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Bump version pins
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/bump_release_versions.py
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            git diff
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: deps/update-release-pins
+          title: 'update release dependency pins'
+          body: |
+            ## Summary
+            - bump the rizin / frida / Cutter version pins in the workflows to their latest releases
+          commit-message: 'update release dependency pins'
+          delete-branch: true

@@ -82,7 +82,7 @@ The `frida` command group is available inside rizin after the plugin loads. The
 Extract a Cutter AppImage, build the plugin against it, and run Cutter:
 
 ```
-./Cutter-v2.5.0-x86_64.AppImage --appimage-extract           # extract the AppImage
+./Cutter-v2.5.0-Linux-x86_64.AppImage --appimage-extract           # extract the AppImage
 cmake -S plugin/cutter -B build-cutter -DCMAKE_PREFIX_PATH=./squashfs-root/usr  # configure
 cmake --build build-cutter                                    # build the plugin
 cmake --install build-cutter                                  # install the .so
@@ -504,7 +504,7 @@ cmake --install build-cutter                                                    
 Just for example, the Cutter v2.5.0 AppImage:
 
 ```
-./Cutter-v2.5.0-x86_64.AppImage --appimage-extract           # extract the AppImage
+./Cutter-v2.5.0-Linux-x86_64.AppImage --appimage-extract           # extract the AppImage
 cmake -S plugin/cutter -B build-cutter -DCMAKE_PREFIX_PATH=./squashfs-root/usr  # configure
 cmake --build build-cutter                                    # build
 cmake --install build-cutter                                  # install
