@@ -24,6 +24,12 @@ on:
         description: "Release name override"
         required: false
         type: string
+  pull_request:
+    branches:
+      - '**release**'
+  push:
+    branches:
+      - '**release**'
 
 # Dependency pins, bumped by the update-deps workflow.
 env:
@@ -102,6 +108,7 @@ jobs:
           mkdir -p frida-core-devkit
           tar xf frida-core-devkit-${FRIDA_VERSION}-linux-x86_64.tar.xz -C frida-core-devkit
           meson setup build \
+            --prefix=/usr \
             -Dfrida_core=enabled \
             -Dfrida_include_dir="$(pwd)/frida-core-devkit" \
             -Dfrida_library="$(pwd)/frida-core-devkit/libfrida-core.a"
@@ -153,6 +160,7 @@ jobs:
           mkdir -p frida-core-devkit
           tar xf frida-core-devkit-${FRIDA_VERSION}-linux-arm64.tar.xz -C frida-core-devkit
           meson setup build \
+            --prefix=/usr \
             -Dfrida_core=enabled \
             -Dfrida_include_dir="$(pwd)/frida-core-devkit" \
             -Dfrida_library="$(pwd)/frida-core-devkit/libfrida-core.a"
@@ -210,17 +218,34 @@ jobs:
           ninja -C build
           sudo ninja -C build install
 
-      - name: Smoke test (local attach)
+      - name: Smoke test (local attach as root)
         run: |
-          # frida local attach needs ptrace, disable yama restrictions
-          sudo sysctl -w kernel.yama.ptrace_scope=0 || true
-          sleep 30 &
+          # hosted runners deny task_for_pid for non-root, attach as root instead
+          python3 -c "import time; time.sleep(30)" &
           target=$!
-          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
+          out=$(sudo rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
           kill $target 2>/dev/null || true
           echo "$out"
-          echo "$out" | grep -q '"ok":true' || exit 1
+          echo "$out" | grep -q '"action":"attach"' || exit 1
+          echo "$out" | grep -q '"state":"attached"' || exit 1
           echo "$out" | grep -q '"ranges"' || exit 1
+
+      - name: Smoke test (local attach as user)
+        run: |
+          # non-root attach should work on a normal mac, on a hosted runner it fails cleanly
+          python3 -c "import time; time.sleep(30)" &
+          target=$!
+          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" malloc://512 2>&1)
+          kill $target 2>/dev/null || true
+          echo "$out"
+          if echo "$out" | grep -q '"action":"attach"'; then
+            echo "$out" | grep -q '"state":"attached"' || exit 1
+            echo "$out" | grep -q '"ranges"' || exit 1
+          else
+            echo "$out" | grep -q '"ok":false' || exit 1
+            echo "$out" | grep -q '"error"' || exit 1
+            echo "$out" | grep -q '"no session is open"' || exit 1
+          fi
 
       - uses: actions/upload-artifact@v7
         with:
@@ -261,17 +286,34 @@ jobs:
           ninja -C build
           sudo ninja -C build install
 
-      - name: Smoke test (local attach)
+      - name: Smoke test (local attach as root)
         run: |
-          # frida local attach needs ptrace, disable yama restrictions
-          sudo sysctl -w kernel.yama.ptrace_scope=0 || true
-          sleep 30 &
+          # hosted runners deny task_for_pid for non-root, attach as root instead
+          python3 -c "import time; time.sleep(30)" &
           target=$!
-          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
+          out=$(sudo rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
           kill $target 2>/dev/null || true
           echo "$out"
-          echo "$out" | grep -q '"ok":true' || exit 1
+          echo "$out" | grep -q '"action":"attach"' || exit 1
+          echo "$out" | grep -q '"state":"attached"' || exit 1
           echo "$out" | grep -q '"ranges"' || exit 1
+
+      - name: Smoke test (local attach as user)
+        run: |
+          # non-root attach should work on a normal mac, on a hosted runner it fails cleanly
+          python3 -c "import time; time.sleep(30)" &
+          target=$!
+          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" malloc://512 2>&1)
+          kill $target 2>/dev/null || true
+          echo "$out"
+          if echo "$out" | grep -q '"action":"attach"'; then
+            echo "$out" | grep -q '"state":"attached"' || exit 1
+            echo "$out" | grep -q '"ranges"' || exit 1
+          else
+            echo "$out" | grep -q '"ok":false' || exit 1
+            echo "$out" | grep -q '"error"' || exit 1
+            echo "$out" | grep -q '"no session is open"' || exit 1
+          fi
 
       - uses: actions/upload-artifact@v7
         with:
@@ -313,11 +355,12 @@ jobs:
           mkdir frida-core-devkit
           tar xf frida.tar.xz -C frida-core-devkit
           $env:PKG_CONFIG_PATH = "$env:RIZIN_SDK\lib\pkgconfig"
-          meson setup build --vsenv `
+          # release buildtype picks /MD CRT, same as release rizin SDK
+          meson setup build --vsenv --buildtype=release `
             -Dfrida_core=enabled `
             -Dfrida_include_dir="$(Get-Location)\frida-core-devkit" `
             -Dfrida_library="$(Get-Location)\frida-core-devkit\frida-core.lib"
-          ninja -C build
+          meson compile -C build
 
       - name: Smoke test (local attach)
         shell: pwsh
@@ -336,7 +379,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: rz-frida-rizin-windows-x86_64
-          path: build/plugin/rizin/rz_frida.dll
+          path: build/plugin/rizin/rz_frida.*
           if-no-files-found: error
 
   rizin-android:
@@ -406,8 +449,8 @@ jobs:
         with:
           name: rz-frida-rizin-android-${{ matrix.abi }}
           path: |
-            ${ANDROID_STAGING}/bin
-            ${ANDROID_STAGING}/lib
+            ${{ env.ANDROID_STAGING }}/bin
+            ${{ env.ANDROID_STAGING }}/lib
           if-no-files-found: error
 
   cutter-linux-x86_64-qt5:
@@ -563,7 +606,7 @@ jobs:
       - name: Smoke test (cutter load)
         run: |
           mkdir -p "$CUTTER_SDK/share/rizin/cutter/plugins/native"
-          cp build-cutter/libcutter_frida_plugin.dylib "$CUTTER_SDK/share/rizin/cutter/plugins/native/"
+          cp build-cutter/libcutter_frida_plugin.so "$CUTTER_SDK/share/rizin/cutter/plugins/native/"
           ./Cutter.app/Contents/MacOS/Cutter /bin/true > cutter.log 2>&1 &
           pid=$!
           sleep 25
@@ -574,7 +617,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: rz-frida-cutter-macos-x86_64-qt6
-          path: build-cutter/libcutter_frida_plugin.dylib
+          path: build-cutter/libcutter_frida_plugin.so
           if-no-files-found: error
 
   cutter-macos-arm64-qt6:
@@ -621,7 +664,7 @@ jobs:
       - name: Smoke test (cutter load)
         run: |
           mkdir -p "$CUTTER_SDK/share/rizin/cutter/plugins/native"
-          cp build-cutter/libcutter_frida_plugin.dylib "$CUTTER_SDK/share/rizin/cutter/plugins/native/"
+          cp build-cutter/libcutter_frida_plugin.so "$CUTTER_SDK/share/rizin/cutter/plugins/native/"
           ./Cutter.app/Contents/MacOS/Cutter /bin/true > cutter.log 2>&1 &
           pid=$!
           sleep 25
@@ -632,7 +675,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: rz-frida-cutter-macos-arm64-qt6
-          path: build-cutter/libcutter_frida_plugin.dylib
+          path: build-cutter/libcutter_frida_plugin.so
           if-no-files-found: error
 
   cutter-windows-x86_64-qt6:
@@ -648,9 +691,10 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install aqtinstall
+          choco install pkgconfiglite -y
           $qtOut = Join-Path $env:RUNNER_TEMP "Qt"
           # aqt 3.3.0 cannot install Qt 6.11+, its online repo layout changed
-          python -m aqt install-qt windows desktop 6.10.3 win64_msvc2022_64 --outputdir $qtOut
+          python -m aqt install-qt windows desktop 6.10.3 win64_msvc2022_64 --outputdir $qtOut --modules qt5compat
           echo "QT_PREFIX=$qtOut\6.10.3\msvc2022_64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
 
       - name: Extract Cutter SDK
@@ -673,28 +717,41 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "$env:CUTTER_SDK\lib\rizin\plugins" | Out-Null
-          Copy-Item "rizin-plugin\rz_frida.dll" "$env:CUTTER_SDK\lib\rizin\plugins\"
+          Copy-Item "rizin-plugin\rz_frida.*" "$env:CUTTER_SDK\lib\rizin\plugins\"
 
       - name: Build plugin
         shell: pwsh
         run: |
           $env:PKG_CONFIG_PATH = "$env:CUTTER_SDK\lib\pkgconfig"
-          cmake -S plugin/cutter -B build-cutter "-DCMAKE_PREFIX_PATH=$env:CUTTER_SDK;$env:QT_PREFIX" -G "Visual Studio 17 2022" -A x64
+          $gen = (cmake --help | Select-String '(?<=\* )Visual Studio \d+ 20\d\d' | Select-Object -First 1 | ForEach-Object { $_.Matches[0].Value })
+          if (-not $gen) {
+            Write-Host "::error::no Visual Studio generator found"
+            exit 1
+          }
+          cmake -S plugin/cutter -B build-cutter "-DCMAKE_PREFIX_PATH=$env:CUTTER_SDK;$env:QT_PREFIX" -G "$gen" -A x64
           cmake --build build-cutter --config Release
 
-      - name: Smoke test (cutter stays alive)
+      - name: Smoke test (cutter loads plugin)
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "$env:CUTTER_SDK\share\rizin\cutter\plugins\native" | Out-Null
-          Copy-Item "build-cutter\Release\cutter_frida_plugin.dll" "$env:CUTTER_SDK\share\rizin\cutter\plugins\native\"
+          Copy-Item -Path "build-cutter\Release\cutter_frida_plugin.dll", "$env:CUTTER_SDK\lib\rizin\plugins\rz_frida.dll" -Destination "$env:CUTTER_SDK\share\rizin\cutter\plugins\native\"
           $app = Get-ChildItem -Path "$env:CUTTER_SDK" -Filter "Cutter.exe" -Recurse | Select-Object -First 1
-          $p = Start-Process -FilePath $app.FullName -ArgumentList "/bin/true" -PassThru
+          if (-not $app) {
+            Write-Host "::error::Cutter.exe not found in SDK"
+            exit 1
+          }
+          $p = Start-Process -FilePath $app.FullName -RedirectStandardOutput cutter.log -RedirectStandardError cutter.err.log -PassThru
           Start-Sleep -Seconds 25
           if ($p.HasExited) {
             Write-Host "::error::Cutter exited early with code $($p.ExitCode)"
             exit 1
           }
           Stop-Process -Id $p.Id -Force
+          if (Select-String -Path cutter.log,cutter.err.log -Pattern "Load Error.*cutter_frida_plugin" -Quiet) {
+            Write-Host "::error::Plugin load error detected in Cutter log"
+            exit 1
+          }
 
       - uses: actions/upload-artifact@v7
         with:

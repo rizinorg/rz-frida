@@ -44,9 +44,13 @@ if not frida_core_opt.disabled()
         frida_core_manual_deps += m_dep
       endif
     endif
+    if host_machine.system() == 'windows'
+      frida_core_manual_deps += cc.find_library('setupapi', required: false)
+    endif
     if host_machine.system() == 'darwin'
       frida_core_manual_deps += dependency('appleframeworks', modules: ['Foundation', 'CoreFoundation', 'AppKit'])
       frida_core_manual_deps += cc.find_library('bsm', required: false)
+      frida_core_manual_deps += cc.find_library('resolv', required: false)
     endif
     frida_core_dep = declare_dependency(
       compile_args: frida_core_compile_args,
