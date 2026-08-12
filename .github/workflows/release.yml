@@ -339,7 +339,7 @@ jobs:
       - name: Extract rizin SDK
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://github.com/rizinorg/rizin/releases/download/$env:RIZIN_VERSION/rizin-windows-shared64-$env:RIZIN_VERSION.zip" -OutFile rizin.zip
+          curl.exe -fsSL --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 30 --max-time 900 -o rizin.zip "https://github.com/rizinorg/rizin/releases/download/$env:RIZIN_VERSION/rizin-windows-shared64-$env:RIZIN_VERSION.zip"
           7z x rizin.zip -orizin-sdk
           $sdk = Resolve-Path "rizin-sdk\rizin-win-installer-clang_cl-64"
           # the .pc files embed the builder's CI path, point them at this checkout
@@ -351,9 +351,42 @@ jobs:
       - name: Build plugin
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://github.com/frida/frida/releases/download/$env:FRIDA_VERSION/frida-core-devkit-$env:FRIDA_VERSION-windows-x86_64.tar.xz" -OutFile frida.tar.xz
+          curl.exe -fsSL --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 30 --max-time 900 -o frida.tar.xz "https://github.com/frida/frida/releases/download/$env:FRIDA_VERSION/frida-core-devkit-$env:FRIDA_VERSION-windows-x86_64.tar.xz"
           mkdir frida-core-devkit
-          tar xf frida.tar.xz -C frida-core-devkit
+          # bsdtar might hang on CI while extracting this archive,
+          # so use 7zip first, then tar, then tarfile.
+          $ok = $false
+          $sevenZip = 'C:\Program Files\7-Zip\7z.exe'
+          if (Test-Path -Path $sevenZip -PathType Leaf) {
+            & $sevenZip x -y "-ofrida-core-devkit" frida.tar.xz | Out-Null
+            $ok = Test-Path -Path 'frida-core-devkit\frida-core.h' -PathType Leaf
+            if (-not $ok) {
+              foreach ($innerTar in @('frida.tar', 'frida-core-devkit\frida.tar')) {
+                if (Test-Path -Path $innerTar -PathType Leaf) {
+                  & $sevenZip x -y "-ofrida-core-devkit" $innerTar | Out-Null
+                  Remove-Item -Force $innerTar -ErrorAction SilentlyContinue
+                  $ok = Test-Path -Path 'frida-core-devkit\frida-core.h' -PathType Leaf
+                  if ($ok) { break }
+                }
+              }
+            }
+          }
+          $gitTar = 'C:\Program Files\Git\usr\bin\tar.exe'
+          if (-not $ok -and (Test-Path -Path $gitTar -PathType Leaf)) {
+            & $gitTar xf frida.tar.xz -C frida-core-devkit
+            $ok = Test-Path -Path 'frida-core-devkit\frida-core.h' -PathType Leaf
+          }
+          if (-not $ok -and (Get-Command python -ErrorAction SilentlyContinue)) {
+            python -c "import sys, tarfile; tarfile.open(sys.argv[1]).extractall(sys.argv[2])" `
+              frida.tar.xz frida-core-devkit
+            $ok = Test-Path -Path 'frida-core-devkit\frida-core.h' -PathType Leaf
+          }
+          # cleanup
+          Remove-Item -Force 'frida.tar', 'frida-core-devkit\frida.tar' -ErrorAction SilentlyContinue
+          if (-not $ok) {
+            Get-ChildItem -Recurse frida-core-devkit | Select-Object -First 20 FullName
+            throw "frida-core devkit extraction failed: frida-core.h not found in frida-core-devkit"
+          }
           $env:PKG_CONFIG_PATH = "$env:RIZIN_SDK\lib\pkgconfig"
           # release buildtype picks /MD CRT, same as release rizin SDK
           meson setup build --vsenv --buildtype=release `
@@ -700,7 +733,7 @@ jobs:
       - name: Extract Cutter SDK
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://github.com/rizinorg/cutter/releases/download/$env:CUTTER_VERSION/Cutter-$env:CUTTER_VERSION-Windows-x86_64.zip" -OutFile cutter.zip
+          curl.exe -fsSL --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 30 --max-time 900 -o cutter.zip "https://github.com/rizinorg/cutter/releases/download/$env:CUTTER_VERSION/Cutter-$env:CUTTER_VERSION-Windows-x86_64.zip"
           7z x cutter.zip -oCutter
           $sdk = (Get-ChildItem -Path Cutter -Directory | Select-Object -First 1).FullName
           Get-ChildItem "$sdk\lib\pkgconfig\*.pc" | ForEach-Object {
