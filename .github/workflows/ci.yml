@@ -6,22 +6,27 @@ on:
   pull_request:
     branches: [main]
 
+# Dependency pins, bumped by update-deps workflow.
+env:
+  RIZIN_VERSION: v0.9.1
+  FRIDA_VERSION: 17.17.0
+
 jobs:
   linux-frida:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
-      - uses: actions/setup-node@v4
-        with: { node-version: '18' }
+      - uses: actions/setup-node@v7
+        with: { node-version: '24' }
 
       - name: Install rizin
         run: |
           pip install meson ninja PyYAML
-          wget -q "https://github.com/rizinorg/rizin/releases/download/v0.9.0/rizin-src-v0.9.0.tar.xz"
-          tar xf rizin-src-v0.9.0.tar.xz
-          cd rizin-v0.9.0
+          wget -q "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
+          tar xf rizin-src-${RIZIN_VERSION}.tar.xz
+          cd rizin-${RIZIN_VERSION}
           meson setup build --prefix=/usr -Dblob=true
           ninja -C build
           sudo ninja -C build install
@@ -29,13 +34,13 @@ jobs:
 
       - name: Build (with frida-core)
         run: |
-          wget -q "https://github.com/frida/frida/releases/download/17.14.0/frida-core-devkit-17.14.0-linux-x86_64.tar.xz"
-          mkdir -p frida-core-devkit-17.14.0
-          tar xf frida-core-devkit-17.14.0-linux-x86_64.tar.xz -C frida-core-devkit-17.14.0
+          wget -q "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-core-devkit-${FRIDA_VERSION}-linux-x86_64.tar.xz"
+          mkdir -p frida-core-devkit-${FRIDA_VERSION}
+          tar xf frida-core-devkit-${FRIDA_VERSION}-linux-x86_64.tar.xz -C frida-core-devkit-${FRIDA_VERSION}
           meson setup build \
             -Dfrida_core=enabled \
-            -Dfrida_include_dir="$(pwd)/frida-core-devkit-17.14.0" \
-            -Dfrida_library="$(pwd)/frida-core-devkit-17.14.0/libfrida-core.a"
+            -Dfrida_include_dir="$(pwd)/frida-core-devkit-${FRIDA_VERSION}" \
+            -Dfrida_library="$(pwd)/frida-core-devkit-${FRIDA_VERSION}/libfrida-core.a"
           ninja -C build
 
       - name: Test
@@ -44,18 +49,18 @@ jobs:
   linux-no-frida:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
-      - uses: actions/setup-node@v4
-        with: { node-version: '18' }
+      - uses: actions/setup-node@v7
+        with: { node-version: '24' }
 
       - name: Install rizin
         run: |
           pip install meson ninja PyYAML
-          wget -q "https://github.com/rizinorg/rizin/releases/download/v0.9.0/rizin-src-v0.9.0.tar.xz"
-          tar xf rizin-src-v0.9.0.tar.xz
-          cd rizin-v0.9.0
+          wget -q "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
+          tar xf rizin-src-${RIZIN_VERSION}.tar.xz
+          cd rizin-${RIZIN_VERSION}
           meson setup build --prefix=/usr -Dblob=true
           ninja -C build
           sudo ninja -C build install

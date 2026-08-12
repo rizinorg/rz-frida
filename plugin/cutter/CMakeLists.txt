@@ -10,14 +10,12 @@ set(CUTTER_INSTALL_PLUGDIR "share/rizin/cutter/plugins/native" CACHE STRING "Dir
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake/Cutter")
 
 find_package(Cutter REQUIRED)
-find_package(Qt5 QUIET COMPONENTS Widgets Concurrent)
+find_package(Qt5 QUIET COMPONENTS Widgets)
 if(NOT Qt5_FOUND)
-	find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent)
+	find_package(Qt6 REQUIRED COMPONENTS Widgets)
 	set(QT_WIDGETS Qt6::Widgets)
-	set(QT_CONCURRENT Qt6::Concurrent)
 else()
 	set(QT_WIDGETS Qt5::Widgets)
-	set(QT_CONCURRENT Qt5::Concurrent)
 endif()
 find_package(PkgConfig REQUIRED)
 
@@ -71,7 +69,6 @@ target_include_directories(cutter_frida_plugin PRIVATE
 target_link_libraries(cutter_frida_plugin PRIVATE
 	Cutter::Cutter
 	${QT_WIDGETS}
-	${QT_CONCURRENT}
 	${RZ_FRIDA_LIBRARY}
 	${RZ_CORE_LIBRARIES}
 )

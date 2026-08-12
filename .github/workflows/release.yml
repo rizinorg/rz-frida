@@ -1,0 +1,883 @@
+name: Release
+
+# Builds and tests the rizin and cutter plugins 
+# and optionally publishes a GitHub release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish a GitHub release"
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: "Mark the release as a pre-release"
+        required: false
+        default: false
+        type: boolean
+      release_tag:
+        description: "Release tag or version label (required if publish_release=true)"
+        required: false
+        type: string
+      release_name:
+        description: "Release name override"
+        required: false
+        type: string
+  pull_request:
+    branches:
+      - '**release**'
+  push:
+    branches:
+      - '**release**'
+
+# Dependency pins, bumped by the update-deps workflow.
+env:
+  RIZIN_VERSION: v0.9.1
+  FRIDA_VERSION: 17.17.0
+  CUTTER_VERSION: v2.5.0
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  test-gate:
+    name: Test gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v7
+        with: { node-version: '24' }
+
+      - name: Install rizin
+        run: |
+          pip install meson ninja PyYAML
+          wget -q "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
+          tar xf rizin-src-${RIZIN_VERSION}.tar.xz
+          cd rizin-${RIZIN_VERSION}
+          meson setup build --prefix=/usr -Dblob=true
+          ninja -C build
+          sudo ninja -C build install
+          sudo ldconfig
+          cd ..
+
+      - name: Build with frida-core
+        run: |
+          wget -q "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-core-devkit-${FRIDA_VERSION}-linux-x86_64.tar.xz"
+          mkdir -p frida-core-devkit
+          tar xf frida-core-devkit-${FRIDA_VERSION}-linux-x86_64.tar.xz -C frida-core-devkit
+          meson setup build \
+            -Dfrida_core=enabled \
+            -Dfrida_include_dir="$(pwd)/frida-core-devkit" \
+            -Dfrida_library="$(pwd)/frida-core-devkit/libfrida-core.a"
+          ninja -C build
+
+      - name: Test
+        run: meson test -C build --print-errorlogs
+
+  rizin-linux-x86_64:
+    name: rizin plugin (linux-x86_64)
+    runs-on: ubuntu-24.04
+    needs: test-gate
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+
+      - name: Build rizin
+        run: |
+          pip install meson ninja
+          wget -q "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
+          tar xf rizin-src-${RIZIN_VERSION}.tar.xz
+          cd rizin-${RIZIN_VERSION}
+          meson setup build --prefix=/usr -Dblob=true
+          ninja -C build
+          sudo ninja -C build install
+          sudo ldconfig
+          cd ..
+
+      - name: Build plugin
+        run: |
+          wget -q "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-core-devkit-${FRIDA_VERSION}-linux-x86_64.tar.xz"
+          mkdir -p frida-core-devkit
+          tar xf frida-core-devkit-${FRIDA_VERSION}-linux-x86_64.tar.xz -C frida-core-devkit
+          meson setup build \
+            --prefix=/usr \
+            -Dfrida_core=enabled \
+            -Dfrida_include_dir="$(pwd)/frida-core-devkit" \
+            -Dfrida_library="$(pwd)/frida-core-devkit/libfrida-core.a"
+          ninja -C build
+          sudo ninja -C build install
+
+      - name: Smoke test (local attach)
+        run: |
+          # frida local attach needs ptrace, disable yama restrictions
+          sudo sysctl -w kernel.yama.ptrace_scope=0 || true
+          sleep 30 &
+          target=$!
+          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
+          kill $target 2>/dev/null || true
+          echo "$out"
+          echo "$out" | grep -q '"ok":true' || exit 1
+          echo "$out" | grep -q '"ranges"' || exit 1
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-rizin-linux-x86_64
+          path: build/plugin/rizin/librz_frida.so
+          if-no-files-found: error
+
+  rizin-linux-arm64:
+    name: rizin plugin (linux-arm64)
+    runs-on: ubuntu-24.04-arm
+    needs: test-gate
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+
+      - name: Build rizin
+        run: |
+          pip install meson ninja
+          wget -q "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
+          tar xf rizin-src-${RIZIN_VERSION}.tar.xz
+          cd rizin-${RIZIN_VERSION}
+          meson setup build --prefix=/usr -Dblob=true
+          ninja -C build
+          sudo ninja -C build install
+          sudo ldconfig
+          cd ..
+
+      - name: Build plugin
+        run: |
+          wget -q "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-core-devkit-${FRIDA_VERSION}-linux-arm64.tar.xz"
+          mkdir -p frida-core-devkit
+          tar xf frida-core-devkit-${FRIDA_VERSION}-linux-arm64.tar.xz -C frida-core-devkit
+          meson setup build \
+            --prefix=/usr \
+            -Dfrida_core=enabled \
+            -Dfrida_include_dir="$(pwd)/frida-core-devkit" \
+            -Dfrida_library="$(pwd)/frida-core-devkit/libfrida-core.a"
+          ninja -C build
+          sudo ninja -C build install
+
+      - name: Smoke test (local attach)
+        run: |
+          # frida local attach needs ptrace, disable yama restrictions
+          sudo sysctl -w kernel.yama.ptrace_scope=0 || true
+          sleep 30 &
+          target=$!
+          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
+          kill $target 2>/dev/null || true
+          echo "$out"
+          echo "$out" | grep -q '"ok":true' || exit 1
+          echo "$out" | grep -q '"ranges"' || exit 1
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-rizin-linux-arm64
+          path: build/plugin/rizin/librz_frida.so
+          if-no-files-found: error
+
+  rizin-macos-x86_64:
+    name: rizin plugin (macos-x86_64)
+    runs-on: macos-15-intel
+    needs: test-gate
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+
+      - name: Build rizin
+        run: |
+          command -v pkg-config || brew install pkg-config
+          pip3 install meson ninja
+          curl -sL -o rizin-src.tar.xz "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
+          tar xf rizin-src.tar.xz
+          cd rizin-${RIZIN_VERSION}
+          meson setup build -Dblob=true
+          ninja -C build
+          sudo ninja -C build install
+          cd ..
+
+      - name: Build plugin
+        run: |
+          curl -sL -o frida-devkit.tar.xz "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-core-devkit-${FRIDA_VERSION}-macos-x86_64.tar.xz"
+          mkdir -p frida-core-devkit
+          tar xf frida-devkit.tar.xz -C frida-core-devkit
+          meson setup build \
+            -Dfrida_core=enabled \
+            -Dfrida_include_dir="$(pwd)/frida-core-devkit" \
+            -Dfrida_library="$(pwd)/frida-core-devkit/libfrida-core.a"
+          ninja -C build
+          sudo ninja -C build install
+
+      - name: Smoke test (local attach as root)
+        run: |
+          # hosted runners deny task_for_pid for non-root, attach as root instead
+          python3 -c "import time; time.sleep(30)" &
+          target=$!
+          out=$(sudo rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
+          kill $target 2>/dev/null || true
+          echo "$out"
+          echo "$out" | grep -q '"action":"attach"' || exit 1
+          echo "$out" | grep -q '"state":"attached"' || exit 1
+          echo "$out" | grep -q '"ranges"' || exit 1
+
+      - name: Smoke test (local attach as user)
+        run: |
+          # non-root attach should work on a normal mac, on a hosted runner it fails cleanly
+          python3 -c "import time; time.sleep(30)" &
+          target=$!
+          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" malloc://512 2>&1)
+          kill $target 2>/dev/null || true
+          echo "$out"
+          if echo "$out" | grep -q '"action":"attach"'; then
+            echo "$out" | grep -q '"state":"attached"' || exit 1
+            echo "$out" | grep -q '"ranges"' || exit 1
+          else
+            echo "$out" | grep -q '"ok":false' || exit 1
+            echo "$out" | grep -q '"error"' || exit 1
+            echo "$out" | grep -q '"no session is open"' || exit 1
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-rizin-macos-x86_64
+          path: build/plugin/rizin/librz_frida.dylib
+          if-no-files-found: error
+
+  rizin-macos-arm64:
+    name: rizin plugin (macos-arm64)
+    runs-on: macos-14
+    needs: test-gate
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+
+      - name: Build rizin
+        run: |
+          command -v pkg-config || brew install pkg-config
+          pip3 install meson ninja
+          curl -sL -o rizin-src.tar.xz "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
+          tar xf rizin-src.tar.xz
+          cd rizin-${RIZIN_VERSION}
+          meson setup build -Dblob=true
+          ninja -C build
+          sudo ninja -C build install
+          cd ..
+
+      - name: Build plugin
+        run: |
+          curl -sL -o frida-devkit.tar.xz "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-core-devkit-${FRIDA_VERSION}-macos-arm64.tar.xz"
+          mkdir -p frida-core-devkit
+          tar xf frida-devkit.tar.xz -C frida-core-devkit
+          meson setup build \
+            -Dfrida_core=enabled \
+            -Dfrida_include_dir="$(pwd)/frida-core-devkit" \
+            -Dfrida_library="$(pwd)/frida-core-devkit/libfrida-core.a"
+          ninja -C build
+          sudo ninja -C build install
+
+      - name: Smoke test (local attach as root)
+        run: |
+          # hosted runners deny task_for_pid for non-root, attach as root instead
+          python3 -c "import time; time.sleep(30)" &
+          target=$!
+          out=$(sudo rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
+          kill $target 2>/dev/null || true
+          echo "$out"
+          echo "$out" | grep -q '"action":"attach"' || exit 1
+          echo "$out" | grep -q '"state":"attached"' || exit 1
+          echo "$out" | grep -q '"ranges"' || exit 1
+
+      - name: Smoke test (local attach as user)
+        run: |
+          # non-root attach should work on a normal mac, on a hosted runner it fails cleanly
+          python3 -c "import time; time.sleep(30)" &
+          target=$!
+          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" malloc://512 2>&1)
+          kill $target 2>/dev/null || true
+          echo "$out"
+          if echo "$out" | grep -q '"action":"attach"'; then
+            echo "$out" | grep -q '"state":"attached"' || exit 1
+            echo "$out" | grep -q '"ranges"' || exit 1
+          else
+            echo "$out" | grep -q '"ok":false' || exit 1
+            echo "$out" | grep -q '"error"' || exit 1
+            echo "$out" | grep -q '"no session is open"' || exit 1
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-rizin-macos-arm64
+          path: build/plugin/rizin/librz_frida.dylib
+          if-no-files-found: error
+
+  rizin-windows-x86_64:
+    name: rizin plugin (windows-x86_64)
+    runs-on: windows-latest
+    needs: test-gate
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+
+      - name: Install meson and pkg-config
+        shell: pwsh
+        run: |
+          python -m pip install meson ninja
+          choco install pkgconfiglite -y
+
+      - name: Extract rizin SDK
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/rizinorg/rizin/releases/download/$env:RIZIN_VERSION/rizin-windows-shared64-$env:RIZIN_VERSION.zip" -OutFile rizin.zip
+          7z x rizin.zip -orizin-sdk
+          $sdk = Resolve-Path "rizin-sdk\rizin-win-installer-clang_cl-64"
+          # the .pc files embed the builder's CI path, point them at this checkout
+          Get-ChildItem "$sdk\lib\pkgconfig\*.pc" | ForEach-Object {
+            (Get-Content $_.FullName) -replace "^prefix=.*", "prefix=$($sdk.Path -replace '\\','/')" | Set-Content $_.FullName
+          }
+          Add-Content $env:GITHUB_ENV "RIZIN_SDK=$($sdk.Path)"
+
+      - name: Build plugin
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/frida/frida/releases/download/$env:FRIDA_VERSION/frida-core-devkit-$env:FRIDA_VERSION-windows-x86_64.tar.xz" -OutFile frida.tar.xz
+          mkdir frida-core-devkit
+          tar xf frida.tar.xz -C frida-core-devkit
+          $env:PKG_CONFIG_PATH = "$env:RIZIN_SDK\lib\pkgconfig"
+          # release buildtype picks /MD CRT, same as release rizin SDK
+          meson setup build --vsenv --buildtype=release `
+            -Dfrida_core=enabled `
+            -Dfrida_include_dir="$(Get-Location)\frida-core-devkit" `
+            -Dfrida_library="$(Get-Location)\frida-core-devkit\frida-core.lib"
+          meson compile -C build
+
+      - name: Smoke test (local attach)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:RIZIN_SDK\lib\rizin\plugins" | Out-Null
+          Copy-Item "build\plugin\rizin\rz_frida.dll" "$env:RIZIN_SDK\lib\rizin\plugins\"
+          $helper = Start-Process -FilePath "cmd.exe" -ArgumentList "/c ping -t 127.0.0.1" -PassThru
+          try {
+            $out = & "$env:RIZIN_SDK\bin\rizin.exe" -N -q -c "fridaoj attach/local//$($helper.Id)" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1 | Out-String
+            Write-Host $out
+            if ($out -notmatch '"ok":true' -or $out -notmatch '"ranges"') { exit 1 }
+          } finally {
+            Stop-Process -Id $helper.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-rizin-windows-x86_64
+          path: build/plugin/rizin/rz_frida.*
+          if-no-files-found: error
+
+  rizin-android:
+    name: rizin plugin (android-${{ matrix.abi }})
+    runs-on: ubuntu-24.04
+    needs: test-gate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: aarch64
+            frida: android-arm64
+            machine: AArch64
+          - abi: arm
+            frida: android-arm
+            machine: ARM
+          - abi: x86_64
+            frida: android-x86_64
+            machine: X86-64
+    env:
+      ANDROID_STAGING: ${{ github.workspace }}/android-staging
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+
+      - name: Build rizin for android
+        run: |
+          pip install meson ninja
+          # the runner's ANDROID_NDK_LATEST_HOME holds the latest NDK path
+          test -n "$ANDROID_NDK_LATEST_HOME" || { echo "::error::ANDROID_NDK_LATEST_HOME is not set"; exit 1; }
+          sed -i "s@\${ANDROID_NDK_LATEST_HOME}@${ANDROID_NDK_LATEST_HOME}@g" .github/meson-android-${{ matrix.abi }}.ini
+          wget -q "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
+          tar xf rizin-src-${RIZIN_VERSION}.tar.xz
+          cd rizin-${RIZIN_VERSION}
+          # shared rizin on purpose, a static build cannot load the plugin
+          meson setup --buildtype release --prefix=${ANDROID_STAGING} \
+            -Dblob=true build --cross-file ../.github/meson-android-${{ matrix.abi }}.ini
+          ninja -C build
+          ninja -C build install
+          cd ..
+
+      - name: Build plugin for android
+        run: |
+          sed -i "s@\${ANDROID_NDK_LATEST_HOME}@${ANDROID_NDK_LATEST_HOME}@g; s@\${ANDROID_STAGING}@${ANDROID_STAGING}@g" .github/meson-plugin-android-${{ matrix.abi }}.ini
+          wget -q "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-core-devkit-${FRIDA_VERSION}-${{ matrix.frida }}.tar.xz"
+          mkdir -p frida-core-devkit
+          tar xf frida-core-devkit-${FRIDA_VERSION}-${{ matrix.frida }}.tar.xz -C frida-core-devkit
+          meson setup build-android \
+            --cross-file .github/meson-plugin-android-${{ matrix.abi }}.ini \
+            -Dfrida_core=enabled \
+            -Dfrida_include_dir="$(pwd)/frida-core-devkit" \
+            -Dfrida_library="$(pwd)/frida-core-devkit/libfrida-core.a" \
+            -Drizin_plugdir="${ANDROID_STAGING}/lib/rizin/plugins"
+          ninja -C build-android
+          ninja -C build-android install
+
+      - name: Verify artifact
+        run: |
+          file build-android/plugin/rizin/librz_frida.so
+          # readelf names x86_64 'Advanced Micro Devices X86-64', hence substring match
+          readelf -h build-android/plugin/rizin/librz_frida.so | grep -qi "${{ matrix.machine }}"
+          # rz_* resolves at runtime against librz_core.so
+          ! nm -D build-android/plugin/rizin/librz_frida.so | grep " U " | grep -q "frida"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-rizin-android-${{ matrix.abi }}
+          path: |
+            ${{ env.ANDROID_STAGING }}/bin
+            ${{ env.ANDROID_STAGING }}/lib
+          if-no-files-found: error
+
+  cutter-linux-x86_64-qt5:
+    name: cutter plugin (linux-x86_64, qt5)
+    runs-on: ubuntu-24.04
+    needs: [test-gate, rizin-linux-x86_64]
+    env:
+      CUTTER_SDK: ${{ github.workspace }}/squashfs-root/usr
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Qt5
+        run: sudo apt-get update && sudo apt-get install -y qtbase5-dev libqt5svg5-dev pkg-config xvfb
+
+      - name: Extract Cutter SDK
+        run: |
+          wget -q "https://github.com/rizinorg/cutter/releases/download/${CUTTER_VERSION}/Cutter-${CUTTER_VERSION}-Linux-Qt5-x86_64.AppImage"
+          chmod +x Cutter-${CUTTER_VERSION}-Linux-Qt5-x86_64.AppImage
+          ./Cutter-${CUTTER_VERSION}-Linux-Qt5-x86_64.AppImage --appimage-extract > /dev/null
+          # the .pc files embed the builder's CI path, point them at this checkout
+          for f in squashfs-root/usr/lib/pkgconfig/*.pc; do
+            sed -i "s|^prefix=.*|prefix=${CUTTER_SDK}|" "$f"
+          done
+
+      - name: Install rizin plugin into SDK
+        uses: actions/download-artifact@v8
+        with:
+          name: rz-frida-rizin-linux-x86_64
+          path: rizin-plugin
+      - name: Copy rizin plugin
+        run: |
+          sudo mkdir -p ${CUTTER_SDK}/lib/rizin/plugins
+          sudo cp rizin-plugin/librz_frida.so ${CUTTER_SDK}/lib/rizin/plugins/
+
+      - name: Build plugin
+        env:
+          PKG_CONFIG_PATH: ${CUTTER_SDK}/lib/pkgconfig
+        run: |
+          cmake -S plugin/cutter -B build-cutter -DCMAKE_PREFIX_PATH=${CUTTER_SDK}
+          cmake --build build-cutter
+
+      - name: Smoke test (cutter load)
+        run: |
+          sudo cp build-cutter/libcutter_frida_plugin.so ${CUTTER_SDK}/share/rizin/cutter/plugins/native/
+          xvfb-run -a ./squashfs-root/usr/bin/cutter /bin/true > cutter.log 2>&1 &
+          pid=$!
+          sleep 25
+          kill $pid 2>/dev/null || true
+          wait $pid 2>/dev/null || true
+          grep -q "Load Error.*libcutter_frida_plugin" cutter.log && exit 1 || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-cutter-linux-x86_64-qt5
+          path: build-cutter/libcutter_frida_plugin.so
+          if-no-files-found: error
+
+  cutter-linux-x86_64-qt6:
+    name: cutter plugin (linux-x86_64, qt6)
+    runs-on: ubuntu-24.04
+    needs: [test-gate, rizin-linux-x86_64]
+    env:
+      CUTTER_SDK: ${{ github.workspace }}/squashfs-root/usr
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Qt6
+        run: sudo apt-get update && sudo apt-get install -y qt6-base-dev qt6-svg-dev qt6-5compat-dev pkg-config xvfb
+
+      - name: Extract Cutter SDK
+        run: |
+          wget -q "https://github.com/rizinorg/cutter/releases/download/${CUTTER_VERSION}/Cutter-${CUTTER_VERSION}-Linux-x86_64.AppImage"
+          chmod +x Cutter-${CUTTER_VERSION}-Linux-x86_64.AppImage
+          ./Cutter-${CUTTER_VERSION}-Linux-x86_64.AppImage --appimage-extract > /dev/null
+          for f in squashfs-root/usr/lib/pkgconfig/*.pc; do
+            sed -i "s|^prefix=.*|prefix=${CUTTER_SDK}|" "$f"
+          done
+
+      - name: Install rizin plugin into SDK
+        uses: actions/download-artifact@v8
+        with:
+          name: rz-frida-rizin-linux-x86_64
+          path: rizin-plugin
+      - name: Copy rizin plugin
+        run: |
+          sudo mkdir -p ${CUTTER_SDK}/lib/rizin/plugins
+          sudo cp rizin-plugin/librz_frida.so ${CUTTER_SDK}/lib/rizin/plugins/
+
+      - name: Build plugin
+        env:
+          PKG_CONFIG_PATH: ${CUTTER_SDK}/lib/pkgconfig
+        run: |
+          cmake -S plugin/cutter -B build-cutter -DCMAKE_PREFIX_PATH=${CUTTER_SDK}
+          cmake --build build-cutter
+
+      - name: Smoke test (cutter load)
+        run: |
+          sudo cp build-cutter/libcutter_frida_plugin.so ${CUTTER_SDK}/share/rizin/cutter/plugins/native/
+          xvfb-run -a ./squashfs-root/usr/bin/cutter /bin/true > cutter.log 2>&1 &
+          pid=$!
+          sleep 25
+          kill $pid 2>/dev/null || true
+          wait $pid 2>/dev/null || true
+          grep -q "Load Error.*libcutter_frida_plugin" cutter.log && exit 1 || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-cutter-linux-x86_64-qt6
+          path: build-cutter/libcutter_frida_plugin.so
+          if-no-files-found: error
+
+  cutter-macos-x86_64-qt6:
+    name: cutter plugin (macos-x86_64, qt6)
+    runs-on: macos-15-intel
+    needs: [test-gate, rizin-macos-x86_64]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Qt6
+        run: |
+          brew install qt@6
+          echo "QT_PREFIX=$(brew --prefix qt@6)" >> $GITHUB_ENV
+
+      - name: Extract Cutter SDK
+        run: |
+          curl -sL -o cutter.dmg "https://github.com/rizinorg/cutter/releases/download/${CUTTER_VERSION}/Cutter-${CUTTER_VERSION}-macOS-x86_64.dmg"
+          hdiutil attach cutter.dmg
+          cp -R "/Volumes/Cutter/Cutter.app" .
+          hdiutil detach /Volumes/Cutter
+          SDK="$PWD/Cutter.app/Contents/Resources"
+          for f in "$SDK"/lib/pkgconfig/*.pc; do
+            sed -i '' "s|^prefix=.*|prefix=$SDK|" "$f"
+          done
+          echo "CUTTER_SDK=$SDK" >> $GITHUB_ENV
+
+      - name: Install rizin plugin into SDK
+        uses: actions/download-artifact@v8
+        with:
+          name: rz-frida-rizin-macos-x86_64
+          path: rizin-plugin
+      - name: Copy rizin plugin
+        run: |
+          mkdir -p "$CUTTER_SDK/lib/rizin/plugins"
+          cp rizin-plugin/librz_frida.dylib "$CUTTER_SDK/lib/rizin/plugins/"
+
+      - name: Build plugin
+        env:
+          PKG_CONFIG_PATH: ${{ env.CUTTER_SDK }}/lib/pkgconfig
+        run: |
+          cmake -S plugin/cutter -B build-cutter -DCMAKE_PREFIX_PATH="$CUTTER_SDK;$QT_PREFIX"
+          cmake --build build-cutter
+
+      - name: Smoke test (cutter load)
+        run: |
+          mkdir -p "$CUTTER_SDK/share/rizin/cutter/plugins/native"
+          cp build-cutter/libcutter_frida_plugin.so "$CUTTER_SDK/share/rizin/cutter/plugins/native/"
+          ./Cutter.app/Contents/MacOS/Cutter /bin/true > cutter.log 2>&1 &
+          pid=$!
+          sleep 25
+          kill $pid 2>/dev/null || true
+          wait $pid 2>/dev/null || true
+          grep -q "Load Error.*libcutter_frida_plugin" cutter.log && exit 1 || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-cutter-macos-x86_64-qt6
+          path: build-cutter/libcutter_frida_plugin.so
+          if-no-files-found: error
+
+  cutter-macos-arm64-qt6:
+    name: cutter plugin (macos-arm64, qt6)
+    runs-on: macos-14
+    needs: [test-gate, rizin-macos-arm64]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Qt6
+        run: |
+          brew install qt@6
+          echo "QT_PREFIX=$(brew --prefix qt@6)" >> $GITHUB_ENV
+
+      - name: Extract Cutter SDK
+        run: |
+          curl -sL -o cutter.dmg "https://github.com/rizinorg/cutter/releases/download/${CUTTER_VERSION}/Cutter-${CUTTER_VERSION}-macOS-arm64.dmg"
+          hdiutil attach cutter.dmg
+          cp -R "/Volumes/Cutter/Cutter.app" .
+          hdiutil detach /Volumes/Cutter
+          SDK="$PWD/Cutter.app/Contents/Resources"
+          for f in "$SDK"/lib/pkgconfig/*.pc; do
+            sed -i '' "s|^prefix=.*|prefix=$SDK|" "$f"
+          done
+          echo "CUTTER_SDK=$SDK" >> $GITHUB_ENV
+
+      - name: Install rizin plugin into SDK
+        uses: actions/download-artifact@v8
+        with:
+          name: rz-frida-rizin-macos-arm64
+          path: rizin-plugin
+      - name: Copy rizin plugin
+        run: |
+          mkdir -p "$CUTTER_SDK/lib/rizin/plugins"
+          cp rizin-plugin/librz_frida.dylib "$CUTTER_SDK/lib/rizin/plugins/"
+
+      - name: Build plugin
+        env:
+          PKG_CONFIG_PATH: ${{ env.CUTTER_SDK }}/lib/pkgconfig
+        run: |
+          cmake -S plugin/cutter -B build-cutter -DCMAKE_PREFIX_PATH="$CUTTER_SDK;$QT_PREFIX"
+          cmake --build build-cutter
+
+      - name: Smoke test (cutter load)
+        run: |
+          mkdir -p "$CUTTER_SDK/share/rizin/cutter/plugins/native"
+          cp build-cutter/libcutter_frida_plugin.so "$CUTTER_SDK/share/rizin/cutter/plugins/native/"
+          ./Cutter.app/Contents/MacOS/Cutter /bin/true > cutter.log 2>&1 &
+          pid=$!
+          sleep 25
+          kill $pid 2>/dev/null || true
+          wait $pid 2>/dev/null || true
+          grep -q "Load Error.*libcutter_frida_plugin" cutter.log && exit 1 || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-cutter-macos-arm64-qt6
+          path: build-cutter/libcutter_frida_plugin.so
+          if-no-files-found: error
+
+  cutter-windows-x86_64-qt6:
+    name: cutter plugin (windows-x86_64, qt6)
+    runs-on: windows-latest
+    needs: [test-gate, rizin-windows-x86_64]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+
+      - name: Install Qt6
+        shell: pwsh
+        run: |
+          python -m pip install aqtinstall
+          choco install pkgconfiglite -y
+          $qtOut = Join-Path $env:RUNNER_TEMP "Qt"
+          # aqt 3.3.0 cannot install Qt 6.11+, its online repo layout changed
+          python -m aqt install-qt windows desktop 6.10.3 win64_msvc2022_64 --outputdir $qtOut --modules qt5compat
+          echo "QT_PREFIX=$qtOut\6.10.3\msvc2022_64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Extract Cutter SDK
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/rizinorg/cutter/releases/download/$env:CUTTER_VERSION/Cutter-$env:CUTTER_VERSION-Windows-x86_64.zip" -OutFile cutter.zip
+          7z x cutter.zip -oCutter
+          $sdk = (Get-ChildItem -Path Cutter -Directory | Select-Object -First 1).FullName
+          Get-ChildItem "$sdk\lib\pkgconfig\*.pc" | ForEach-Object {
+            (Get-Content $_.FullName) -replace "^prefix=.*", "prefix=$($sdk -replace '\\','/')" | Set-Content $_.FullName
+          }
+          echo "CUTTER_SDK=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Install rizin plugin into SDK
+        uses: actions/download-artifact@v8
+        with:
+          name: rz-frida-rizin-windows-x86_64
+          path: rizin-plugin
+      - name: Copy rizin plugin
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:CUTTER_SDK\lib\rizin\plugins" | Out-Null
+          Copy-Item "rizin-plugin\rz_frida.*" "$env:CUTTER_SDK\lib\rizin\plugins\"
+
+      - name: Build plugin
+        shell: pwsh
+        run: |
+          $env:PKG_CONFIG_PATH = "$env:CUTTER_SDK\lib\pkgconfig"
+          $gen = (cmake --help | Select-String '(?<=\* )Visual Studio \d+ 20\d\d' | Select-Object -First 1 | ForEach-Object { $_.Matches[0].Value })
+          if (-not $gen) {
+            Write-Host "::error::no Visual Studio generator found"
+            exit 1
+          }
+          cmake -S plugin/cutter -B build-cutter "-DCMAKE_PREFIX_PATH=$env:CUTTER_SDK;$env:QT_PREFIX" -G "$gen" -A x64
+          cmake --build build-cutter --config Release
+
+      - name: Smoke test (cutter loads plugin)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:CUTTER_SDK\share\rizin\cutter\plugins\native" | Out-Null
+          Copy-Item -Path "build-cutter\Release\cutter_frida_plugin.dll", "$env:CUTTER_SDK\lib\rizin\plugins\rz_frida.dll" -Destination "$env:CUTTER_SDK\share\rizin\cutter\plugins\native\"
+          $app = Get-ChildItem -Path "$env:CUTTER_SDK" -Filter "Cutter.exe" -Recurse | Select-Object -First 1
+          if (-not $app) {
+            Write-Host "::error::Cutter.exe not found in SDK"
+            exit 1
+          }
+          $p = Start-Process -FilePath $app.FullName -RedirectStandardOutput cutter.log -RedirectStandardError cutter.err.log -PassThru
+          Start-Sleep -Seconds 25
+          if ($p.HasExited) {
+            Write-Host "::error::Cutter exited early with code $($p.ExitCode)"
+            exit 1
+          }
+          Stop-Process -Id $p.Id -Force
+          if (Select-String -Path cutter.log,cutter.err.log -Pattern "Load Error.*cutter_frida_plugin" -Quiet) {
+            Write-Host "::error::Plugin load error detected in Cutter log"
+            exit 1
+          }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-cutter-windows-x86_64-qt6
+          path: build-cutter/Release/cutter_frida_plugin.dll
+          if-no-files-found: error
+
+  package-sources:
+    name: Package sources
+    runs-on: ubuntu-latest
+    needs: test-gate
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create source archive
+        run: |
+          zip -r rz-frida-source.zip \
+            meson.build meson_options.txt README.md LICENSES REUSE.toml plugin \
+            -x "plugin/rizin/agent/node_modules/*" "plugin/rizin/agent/__pycache__/*" "*/build*/*" "*.o"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-source
+          path: rz-frida-source.zip
+          if-no-files-found: error
+
+  package-checksums:
+    name: Package checksums
+    runs-on: ubuntu-latest
+    needs:
+      - rizin-linux-x86_64
+      - rizin-linux-arm64
+      - rizin-macos-x86_64
+      - rizin-macos-arm64
+      - rizin-windows-x86_64
+      - rizin-android
+      - cutter-linux-x86_64-qt5
+      - cutter-linux-x86_64-qt6
+      - cutter-macos-x86_64-qt6
+      - cutter-macos-arm64-qt6
+      - cutter-windows-x86_64-qt6
+      - package-sources
+    steps:
+      - uses: actions/download-artifact@v8
+
+      - name: Generate SHA256SUMS
+        run: |
+          find . \( -name "*.so" -o -name "*.dylib" -o -name "*.dll" -o -name "*.zip" -o -name "rizin" \) -type f | sort | while read f; do
+            rel=${f#./}
+            case "$rel" in
+              rz-frida-*/*) sha256sum "$f" | awk '{print $1"  "$2}' ;;
+            esac
+          done > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rz-frida-checksums
+          path: SHA256SUMS.txt
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs:
+      - rizin-linux-x86_64
+      - rizin-linux-arm64
+      - rizin-macos-x86_64
+      - rizin-macos-arm64
+      - rizin-windows-x86_64
+      - rizin-android
+      - cutter-linux-x86_64-qt5
+      - cutter-linux-x86_64-qt6
+      - cutter-macos-x86_64-qt6
+      - cutter-macos-arm64-qt6
+      - cutter-windows-x86_64-qt6
+      - package-sources
+      - package-checksums
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+    steps:
+      - uses: actions/download-artifact@v8
+
+      - name: Resolve tag and name
+        id: meta
+        shell: pwsh
+        env:
+          RAW_RELEASE_TAG: ${{ inputs.release_tag }}
+          RAW_RELEASE_NAME: ${{ inputs.release_name }}
+        run: |
+          $requestedTag = [string]$env:RAW_RELEASE_TAG
+          $requestedTag = $requestedTag.Trim()
+          if ([string]::IsNullOrWhiteSpace($requestedTag)) {
+            Write-Error "release_tag is required when publish_release=true"
+            exit 1
+          }
+          $name = ([string]$env:RAW_RELEASE_NAME).Trim()
+          if ([string]::IsNullOrWhiteSpace($name)) {
+            $name = $requestedTag
+          }
+          $normalizedTag = $requestedTag
+          if (-not $normalizedTag.StartsWith("v")) {
+            $normalizedTag = "v$normalizedTag"
+          }
+          $normalizedTag = [regex]::Replace($normalizedTag.Trim(), "\s+", "-")
+          $normalizedTag = [regex]::Replace($normalizedTag, "[^0-9A-Za-z._/-]", "-")
+          $normalizedTag = [regex]::Replace($normalizedTag, "-{2,}", "-")
+          $normalizedTag = $normalizedTag.Trim('-')
+          if ([string]::IsNullOrWhiteSpace($normalizedTag) -or $normalizedTag -eq "v") {
+            Write-Error "release_tag could not be normalized into a valid Git tag"
+            exit 1
+          }
+          "tag=$normalizedTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "name=$name" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "target_commitish=$env:GITHUB_SHA" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.name }}
+          target_commitish: ${{ steps.meta.outputs.target_commitish }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ inputs.prerelease == 'true' }}
+          files: |
+            rz-frida-rizin-*/*
+            rz-frida-cutter-*/*
+            rz-frida-source/*
+            rz-frida-checksums/*

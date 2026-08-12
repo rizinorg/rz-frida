@@ -1,7 +1,7 @@
 version = 1
 SPDX-PackageName = "rz-frida"
 SPDX-PackageSupplier = "Alok Kumar Mishra <alok16022006@gmail.com>"
-SPDX-PackageDownloadLocation = "https://github.com/IndAlok/rz-frida"
+SPDX-PackageDownloadLocation = "https://github.com/rizinorg/rz-frida"
 
 [[annotations]]
 path = [".github/workflows/**.yml", ".gitignore", "README.md", "meson.build", "meson_options.txt", "plugin/cutter/CMakeLists.txt", "plugin/rizin/meson.build", "plugin/rizin/agent/entry.js", "plugin/rizin/agent/package.json", "plugin/rizin/agent/package-lock.json", "plugin/rizin/agent/.eslintrc.json", "plugin/rizin/agent/rzfrida_agent.js", "plugin/rizin/agent/frida-compile.mjs", "plugin/rizin/src/rzfrida_agent.h", ".images/*.png"]
