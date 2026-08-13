@@ -78,6 +78,24 @@ jobs:
             -Dfrida_library="$(pwd)/frida-core-devkit/libfrida-core.a"
           ninja -C build
 
+      - name: Check frida pins and devkit assets
+        run: |
+          MESON_PIN=$(sed -n "s/^option('frida_version', type: 'string', value: '\([^']*\)'.*/\1/p" meson_options.txt)
+          test -n "$MESON_PIN" || { echo "::error::frida_version not found in meson_options.txt"; exit 1; }
+          if [ "$MESON_PIN" != "$FRIDA_VERSION" ]; then
+            echo "::error::frida_version ($MESON_PIN) differs from FRIDA_VERSION ($FRIDA_VERSION)"
+            exit 1
+          fi
+          curl -sL "https://api.github.com/repos/frida/frida/releases/tags/$FRIDA_VERSION" \
+            | jq -r '.assets[].name' > /tmp/frida-assets
+          grep -oP "frida_platform = '\K[^']+" plugin/rizin/meson.build | sort -u | while read -r platform; do
+            if ! grep -qx "frida-core-devkit-$FRIDA_VERSION-$platform.tar.xz" /tmp/frida-assets; then
+              echo "::error::frida $FRIDA_VERSION has no devkit for $platform"
+              touch /tmp/frida-missing
+            fi
+          done
+          test ! -e /tmp/frida-missing || exit 1
+
       - name: Test
         run: meson test -C build --print-errorlogs
 

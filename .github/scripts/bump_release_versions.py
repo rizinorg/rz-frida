@@ -4,8 +4,9 @@
 """Bump the pinned dependency versions in the workflows and README.
 
 Queries the latest GitHub release of rizin, frida, and Cutter and rewrites
-the RIZIN_VERSION / FRIDA_VERSION / CUTTER_VERSION pins in the release and
-ci workflows when a newer release exists.
+the RIZIN_VERSION / FRIDA_VERSION / CUTTER_VERSION pins in the release,
+ci workflows, and the frida_version default in meson_options, when a
+newer release exists.
 
 Exit codes: 0 on success (changed or not), 1 when a version check fails.
 """
@@ -18,6 +19,7 @@ import urllib.request
 
 WORKFLOWS = [".github/workflows/release.yml", ".github/workflows/ci.yml"]
 README = "README.md"
+MESON_OPTIONS = "meson_options.txt"
 
 PINS = {
     "RIZIN_VERSION": "rizinorg/rizin",
@@ -93,6 +95,31 @@ def bump_pin(path, name, current, latest):
     return False
 
 
+def parse_meson_frida_version(path):
+    """Read the frida_version default out of the meson options file."""
+    content = open(path).read()
+    match = re.search(
+        r"option\('frida_version', type: 'string', value: '([^']*)'", content)
+    return match.group(1) if match else None
+
+
+def bump_meson_frida_version(path, current, latest):
+    """Rewrite the frida_version default, report whether it changed."""
+    content = open(path).read()
+    new_content = re.sub(
+        r"(option\('frida_version', type: 'string', value: ')[^']*(')",
+        lambda m: m.group(1) + latest + m.group(2),
+        content,
+        count=1,
+    )
+    if new_content != content:
+        open(path, "w").write(new_content)
+        print("frida_version (%s): %s -> %s" % (path, current, latest))
+        return True
+    print("frida_version (%s): %s is current" % (path, current))
+    return False
+
+
 def bump_readme(readme, old, latest, patterns):
     """Rewrite the README version mentions, report whether it changed."""
     content = open(readme).read()
@@ -139,6 +166,19 @@ def main():
                 changed = bump_pin(workflow, name, current, latest[name]) or changed
             else:
                 print("%s (%s): %s is current" % (name, workflow, current))
+
+    current_meson = parse_meson_frida_version(MESON_OPTIONS)
+    if current_meson is None:
+        print("warning: frida_version pin not found in %s" % MESON_OPTIONS)
+    else:
+        current_tuple = version_tuple(current_meson)
+        latest_tuple = version_tuple(latest["FRIDA_VERSION"])
+        if (current_tuple is not None and latest_tuple is not None
+                and latest_tuple > current_tuple):
+            changed = bump_meson_frida_version(
+                MESON_OPTIONS, current_meson, latest["FRIDA_VERSION"]) or changed
+        else:
+            print("frida_version (%s): %s is current" % (MESON_OPTIONS, current_meson))
 
     for name, patterns in README_PATTERNS.items():
         current = reference.get(name)
