@@ -35,59 +35,37 @@ if not frida_core_opt.disabled()
       if frida_host_system == 'linux' and cc.compiles('#ifndef __MUSL__\n#error musl\n#endif', name: 'musl libc check')
         frida_host_musl = true
       endif
-      frida_platform = ''
-      if frida_host_system == 'linux'
-        if frida_host_musl and host_machine.cpu_family() == 'x86_64'
-          frida_platform = 'linux-x86_64-musl'
-        elif frida_host_musl and host_machine.cpu_family() == 'aarch64'
-          frida_platform = 'linux-arm64-musl'
-        elif frida_host_musl and host_machine.cpu_family() == 'arm'
-          frida_platform = 'linux-armhf-musl'
-        elif host_machine.cpu_family() == 'x86_64' and host_machine.endian() == 'little'
-          frida_platform = 'linux-x86_64'
-        elif host_machine.cpu_family() == 'x86' and host_machine.endian() == 'little'
-          frida_platform = 'linux-x86'
-        elif host_machine.cpu_family() == 'aarch64' and host_machine.endian() == 'little'
-          frida_platform = 'linux-arm64'
-        elif host_machine.cpu_family() == 'arm' and host_machine.endian() == 'little'
-          frida_platform = 'linux-armhf'
-        elif host_machine.cpu_family() == 'aarch64' and host_machine.endian() == 'big'
-          frida_platform = 'linux-arm64be'
-        elif host_machine.cpu_family() == 'arm' and host_machine.endian() == 'big'
-          frida_platform = 'linux-armbe8'
-        elif host_machine.cpu_family() == 'mips' and host_machine.endian() == 'big'
-          frida_platform = 'linux-mips'
-        elif host_machine.cpu_family() == 'mips' and host_machine.endian() == 'little'
-          frida_platform = 'linux-mipsel'
-        elif host_machine.cpu_family() == 'mips64' and host_machine.endian() == 'big'
-          frida_platform = 'linux-mips64'
-        elif host_machine.cpu_family() == 'mips64' and host_machine.endian() == 'little'
-          frida_platform = 'linux-mips64el'
-        endif
-      elif frida_host_system == 'darwin'
-        if host_machine.cpu_family() == 'x86_64'
-          frida_platform = 'macos-x86_64'
-        elif host_machine.cpu_family() == 'aarch64'
-          frida_platform = 'macos-arm64'
-        endif
-      elif frida_host_system == 'windows'
-        if host_machine.cpu_family() == 'x86_64'
-          frida_platform = 'windows-x86_64'
-        elif host_machine.cpu_family() == 'x86'
-          frida_platform = 'windows-x86'
-        elif host_machine.cpu_family() == 'aarch64'
-          frida_platform = 'windows-arm64'
-        endif
-      elif frida_host_system == 'android'
-        if host_machine.cpu_family() == 'aarch64'
-          frida_platform = 'android-arm64'
-        elif host_machine.cpu_family() == 'arm'
-          frida_platform = 'android-arm'
-        elif host_machine.cpu_family() == 'x86_64'
-          frida_platform = 'android-x86_64'
-        elif host_machine.cpu_family() == 'x86'
-          frida_platform = 'android-x86'
-        endif
+      frida_devkit_platforms = {
+        'linux/x86_64/little': 'linux-x86_64',
+        'linux/x86/little': 'linux-x86',
+        'linux/aarch64/little': 'linux-arm64',
+        'linux/arm/little': 'linux-armhf',
+        'linux/aarch64/big': 'linux-arm64be',
+        'linux/arm/big': 'linux-armbe8',
+        'linux/mips/big': 'linux-mips',
+        'linux/mips/little': 'linux-mipsel',
+        'linux/mips64/big': 'linux-mips64',
+        'linux/mips64/little': 'linux-mips64el',
+        'darwin/x86_64/little': 'macos-x86_64',
+        'darwin/aarch64/little': 'macos-arm64',
+        'windows/x86_64/little': 'windows-x86_64',
+        'windows/x86/little': 'windows-x86',
+        'windows/aarch64/little': 'windows-arm64',
+        'android/aarch64/little': 'android-arm64',
+        'android/arm/little': 'android-arm',
+        'android/x86_64/little': 'android-x86_64',
+        'android/x86/little': 'android-x86',
+      }
+      frida_musl_platforms = {
+        'linux/x86_64/little': 'linux-x86_64-musl',
+        'linux/aarch64/little': 'linux-arm64-musl',
+        'linux/arm/little': 'linux-armhf-musl',
+      }
+      frida_host_key = frida_host_system / host_machine.cpu_family() / host_machine.endian()
+      if frida_host_musl
+        frida_platform = frida_musl_platforms.get(frida_host_key, '')
+      else
+        frida_platform = frida_devkit_platforms.get(frida_host_key, '')
       endif
       if frida_platform == ''
         warning('no frida-core devkit exists for this host, building without frida support')

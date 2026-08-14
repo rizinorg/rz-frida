@@ -88,7 +88,7 @@ jobs:
           fi
           curl -sL "https://api.github.com/repos/frida/frida/releases/tags/$FRIDA_VERSION" \
             | jq -r '.assets[].name' > /tmp/frida-assets
-          grep -oP "frida_platform = '\K[^']+" plugin/rizin/meson.build | sort -u | while read -r platform; do
+          grep -oP "': '\K[a-z0-9_-]+(?=',)" plugin/rizin/meson.build | sort -u | while read -r platform; do
             if ! grep -qx "frida-core-devkit-$FRIDA_VERSION-$platform.tar.xz" /tmp/frida-assets; then
               echo "::error::frida $FRIDA_VERSION has no devkit for $platform"
               touch /tmp/frida-missing
