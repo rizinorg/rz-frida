@@ -5,3 +5,4 @@ option('rizin_sdb_include_dir', type: 'string', value: '', description: 'Manual 
 option('frida_core', type: 'feature', value: 'auto', description: 'Use frida-core when available')
 option('frida_include_dir', type: 'string', value: '', description: 'Manual include directory for Frida devkit')
 option('frida_library', type: 'string', value: '', description: 'Manual full path to the Frida core library')
+option('frida_version', type: 'string', value: '17.17.0', description: 'Frida release whose devkit is fetched when frida_core=enabled and no manual paths are given')
