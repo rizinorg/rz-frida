@@ -1,4 +1,6 @@
 cc = meson.get_compiler('c')
+fs = import('fs')
+python = import('python').find_installation(required: false)
 
 rz_core_dep = dependency('rz_core')
 frida_core_opt = get_option('frida_core')
@@ -8,10 +10,85 @@ frida_core_manual = false
 frida_core_compile_args = []
 frida_core_link_args = []
 frida_core_manual_deps = []
+frida_core_fetch_failed = false
 
 if not frida_core_opt.disabled()
+  frida_host_system = host_machine.system()
+  if frida_host_system == 'linux' and cc.compiles('#ifndef __ANDROID__\n#error android\n#endif', name: 'android bionic check')
+    # termux like hosts show linux but link against bionic
+    frida_host_system = 'android'
+  endif
   frida_include_dir = get_option('frida_include_dir')
   frida_library = get_option('frida_library')
+  if frida_include_dir == '' or frida_library == ''
+    # probe pkg-config first, then fetch devkit when enabled
+    frida_core_dep = dependency('frida-core-1.0', required: false)
+    if not frida_core_dep.found() and frida_core_opt.enabled()
+      # no devkit
+      if meson.is_cross_build()
+        error('cross builds need -Dfrida_include_dir and -Dfrida_library, the devkit cannot be fetched')
+      endif
+      if not python.found()
+        error('python3 is required to fetch the frida-core devkit, or pass -Dfrida_include_dir and -Dfrida_library')
+      endif
+      frida_host_musl = false
+      if frida_host_system == 'linux' and cc.compiles('#ifndef __MUSL__\n#error musl\n#endif', name: 'musl libc check')
+        frida_host_musl = true
+      endif
+      frida_devkit_platforms = {
+        'linux/x86_64/little': 'linux-x86_64',
+        'linux/x86/little': 'linux-x86',
+        'linux/aarch64/little': 'linux-arm64',
+        'linux/arm/little': 'linux-armhf',
+        'linux/aarch64/big': 'linux-arm64be',
+        'linux/arm/big': 'linux-armbe8',
+        'linux/mips/big': 'linux-mips',
+        'linux/mips/little': 'linux-mipsel',
+        'linux/mips64/big': 'linux-mips64',
+        'linux/mips64/little': 'linux-mips64el',
+        'darwin/x86_64/little': 'macos-x86_64',
+        'darwin/aarch64/little': 'macos-arm64',
+        'windows/x86_64/little': 'windows-x86_64',
+        'windows/x86/little': 'windows-x86',
+        'windows/aarch64/little': 'windows-arm64',
+        'android/aarch64/little': 'android-arm64',
+        'android/arm/little': 'android-arm',
+        'android/x86_64/little': 'android-x86_64',
+        'android/x86/little': 'android-x86',
+      }
+      frida_musl_platforms = {
+        'linux/x86_64/little': 'linux-x86_64-musl',
+        'linux/aarch64/little': 'linux-arm64-musl',
+        'linux/arm/little': 'linux-armhf-musl',
+      }
+      frida_host_key = frida_host_system / host_machine.cpu_family() / host_machine.endian()
+      if frida_host_musl
+        frida_platform = frida_musl_platforms.get(frida_host_key, '')
+      else
+        frida_platform = frida_devkit_platforms.get(frida_host_key, '')
+      endif
+      if frida_platform == ''
+        warning('no frida-core devkit exists for this host, building without frida support')
+        frida_core_fetch_failed = true
+      else
+        frida_fetch = files('../../scripts/fetch_frida_devkit.py')
+        frida_devkit_dir = run_command(
+          python, frida_fetch, get_option('frida_version'), frida_platform,
+          check: true,
+        ).stdout().strip()
+        frida_include_dir = frida_devkit_dir
+        if frida_host_system == 'windows'
+          frida_library = frida_devkit_dir / 'frida-core.lib'
+        else
+          frida_library = frida_devkit_dir / 'libfrida-core.a'
+        endif
+        if not fs.exists(frida_include_dir / 'frida-core.h') or not fs.exists(frida_library)
+          error('frida-core devkit was fetched but expected files are missing in ' + frida_devkit_dir)
+        endif
+      endif
+    endif
+  endif
+
   if frida_include_dir != '' and frida_library != ''
     frida_core_manual = true
     if host_machine.system() == 'windows' and cc.get_id() == 'gcc' and frida_library.to_lower().endswith('.lib')
@@ -22,7 +99,7 @@ if not frida_core_opt.disabled()
     # devkit gives static frida core that doesnt carry its own system
     # libs, so just naming them here for link to resolve. pkg-config path
     # below declares these itself, so not needed there.
-    if host_machine.system() == 'linux'
+    if frida_host_system == 'linux'
       frida_core_manual_deps += dependency('threads')
       dl_dep = cc.find_library('dl', required: false)
       if dl_dep.found()
@@ -33,7 +110,7 @@ if not frida_core_opt.disabled()
         frida_core_manual_deps += m_dep
       endif
     endif
-    if host_machine.system() == 'android'
+    if frida_host_system == 'android'
       # needs liblog and libm for the static devkit
       log_dep = cc.find_library('log', required: false)
       if log_dep.found()
@@ -44,10 +121,10 @@ if not frida_core_opt.disabled()
         frida_core_manual_deps += m_dep
       endif
     endif
-    if host_machine.system() == 'windows'
+    if frida_host_system == 'windows'
       frida_core_manual_deps += cc.find_library('setupapi', required: false)
     endif
-    if host_machine.system() == 'darwin'
+    if frida_host_system == 'darwin'
       frida_core_manual_deps += dependency('appleframeworks', modules: ['Foundation', 'CoreFoundation', 'AppKit'])
       frida_core_manual_deps += cc.find_library('bsm', required: false)
       frida_core_manual_deps += cc.find_library('resolv', required: false)
@@ -57,8 +134,6 @@ if not frida_core_opt.disabled()
       link_args: frida_core_link_args,
       dependencies: frida_core_manual_deps,
     )
-  else
-    frida_core_dep = dependency('frida-core-1.0', required: false)
   endif
 
   if frida_core_dep.found()
@@ -87,7 +162,7 @@ if not frida_core_opt.disabled()
     if not frida_core_enabled and frida_core_opt.enabled()
       error('frida-core was found but cannot be linked with this compiler and toolchain')
     endif
-  elif frida_core_opt.enabled()
+  elif frida_core_opt.enabled() and not frida_core_fetch_failed
     error('frida-core was requested but not found through pkg-config or manual devkit options')
   endif
 endif
@@ -117,7 +192,6 @@ else
   rz_frida_backend_src = 'src/rz_frida_backend_null.c'
 endif
 
-python = import('python').find_installation(required: false)
 rz_frida_agent_header = files('src/rzfrida_agent.h')
 if python.found()
   rz_frida_agent_embed = files('agent/embed_agent.py')

@@ -141,6 +141,24 @@ ninja -C build                                    # compile
 meson test -C build                               # run tests
 ```
 
+When the manual paths are omitted and `frida_core` is enabled, the build
+fetches the frida-core devkit for the host automatically and verifies it
+against the sha256 published by the frida release. The devkit is
+cached under `$XDG_CACHE_HOME/rz-frida` (`%LOCALAPPDATA%\rz-frida` on
+Windows) and reused by later builds. Hosts that frida publishes no devkit
+for (the BSDs, riscv64, s390x, ppc64le, ...) build the plugin without
+frida support and print a config warn.
+
+## Install via rz-pm (experimental)
+
+```
+rz-pm install rz-frida
+```
+
+rizin dev files (pkg-config or cmake) and meson must be present,
+and on Windows the command must run inside a Visual Studio developer
+prompt.
+
 ## Commands
 
 All commands are subcommands of the `frida` group, run `frida?` in Rizin for the
