@@ -1,0 +1,105 @@
+# The frida:// URI grammar
+
+Every rz-frida operation that involves a device is addressed by a URI:
+
+```text
+frida://<action>/<transport>/<device>/<target>
+```
+
+## The parts
+
+| Part | Values | Rules |
+|---|---|---|
+| action | `list` `apps` `attach` `spawn` `launch` | what to do |
+| transport | `local` `usb` `remote` | how to reach the target |
+| device | empty, device id, `host:port` | see the table below |
+| target | pid, process name, package name, executable path | required by `attach` `spawn` `launch`, must be empty for `list` `apps` |
+
+Per-transport device rules:
+
+| Transport | Device field |
+|---|---|
+| `local` | must be empty |
+| `usb` | empty (single connected device) or a device id |
+| `remote` | non-empty and must contain a `:` (host:port) |
+
+```{mermaid}
+flowchart TD
+    A[action] -->|list, apps| E[target must be empty]
+    A -->|attach, spawn, launch| T[target required: pid, name, package or path]
+    T --> TR[transport]
+    TR -->|local| D1[device empty]
+    TR -->|usb| D2[device empty or device id]
+    TR -->|remote| D3[device host:port]
+```
+
+## Examples
+
+```text
+frida://attach/local//1234
+```
+
+Attach to local pid 1234. Note the double slash: the device field is empty,
+then the target.
+
+```text
+frida://spawn/usb//com.example.app
+```
+
+Spawn a package on the single USB device.
+
+```text
+frida://attach/remote/127.0.0.1:27042/4321
+```
+
+Attach to pid 4321 through a remote frida-server.
+
+```text
+frida://launch/local///bin/ls
+```
+
+Launch `/bin/ls` locally. The target starts with a slash, so there are three
+slashes: after the empty device field, the target itself begins with `/`.
+
+## Validate without touching a device
+
+`fridau` parses and validates a URI without contacting anything. This is
+useful for scripts and CI:
+
+```text
+[0x00000000]> fridauj frida://attach/local//1234
+{"ok":true,"result":{"action":"attach","transport":"local","device":"","target":"1234"}}
+
+[0x00000000]> fridauj frida://attach/usb//Gadget
+{"ok":true,"result":{"action":"attach","transport":"usb","device":"","target":"Gadget"}}
+
+[0x00000000]> fridauj frida://spawn/local///bin/ls
+{"ok":true,"result":{"action":"spawn","transport":"local","device":"","target":"/bin/ls"}}
+```
+
+Invalid combinations are rejected with `invalid_uri`:
+
+```text
+[0x00000000]> fridauj frida://launch/remote//bad
+{"ok":false,"error":{"code":"invalid_uri","message":"invalid Frida URI"}}
+
+[0x00000000]> fridauj frida://attach/local//
+{"ok":false,"error":{"code":"invalid_uri","message":"invalid Frida URI"}}
+```
+
+![URI validation](img/first_steps/uri-validation.png)
+
+## Common mistakes
+
+- Forgetting the target for `attach`/`spawn`/`launch` → `invalid_uri`
+- Giving a target to `list`/`apps` → `invalid_uri`
+- A remote device without a colon → `invalid_uri`
+- A device name on the local transport → `invalid_uri`
+- Percent-encoding: none exists, write the URI literally
+- A path with slashes: an absolute path needs the extra slash,
+  `launch/local///bin/ls`. A relative path does not,
+  `spawn/local//./native_demo`
+
+> **Note:** `fridaoj` accepts a bare URI without the `frida://` prefix and
+> adds it. `fridau`, `fridap`, and `fridaa` require the full form.
+

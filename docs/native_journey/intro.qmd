@@ -1,0 +1,14 @@
+# The Native Journey
+
+The same ideas as the Android chapters, on a small C program with actual
+symbols: no ART, no classloaders, a license gate and a flag in memory.
+
+| Chapter | Contents |
+|---|---|
+| [Building the target](building_the_target.qmd) | compile and run `native_demo` |
+| [Attach and explore](attach_and_explore.qmd) | symbols instead of RegisterNatives |
+| [Breaking on check](breaking_on_check.qmd) | breakpoint `check_key`, continue |
+| [Patching and spawning](patching_and_spawning.qmd) | patch the key, spawn and launch |
+
+On Android, native methods hide behind `RegisterNatives`. On the host, the
+symbol table is visible directly.

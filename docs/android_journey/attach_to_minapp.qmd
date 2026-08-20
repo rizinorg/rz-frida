@@ -1,0 +1,80 @@
+# Attach to minapp
+
+The lab is up (see [Setting up the lab](../first_steps/setting_up_the_lab.qmd)):
+emulator booted, frida-server running, minapp installed.
+
+## 1. Launch the app
+
+```bash
+$ adb shell am start -n re.frida.minapp/.MainActivity
+$ adb shell 'ps -A | grep minapp'
+u0_a141  2812  325  13649704 128276 do_epoll_wait 0 S re.frida.minapp
+```
+
+The pid is 2812 on this run. It changes on every launch, read it fresh.
+
+## 2. Attach by name
+
+The process name is the app *label*, `FridaMin`:
+
+```text
+[0x00000000]> fridaoj frida://attach/usb//FridaMin
+{"ok":true,"result":{"action":"attach","pid":2812,"resumed":false,"state":"attached"}}
+```
+
+The reply reports the resolved `pid`, whether the target was `resumed`, and
+the session `state`.
+
+> **Note:** attaching by the package name fails: frida knows the process by
+> its label. `frida-ps -U` shows the names to use.
+
+```text
+[0x00000000]> fridaoj frida://attach/usb//re.frida.minapp
+{"ok":false,"error":{"code":"invalid_target","message":"Process not found"}}
+```
+
+## 3. Attach by pid
+
+```text
+[0x00000000]> fridacj
+{"ok":true,"result":{"pid":2812,"state":"closed"}}
+
+[0x00000000]> fridaoj frida://attach/usb//2812
+{"ok":true,"result":{"action":"attach","pid":2812,"resumed":false,"state":"attached"}}
+```
+
+## 4. Check the Java VM
+
+```text
+[0x00000000]> fridaJj
+{"ok":true,"result":{"available":true}}
+```
+
+`fridaJj` checks whether the Android Java VM (ART) is reachable from the
+agent. `available:true` means the Java commands will work.
+
+![Attached to minapp](img/android_journey/attach-minapp.png)
+
+## 5. Session state
+
+```text
+[0x00000000]> fridasj
+{"ok":true,"result":{"active":true,"state":"attached","pid":2812,"action":"attach","target":"FridaMin"}}
+```
+
+Close the session when done:
+
+```text
+[0x00000000]> fridacj
+{"ok":true,"result":{"pid":2812,"state":"closed"}}
+```
+
+The app keeps running: attach never kills its target.
+
+::: {.callout-tip}
+### Try
+
+Attach, ping the agent (`fridaij`), check the Java VM, read the session
+state, close. Repeat with a fresh pid.
+:::
+

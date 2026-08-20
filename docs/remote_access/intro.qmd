@@ -1,0 +1,9 @@
+# Remote Access
+
+frida-server over TCP, and frida-gadget inside an apk on a device that is
+not rooted.
+
+| Chapter | Contents |
+|---|---|
+| [Remote targets](remote_targets.qmd) | listing and attaching over TCP |
+| [Non-rooted devices](non_rooted_gadget.qmd) | prebuilt gadget APK and attach |

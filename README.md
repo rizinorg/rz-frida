@@ -28,7 +28,7 @@ The plugin provides:
 - target memory r/w through the agent when `frida-core` is enabled
 - target memory range and thread listing through the agent when `frida-core` is enabled
 - target module, export, import, and sym listing through the agent when `frida-core` is enabled
-- native breakpoints with thread-targeted continue and register r/w at a stop through the agent when `frida-core` is enabled
+- native breakpoints with thread-targeted continue, stop identity, and register r/w at a stop through the agent when `frida-core` is enabled
 - hardware watchpoints on every thread, reporting the access with its register context, through the agent when `frida-core` is enabled
 
 ## Prerequisites
@@ -96,11 +96,12 @@ Session tab and click Connect.
 
 The plugin has two halves that share one session model.
 
-The **Rizin plugin** opens a session on a target device (`fridaoj`), injects a
-small JS agent into the target on first use, and talks to it over a
-request/response channel. Every command goes through a JSON
-envelope (`ok`, `result` or `error`) and respects the session timeout and
-cancellation.
+The **Rizin plugin** opens a session on a target device (`fridaoj`) and talks
+to it over a request/response channel. Local attach injects the JS agent on
+first agent command, USB/remote spawn injects during `fridaoj`. The `…j`
+commands use a JSON envelope (`ok`, `result` or `error`). `fridas` and
+`fridau` also print plain text. Open respects the session timeout and can be
+cancelled.
 
 The **Cutter plugin** is a dock widget frontend. It calls the rizin plugin's
 C API directly through `FridaApiBridge`, and runs the blocking calls on a
@@ -141,15 +142,19 @@ ninja -C build                                    # compile
 meson test -C build                               # run tests
 ```
 
-When the manual paths are omitted and `frida_core` is enabled, the build
-fetches the frida-core devkit for the host automatically and verifies it
-against the sha256 published by the frida release. The devkit is
-cached under `$XDG_CACHE_HOME/rz-frida` (`%LOCALAPPDATA%\rz-frida` on
-Windows) and reused by later builds. Hosts that frida publishes no devkit
-for (the BSDs, riscv64, s390x, ppc64le, ...) build the plugin without
-frida support and print a config warn.
+When the manual paths are omitted, meson tries pkg-config `frida-core-1.0`
+first. Fetch runs only if that is missing and `-Dfrida_core=enabled`. The
+fetched version is `frida_version` in `meson_options.txt` (default
+17.17.0). The build verifies the archive against the sha256 published by
+the frida release. The cache is `$XDG_CACHE_HOME/rz-frida` or `~/.cache/rz-frida`
+on Linux, `~/Library/Caches/rz-frida` on macOS, and
+`%LOCALAPPDATA%\rz-frida` on Windows. Hosts that frida publishes no
+devkit for (the BSDs, riscv64, s390x, ppc64le, ...) build the plugin
+without frida support and print a config warn.
 
 ## Install via rz-pm (experimental)
+
+`rz-pm install rz-frida` and the build it runs are experimental.
 
 ```
 rz-pm install rz-frida
@@ -178,7 +183,7 @@ fridaaj frida://apps/usb/device-1/                  # list applications on a USB
 fridaoj frida://attach/local//1234                  # attach to a local pid
 fridaoj frida://spawn/local///bin/ls                # spawn a local process suspended
 fridaoj frida://attach/usb//com.example.app         # attach to a USB target by name
-fridaoj frida://spawn/usb//com.example.app          # spawn a USB target suspended
+fridaoj frida://spawn/usb//com.example.app          # spawn a USB package (resumed, rn true when the hook armed)
 fridaoj frida://attach/remote/127.0.0.1:27042/1234 # attach over a remote frida-server
 fridarj                                             # resume a spawned target
 fridacj                                             # close the open session
@@ -200,7 +205,7 @@ fridab-j 0x1000                                     # remove a breakpoint
 fridab-j *                                          # remove all breakpoints
 fridagj                                             # continue last parked thread
 fridagj 4242                                        # continue a specific thread
-fridaBj 4242                                        # read registers of a parked thread
+fridaBj 4242                                        # stop identity of a parked thread
 fridaBj 4242 pc 0x401000                            # write a register of a parked thread
 fridaWj 0x1000 8 w                                  # set a hardware watchpoint (write, 8 bytes)
 fridaWj                                             # list watchpoints
@@ -213,7 +218,7 @@ fridaCj re.frida.minapp                             # list loaded classes by pre
 fridaXj                                             # compare runtime vs static classes
 fridaXj re.frida.minapp                             # compare by prefix
 fridaNj                                             # list newly loaded classes since start
-fridaNj start                                       # arm class load monitor
+fridaNj start                                       # snapshot currently loaded classes
 fridaNj stop                                        # disarm class load monitor
 fridaRNj                                            # list RegisterNatives hook captures
 fridaRNj on                                         # arm RegisterNatives hook
@@ -225,11 +230,14 @@ fridafj                                             # import runtime modules as 
 `fridadj`, `fridapj`, `fridaaj`, and `fridaoj` return a structured `frida_unavailable`
 error when the plugin is built without `frida-core`. `fridapj` and `fridaaj` list the
 local device by default, or take a `frida://` URI to select a USB or remote device.
-`fridaoj` opens a session on the device named by the URI (attach, spawn, or launch on
-local, USB, or remote), `fridarj` resumes a target that was spawned suspended, and
-`fridacj` closes it. Closing kills a target that was spawned but never resumed and
-leaves an attached or launched target running. Open, resume, and close honor the
-session timeout and can be cancelled.
+`fridaoj` opens a session on the device named by the URI (attach, spawn, or
+launch on local, USB, or remote). USB/remote spawn resumes before `fridaoj`
+returns (`rn` true when RegisterNatives armed, else `rn` false). A local
+spawn stays suspended until `fridarj`. `fridarj` resumes a still-suspended
+spawn (safe if the target is already running), and `fridacj` closes the
+session. Closing kills a target that was spawned but never resumed and
+leaves an attached or launched target running. Open respects the session
+timeout and can be cancelled.
 
 ## Targets and transports
 
@@ -241,8 +249,9 @@ transport the device is the `host:port` of a frida-server.
 `attach` accepts a numeric pid or a process name. A name is matched against the running
 processes and resolved to a pid, and an unknown name returns an `invalid_target` error.
 `spawn` and `launch` accept an executable path on local and remote targets or a package
-identifier on USB targets. `spawn` starts the target suspended for `fridarj`, `launch`
-resumes it immediately.
+identifier on USB targets. Local spawn stays suspended for `fridarj`. USB/remote
+spawn resumes before `fridaoj` returns (`rn` true when the hook armed). `launch`
+resumes immediately.
 
 ### Android over USB
 
@@ -252,8 +261,8 @@ Start `frida-server` on the device, then enumerate and open over USB:
 fridadj                                            # list USB devices
 fridaaj frida://apps/usb//                         # list apps on the USB device
 fridapj frida://list/usb//                         # list processes on the USB device
-fridaoj frida://spawn/usb//com.example.app         # spawn the app suspended
-fridarj                                            # resume the spawned app
+fridaoj frida://spawn/usb//com.example.app         # spawn USB/remote (resumed, rn true when the hook armed)
+fridarj                                            # resume if still suspended (safe if already running)
 fridacj                                            # close the session
 ```
 
@@ -261,8 +270,9 @@ A device that is not reachable, because `frida-server` is not running or the cab
 unplugged, surfaces as a `timeout` or `internal_error` carrying the message from
 `frida-core`. An unknown package or process name surfaces as an `invalid_target` error.
 
-The example package `re.frida.minapp` used as an example here, is a small test
-application, available at <https://t.me/rzfrida/25>.
+The example package `re.frida.minapp` is a small test application at
+<https://t.me/rzfrida/25>. A gadget-embedded APK of the same app, for
+non-rooted devices, is at <https://t.me/rzfrida/27>.
 
 ### Remote frida-server
 
@@ -279,9 +289,10 @@ portals are not wired up.
 
 ## Script execution
 
-Once a session is open, the plugin injects a small agent into the target and talks to it
-over a request/response channel. The agent is loaded on first use, so the script cmds
-work directly after `fridaoj` w/o a separate load step.
+Once a session is open, the plugin talks to the target over a request/response
+channel. Local attach injects the agent on the first agent command, USB/remote
+spawn already injected during `fridaoj`. Script commands do not need a separate
+load step.
 
 ```
 fridaij                          # ping the agent, get platform/arch/ptrsize
@@ -353,7 +364,7 @@ fridab-j 0x1000             # remove breakpoint at 0x1000
 fridab-j *                  # remove all breakpoints
 fridagj                     # continue most recently parked thread
 fridagj 4242                # continue thread 4242
-fridaBj 4242                # read registers of parked thread 4242
+fridaBj 4242                # stop identity of parked thread 4242
 fridaBj 4242 pc 0x401000    # write pc register of parked thread 4242
 fridaWj 0x1000 8 w          # set write watchpoint on 8 bytes at 0x1000
 fridaWj                     # list watchpoints
@@ -363,18 +374,19 @@ fridaW-j *                  # remove all watchpoints
 
 `fridabj <addr>` sets a breakpoint, `fridabj` with no arg lists the ones that are set, and
 `fridab-j` removes one addr or `*` for all. A breakpoint is an `Interceptor.attach`, so it
-fires on whichever thread reaches the addr, there is no cap on how many you set, and the
-target code is never patched.
+fires on whichever thread reaches the addr and there is no plugin-side slot cap.
+The plugin does not patch the target, Frida may rewrite the prologue.
 
 A hit isn't a reply, it arrives asynchronously and `fridamj` drains it as a `frida.bp`
-msg carrying the breakpoint id (under `bp`), the thread id, and the register context at
-the stop. The thread that hit stays parked until you continue it. `fridagj <tid>` continues
+msg carrying the breakpoint id (under `bp`) and the thread id. The event context
+is empty. The thread that hit stays parked until you continue it. `fridagj <tid>` continues
 that exact thread, `fridagj` with no arg continues the most recently parked one, and it
 reports whether a thread was released. Other agent cmds keep working while a thread is parked,
 so you can read mem or list threads at the stop, and one continue releases one parked thread.
 
-`fridaBj <tid>` reads the saved registers of the parked thread, and `fridaBj <tid> <reg>
-<value>` sets one register. A write goes on the saved context and takes effect when the
+`fridaBj <tid>` reports the stop identity (`threadId`, `bp`, `address`) of the
+parked thread. It does not return register values. `fridaBj <tid> <reg>
+<value>` sets one register. A write goes on the live context and takes effect when the
 thread is continued, so set `pc`, an arg reg, or a return value at the stop and
 then `fridagj` to resume with it.
 
@@ -388,9 +400,9 @@ register context. A watchpoint disarms itself on the hit so the faulting
 instruction does not re-trap, re-arm it to catch the next access. The slot count is bounded by
 `frida.hw.watchpoints` (default 4) and by the CPU, so a set fails when they're full.
 
-Execution breakpoints (`fridab`) use `Interceptor`, which fires on every thread with no slot
-limit and never patches the target code, and data watchpoints (`fridaW`) use the hardware
-debug registers, so the two cover different needs without slot conflicts. Instruction
+Execution breakpoints (`fridab`) use `Interceptor`, which fires on every thread with no
+plugin-side slot limit (Frida may rewrite the prologue), and data watchpoints (`fridaW`)
+use the hardware debug registers, so the two cover different needs without slot conflicts. Instruction
 single stepping isn't exposed as a cmd, Frida offers it only through Stalker tracing,
 which `fridaej` can drive directly when needed. Parking a thread that's there for UI could
 make app unresponsive, so continue promptly, and closing the session releases any thread
@@ -414,8 +426,9 @@ fridaImj sg.vantagepoint.uncrackable1.MainActivity   # describe + import into ri
 
 `fridaJj` checks whether the Java VM is reachable. `fridaLj` enumerates the classloaders
 with stable session-scoped int ids, each reporting its runtime type and `toString`
-representation. `fridaCj` lists loaded classes; pass a prefix to filter by package or
-class name, otherwise the full list is returned. The `frida.java.max` config (default 512)
+representation. `fridaCj` lists loaded classes. Pass a prefix to match a
+canonical name start or the simple name after the last dot, otherwise the
+full list is returned. The `frida.java.max` config (default 512)
 caps the batch and a `truncated` flag in the reply says whether more classes exist beyond
 the cap.
 
@@ -442,16 +455,20 @@ classes (when a binary is open in rizin) and returns counts: `only_static`, `onl
 and `both`. An optional prefix filters both sides. The `frida.dex.max` config (default 0,
 unlimited) caps how many runtime classes are fetched during comparison.
 
-`fridaNj start` arms classload hooks on all active classloaders and intercepts new
-classloader creation, recording loaded classes until `fridaNj stop` detaches the hooks
-and clears the buffer. `fridaNj` with no arg lists the classes loaded since `start`.
+`fridaNj start` snapshots currently loaded classes into a seen set. Calling
+`start` again while already enabled does not re-snapshot. `fridaNj` with no
+arg lists classes that appeared since that snapshot (a polling diff, not a
+classload interceptor). `fridaNj stop` disables the monitor and does not
+clear the seen set. A later listing can still report new names with
+`monitor: false`.
 
-`fridaRNj on` hooks the low-level JNI RegisterNatives call on the ART runtime (JNI
-function table index 218, falling back to 215 on older ART) to intercept native method
-registrations. `fridaRNj off` disarms the hook and clears the buffer. `fridaRNj` lists
-captured invocations with class name, method names, signatures, and native function
-addresses. `fridaRNj import` imports the captured native method entries into rizin's
-analysis class database.
+`fridaRNj on` hooks the live JNI `RegisterNatives` slot on the ART runtime (JNI
+function table index 215) to intercept native method registrations. USB/remote
+spawn already arms that hook and resumes inside `fridaoj`. On a still-suspended
+spawn, `fridaRNj on` also resumes the process. `fridaRNj off` disarms the hook
+and clears the buffer. `fridaRNj` lists captured invocations with class name,
+method names, signatures, and native function addresses. `fridaRNj import`
+imports the captured native method entries into rizin's analysis class database.
 
 `fridafj` imports the target's loaded runtime modules as rizin flags in the `frida.libs`
 flag space so they're visible with commands like `f` (list flags) and `s <name>` (seek
@@ -583,9 +600,11 @@ synchronously on the main thread.
 ## FridaConnectDialog
 
 A modal dialog for transport/device/target/action selection. Transport choices
-(local/USB/remote) toggle the host:port field and device combo. Refresh buttons
-populate the device and process/package table via the C API. Last-used
-settings persist in QSettings across restarts.
+(local/USB/remote) toggle the host:port field and device combo. After any
+successful open the dock calls `resumeSession()`, so a local spawn from the
+GUI is resumed, CLI local spawn is not. Refresh buttons populate the device
+and process/package table via the C API. Last-used settings persist in
+QSettings across restarts.
 
 ## Translation support
 

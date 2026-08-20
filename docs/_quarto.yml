@@ -1,0 +1,81 @@
+project:
+  type: book
+  output-dir: _book
+
+format:
+  html:
+    mermaid:
+      format: png
+
+book:
+  reader-mode: true
+  title: "Dynamic Instrumentation with rz-frida"
+  author: "Alok Kumar Mishra"
+  description: |
+    A beginner's guide to the rz-frida plugin: dynamic
+    instrumentation of Android and native processes from inside Rizin.
+  chapters:
+    - index.qmd
+    - part: "Introduction"
+      chapters:
+        - intro/intro.qmd
+        - intro/what_is_frida.qmd
+        - intro/installing_rizin_and_rzfrida.qmd
+        - intro/how_it_works.qmd
+    - part: "First Steps"
+      chapters:
+        - first_steps/intro.qmd
+        - first_steps/setting_up_the_lab.qmd
+        - first_steps/uri_grammar.qmd
+        - first_steps/first_session_native.qmd
+        - first_steps/exploring_targets.qmd
+    - part: "Android Journey"
+      chapters:
+        - android_journey/intro.qmd
+        - android_journey/attach_to_minapp.qmd
+        - android_journey/discovering_classes.qmd
+        - android_journey/extracting_the_secret.qmd
+        - android_journey/unlocking_premium.qmd
+        - android_journey/counting_coins.qmd
+        - android_journey/breaking_the_native_check.qmd
+        - android_journey/watching_class_loads.qmd
+        - android_journey/runtime_vs_static.qmd
+        - android_journey/importing_into_analysis.qmd
+    - part: "Native Journey"
+      chapters:
+        - native_journey/intro.qmd
+        - native_journey/building_the_target.qmd
+        - native_journey/attach_and_explore.qmd
+        - native_journey/breaking_on_check.qmd
+        - native_journey/patching_and_spawning.qmd
+    - part: "Scripting"
+      chapters:
+        - scripting/intro.qmd
+        - scripting/evaluating_and_hooking.qmd
+        - scripting/messages_and_errors.qmd
+        - scripting/configuration.qmd
+    - part: "Remote Access"
+      chapters:
+        - remote_access/intro.qmd
+        - remote_access/remote_targets.qmd
+        - remote_access/non_rooted_gadget.qmd
+    - part: "Under the Hood"
+      chapters:
+        - under_the_hood/under_the_hood.qmd
+    - part: "Reference"
+      chapters:
+        - reference/commands.qmd
+        - reference/uri_reference.qmd
+        - reference/config_reference.qmd
+        - reference/errors.qmd
+        - reference/glossary.qmd
+        - reference/troubleshooting.qmd
+    - part: "Challenges"
+      chapters:
+        - challenges/intro.qmd
+        - challenges/challenge_01.qmd
+        - challenges/challenge_02.qmd
+        - challenges/challenge_03.qmd
+        - challenges/challenge_04.qmd
+        - challenges/challenge_05.qmd
+        - challenges/challenge_06.qmd

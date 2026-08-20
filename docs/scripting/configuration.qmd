@@ -1,0 +1,67 @@
+# Configuration
+
+All variables live in rizin's config, so `e` works as usual:
+
+```text
+[0x00000000]> e frida.timeout
+5000
+```
+
+![Config values](img/scripting/config.png)
+
+## The variables
+
+| Variable | Default | Meaning | Zero means |
+|---|---|---|---|
+| `frida.mem.max` | `0x100000` (1 MiB) | max bytes per `fridax`/`fridaw` | no limit |
+| `frida.timeout` | `5000` ms | session and agent request timeout | falls back to 5000 |
+| `frida.hw.watchpoints` | `4` | max hardware watchpoint slots for `fridaW` | agent default 4 |
+| `frida.java.max` | `512` | max classes per `fridaC` request | unlimited |
+| `frida.dex.max` | `0` | max runtime classes for `fridaX` | unlimited |
+| `frida.ac.min` | `2` | characters before class autocomplete | always triggers |
+| `frida.ac.max` | `12` | max autocomplete suggestions | falls back to 12 |
+
+## Timeouts and cancellation
+
+`frida.timeout` bounds `fridaoj` and agent requests that registered the
+break hook. `fridarj` and `fridacj` do not use that hook:
+
+```text
+[0x00000000]> e frida.timeout=1000
+```
+
+A request that exceeds it fails with:
+
+```json
+{"ok":false,"error":{"code":"timeout","message":"the request timed out"}}
+```
+
+Ctrl-C cancels a hanging request:
+
+```json
+{"ok":false,"error":{"code":"cancelled","message":"the request was cancelled"}}
+```
+
+The timeout also bounds the remote pre-flight probe, so unreachable hosts
+fail fast instead of hanging.
+
+## Practical tuning
+
+- A memory dump larger than 1 MiB: `e frida.mem.max=0` (or a bigger cap)
+- Many watchpoints on a CPU with more debug registers:
+  `e frida.hw.watchpoints=6`: the CPU is the actual cap
+- Unbounded class listings: `e frida.java.max=0`: careful: a full ART
+  listing is tens of thousands of classes
+- Deeper dex comparison: `e frida.dex.max=0` (the default)
+- Faster class completion: `e frida.ac.min=1`
+
+> **Note:** setting `frida.timeout=0` does not mean "no timeout": the agent
+> falls back to 5000 ms. Keep it at a sane value.
+
+::: {.callout-tip}
+### Try
+
+Lower `frida.timeout` to 100 and evaluate something slow, or to 1000 and
+run a normal eval: the timeout applies to every target request.
+:::
+

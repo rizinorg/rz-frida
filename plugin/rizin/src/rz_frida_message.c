@@ -8,6 +8,7 @@
 
 #include <rz_util/rz_json.h>
 #include <rz_util/rz_base64.h>
+#include <rz_util/rz_pj.h>
 
 struct rz_frida_pending_t {
 	RzSetU *ids; ///< Ids of requests still awaiting a reply.
@@ -20,6 +21,22 @@ static char *dup_str_field(const RzJson *object, const char *key) {
 		return NULL;
 	}
 	return rz_str_dup(field->str_value);
+}
+
+// quote JSON strings, rz_json_as_string() yields unquoted text.
+static char *json_node_as_json_text(const RzJson *node) {
+	if (!node) {
+		return NULL;
+	}
+	if (node->type == RZ_JSON_STRING) {
+		PJ *pj = pj_new();
+		if (!pj) {
+			return NULL;
+		}
+		pj_s(pj, node->str_value ? node->str_value : "");
+		return pj_drain(pj);
+	}
+	return rz_json_as_string(node, false);
 }
 
 RZ_IPI bool rz_frida_agent_message_parse(RZ_NONNULL const char *message, RZ_NONNULL RZ_OUT RzFridaAgentMessage *out) {
@@ -47,7 +64,7 @@ RZ_IPI bool rz_frida_agent_message_parse(RZ_NONNULL const char *message, RZ_NONN
 		out->kind = RZ_FRIDA_AGENT_MESSAGE_SEND;
 		const RzJson *payload = rz_json_get(json, "payload");
 		if (payload) {
-			out->payload = rz_json_as_string(payload, false);
+			out->payload = json_node_as_json_text(payload);
 		}
 		ok = true;
 	} else if (RZ_STR_EQ(type->str_value, "error")) {

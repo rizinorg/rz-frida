@@ -1,0 +1,259 @@
+# Troubleshooting
+
+## `no session is open`
+
+Every session-requiring command before `fridaoj`:
+
+```json
+{"ok":false,"error":{"code":"invalid_target","message":"no session is open"}}
+```
+
+## `fridamj` reports a parser error
+
+`fridamj` is a registered JSON command. Verify the exact rizin binary and
+the command registration in a clean instance:
+
+```bash
+$ command -v rizin
+$ rizin -N -q -c 'fridamj' malloc://8
+{"ok":false,"error":{"code":"invalid_target","message":"no session is open"}}
+```
+
+If the clean command works but an interactive prompt reports
+`Error while parsing command: \`fridamj\``, quit and reopen rizin using the
+absolute binary path. This usually indicates a stale plugin load, pasted
+control characters or terminal input being concatenated with the previous
+prompt. Type `fridamj` followed by Enter rather than pasting it together
+with the preceding JSON reply.
+
+## A breakpoint is armed but never hits
+
+`fridabj` returning an address and breakpoint id only confirms that the
+interceptor was installed. It does not confirm that the address belongs to
+the current process. Native addresses change after every app restart because
+of ASLR. If `fridamj` contains only `agent.ready` and `fridagj` returns
+`resumed:false`, no thread reached the breakpoint.
+
+For a static Android native method such as `nativeCheckSecret`, obtain the
+address and set the breakpoint in the same spawned process session:
+
+```text
+[0x00000000]> fridaoj frida://spawn/usb//re.frida.minapp
+[0x00000000]> fridaRNj
+```
+
+`fridaoj` resumes a USB/remote spawn after arming RegisterNatives (`rn`
+true when the hook armed). Read the current `SecretVault.nativeCheckSecret`
+address from that listing, then run `fridabj <address>` without restarting
+the app or rizin. Finally, enter a non-empty value and press Activate
+License. Do not reuse an address from an earlier pid or from an earlier
+app launch.
+
+If the RegisterNatives listing is empty after USB spawn, arm with
+`fridaRNj on` after attach.
+
+Fix: open a session first. `fridasj` reports the current state:
+
+```text
+[0x00000000]> fridasj
+{"ok":true,"result":{"active":false,"state":"closed"}}
+```
+
+## `the session is not attached` followed by `a session is already open`
+
+This means the target detached after the session was opened, but the current
+rizin instance still owns the session object. Common causes are stopping or
+restarting the app, restarting frida-server, rebooting the emulator, or a
+target crash. `clear` only clears the terminal display. It does not reset the
+rz-frida session.
+
+Recover in the same rizin instance:
+
+```text
+[0x00000000]> fridasj
+[0x00000000]> fridacj
+[0x00000000]> fridasj
+[0x00000000]> fridaoj frida://attach/usb//FridaMin
+```
+
+Always close the stale session before opening a replacement. If `fridacj`
+also fails because the underlying target is already gone, quit that rizin
+instance and start a new one. There is no command that force-clears a live
+session slot without closing the owning core context.
+
+## Spawned Android process fails to start
+
+If `fridaoj` returns `resumed:false` and later commands report `the
+session is not attached`, or if `fridarj` looks successful but the next
+request fails, check the Android log:
+
+```bash
+$ adb logcat -d | grep -E 'failed to attach|start timeout|FATAL|Abort message'
+```
+
+An entry such as `ActivityManager: ... failed to attach` followed by
+`start timeout` means Android killed the spawned process before its
+application startup completed. Android's startup timer begins when the
+spawned process is created, not when you type the next command. Leaving
+the process frozen at the rizin prompt used to exceed that deadline.
+`fridaoj` arms RegisterNatives and resumes a USB/remote spawn
+before it returns. If Java was not up at spawn time, USB/remote still
+resume with `rn: false`. Arm with `fridaRNj on` after attach if the listing
+is empty.
+
+If the log shows that the process was killed, close the stale session with
+`fridacj`, force-stop the app, and repeat the spawn. Do not hook JNI table
+index 218: that slot is `MonitorExit`, not `RegisterNatives`.
+
+## Commands "don't exist" after a rebuild
+
+A stale plugin copy shadows the fresh build. rizin loads
+`~/.local/share/rizin/plugins/` *and* the system triplet dir, and the older
+copy wins. Fix:
+
+```bash
+$ rm -f ~/.local/share/rizin/plugins/librz_frida.so
+```
+
+Then reinstall and verify with `fridasj` on `malloc://8`.
+
+## `frida_unavailable` errors
+
+```json
+{"ok":false,"error":{"code":"frida_unavailable","message":"frida-core support is not enabled"}}
+```
+
+The plugin was built without the devkit. Configure with
+`-Dfrida_core=enabled` so meson fetches it, or pass
+`-Dfrida_include_dir=... -Dfrida_library=...` for a local copy, then
+rebuild.
+
+## ninja says "no work to do" after source changes
+
+Ninja's mtime tracking missed the change (common after rsync). Touch the
+sources:
+
+```bash
+$ touch plugin/rizin/src/*.c
+$ ninja -C build-frida
+```
+
+## Agent changes do not take effect
+
+The agent is embedded as a generated header. The build regenerates it when
+`agent/rzfrida_agent.js` changes. After `npm install` in
+`plugin/rizin/agent/`, rebuild and reinstall. Verify the change with the
+agent autotest:
+
+```bash
+$ node plugin/rizin/tests/test_agent.js plugin/rizin/agent/rzfrida_agent.js
+```
+
+## Wrong meson / build pickle issues
+
+Use the meson that configured the build. On systems with several meson
+installations, `/usr/bin/meson` and a version-manager shim can disagree.
+Reconfigure with the same meson every time:
+
+```bash
+$ /usr/bin/meson setup build-frida --reconfigure
+```
+
+## Attach to a local process fails with permission denied
+
+Linux Yama blocks ptrace of a process started in another terminal when
+`kernel.yama.ptrace_scope` is `1`. Set it to `0` once after each host boot
+as shown in [Setting up the lab](../first_steps/setting_up_the_lab.qmd).
+
+## `no register named` with a control character in the name
+
+Inside rizin on Linux, Ctrl-V is not paste: the line editor inserts the
+literal character U+0016. `fridaBj 131473 rip 0x414141414141` typed after
+Ctrl-V becomes a write to `\u0016rip`, and `fridawj` of a 24-digit hex
+string becomes 25 characters (`expected an even-length hex byte string`).
+The plugin now strips those characters. Paste with the terminal's paste
+binding (Ctrl-Shift-V) or type the argument.
+
+## `Process not found` when attaching by name
+
+Frida knows processes by their *label*, not the package name. On Android,
+`re.frida.minapp` is `FridaMin`. The CLI reports that as
+`invalid_target` with message `Process not found`. Check `frida-ps -U`
+for the right name.
+
+## frida-server will not start or attach fails
+
+```bash
+$ adb shell 'ps -A | grep frida'
+```
+
+Nothing? Push and start it again:
+
+```bash
+$ adb push ~/frida-server-android /data/local/tmp/frida-server
+$ adb shell 'chmod 755 /data/local/tmp/frida-server'
+$ adb shell '/data/local/tmp/frida-server -D &'
+```
+
+Root is required: `adb root` first on the emulator.
+
+## Remote target unreachable
+
+```json
+{"ok":false,"error":{"code":"timeout","message":"the request timed out"}}
+```
+
+- is frida-server listening? `adb shell 'ps -A | grep frida'`
+- is it bound to a reachable address? `-l 0.0.0.0:27042`
+- is the port forwarded? `adb forward tcp:27042 tcp:27042` (re-do after
+  every reboot)
+- can the host reach it? `nc -zv 127.0.0.1 27042`
+
+## Watchpoints do not fire
+
+Arm, list and remove always work. Trap delivery does not:
+
+- emulator (QEMU/KVM): unreliable, and arming can destabilize the app.
+  Restart it with `adb shell am force-stop re.frida.minapp`
+- OEM ROMs: debug registers may be restricted for non-system apps
+- always use the smallest watched range that fits the field
+
+The Java-hook route (`Java.use(...).field.value`) is the portable
+alternative for Android state.
+
+## The app crashed after arming a watchpoint
+
+Restart the app and the session:
+
+```bash
+$ adb shell am force-stop re.frida.minapp
+$ adb shell am start -n re.frida.minapp/.MainActivity
+```
+
+## Spawn hangs on a non-rooted device
+
+Spawn needs ptrace, which non-rooted devices deny. Install a
+gadget-embedded copy of the app and attach instead of spawning
+(see [Non-rooted devices](../remote_access/non_rooted_gadget.qmd)).
+
+## RegisterNatives captures nothing
+
+- the registrations happened before you armed the hook: spawn the app
+  instead of attaching (`fridaoj` arms RegisterNatives and resumes a
+  USB/remote spawn), then list after `MainActivity` is visible
+- the listing drains the buffer: re-arm or trigger new registrations
+  (Load Plugin) before listing again
+- a `null methodsPtr` warning from the framework is benign
+
+## An eval that hits a breakpoint "times out"
+
+Expected: the eval thread parked at the breakpoint, so its request cannot
+complete. Read the `frida.bp` event with `fridamj`, inspect with
+`fridaBj <tid>`, and continue with `fridagj <tid>`: the call then
+finishes.
+
+## The batch import says no matches
+
+Batch imports need a **dotless** prefix (`fridaImj re`, not
+`fridaImj re.frida`): a dotted name is treated as one class. Also check
+`frida.java.max`: a cap of 512 classes applies to the batch.

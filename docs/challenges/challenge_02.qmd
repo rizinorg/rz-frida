@@ -1,0 +1,29 @@
+# Challenge 2: extract the secret without calling getSecret
+
+Get the secret **without** invoking `getSecret` and without reading the dex
+strings. The app must never call the method.
+
+**Hints**:
+
+<details>
+<summary>Hint 1</summary>
+
+The secret's *bytes* live somewhere in the app's memory. Search for them.
+</details>
+
+<details>
+<summary>Hint 2</summary>
+
+`Memory.scanSync` needs the pattern in hex. `rzfrida{` is
+`72 7a 66 72 69 64 61 7b`.
+</details>
+
+<details>
+<summary>Hint 3</summary>
+
+The full pattern is safer than a prefix: `rzfrida{f1nd_th3_s3cr3t}` is
+`72 7a 66 72 69 64 61 7b 66 31 6e 64 5f 74 68 33 5f 73 33 63 72 33 74 7d`.
+</details>
+
+The scan in [Extracting the secret](../android_journey/extracting_the_secret.qmd)
+is the same idea, without calling `getSecret`.

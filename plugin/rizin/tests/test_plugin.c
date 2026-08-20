@@ -241,6 +241,12 @@ static bool test_mem_write_without_session(RzCore *core) {
 		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
 		"memory write without an open session reports the precondition failure");
 	RZ_FREE(write);
+	write = rz_core_cmd_str(core, "fridawj 0x1000 " "\x16" "deadbeef");
+	mu_assert_notnull(write, "memory write with Ctrl-V in hex returns output");
+	mu_assert_streq(write,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"Ctrl-V in a hex string is stripped before the even-length check");
+	RZ_FREE(write);
 	mu_end;
 }
 

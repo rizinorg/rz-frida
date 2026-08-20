@@ -1,0 +1,41 @@
+# The Android Journey
+
+This part uses the demo app **minapp** (`re.frida.minapp`, label `FridaMin`).
+The app has a license gate, a premium flag, a coin balance, and a hidden
+secret. The prebuilt APK is at <https://t.me/rzfrida/25>.
+
+```{mermaid}
+mindmap
+  root((minapp))
+    secret.SecretVault
+      getSecret
+      checkSecret
+      nativeCheckSecret
+    license.LicenseChecker
+      VALID_KEY
+    game.GameState
+      premium
+      coins
+      buyPremium
+      addCoins
+    MainActivity
+      Activate License
+      Upgrade to Premium
+      Earn Coins
+      Load Plugin
+    dynamic.DynamicClass
+    libnative.so
+      g_secret
+```
+
+| Chapter | Contents |
+|---|---|
+| [Attach to minapp](attach_to_minapp.qmd) | open a session on the running app |
+| [Discovering classes](discovering_classes.qmd) | loaders, classes, descriptions |
+| [Extracting the secret](extracting_the_secret.qmd) | hook `getSecret`, read `g_secret` |
+| [Unlocking premium](unlocking_premium.qmd) | flip the `premium` flag |
+| [Counting coins](counting_coins.qmd) | watch and change the coin balance |
+| [Breaking the native check](breaking_the_native_check.qmd) | RegisterNatives, native breakpoint |
+| [Watching class loads](watching_class_loads.qmd) | class load monitor |
+| [Runtime vs static](runtime_vs_static.qmd) | dex versus the live process |
+| [Importing into analysis](importing_into_analysis.qmd) | classes into rizin's type system |

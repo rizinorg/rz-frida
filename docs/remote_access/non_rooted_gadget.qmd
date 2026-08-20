@@ -1,0 +1,93 @@
+# Non-rooted devices
+
+frida-server needs root because attaching to another app requires ptrace
+privileges. On a phone that is not rooted, put the agent *inside* the app:
+frida-gadget, a shared library the app loads, which opens a listening port.
+
+The emulator lab still uses the original package with frida-server. The
+gadget APK has the same package name, built for the phone ABI.
+
+## 1. Install the prebuilt gadget APK
+
+Download the gadget-embedded minapp from <https://t.me/rzfrida/27>. If an
+emulator is also connected, target the phone (`adb -s <serial>` or
+`adb -d`) so this APK is not installed on the emulator.
+
+```bash
+$ adb uninstall re.frida.minapp
+$ adb install -r minapp.apk
+$ adb shell am start -n re.frida.minapp/.MainActivity
+$ adb logcat -d | grep Frida
+I Frida : Listening on 127.0.0.1 TCP port 27042
+```
+
+The gadget registers itself as a process named `Gadget`. In the default
+`on_load: wait` mode the app **pauses** until a client attaches: a blank
+screen and an `am start -W` timeout are normal.
+
+## 2. Attach
+
+```bash
+$ frida-ps -U | grep Gadget
+12345  Gadget
+```
+
+If more than one USB device is connected, pin the phone:
+
+```bash
+$ adb devices -l
+$ frida-ps -D <serial> | grep Gadget
+```
+
+![The gadget process](img/remote_access/gadget-process.png)
+
+```text
+[0x00000000]> fridaoj frida://attach/usb//Gadget
+{"ok":true,"result":{"action":"attach","pid":12345,"resumed":false,"state":"attached"}}
+```
+
+Or with the device serial in the URI:
+
+```text
+[0x00000000]> fridaoj frida://attach/usb/<serial>/Gadget
+```
+
+Attaching also resumes a paused app.
+
+If USB discovery does not list `Gadget`, forward the listen port and use
+the remote URI (the same port the gadget prints in logcat):
+
+```bash
+$ adb forward tcp:27042 tcp:27042
+```
+
+```text
+[0x00000000]> fridaoj frida://attach/remote/127.0.0.1:27042/Gadget
+```
+
+When another device already occupies host port 27042, pick a free host
+port (`adb forward tcp:27043 tcp:27042`) and attach to `127.0.0.1:27043`.
+
+## What spawn cannot do
+
+Spawn needs to start the process under frida's control, which requires
+ptrace. Without root, spawn is not available. Attach to `Gadget`:
+
+| Operation | Rooted (frida-server) | Non-rooted (gadget) |
+|---|---|---|
+| attach | yes | yes |
+| spawn | yes | no |
+| launch | yes | no |
+| RegisterNatives at spawn | yes | attach, then later loads |
+
+> **Note:** with `on_load: wait`, startup registrations happen after you
+> attach, so a RegisterNatives hook armed right after attach can still
+> catch them.
+
+## Optional: embed a gadget in your own app
+
+The prebuilt gadget APK at <https://t.me/rzfrida/27> is enough for this
+chapter. For a different app on a phone that is not rooted, embed
+`libfrida-gadget.so` in that app (same version as the plugin's
+frida-core) and load it at startup. `scripts/fetch_frida_gadget.py`
+downloads the `.so`. Then attach to the process named `Gadget` as above.

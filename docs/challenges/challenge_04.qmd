@@ -1,0 +1,29 @@
+# Challenge 4: make the coins negative
+
+The counter starts at zero and only grows. Make it go negative in the app's
+UI, without patching the dex.
+
+**Hints**:
+
+<details>
+<summary>Hint 1</summary>
+
+`GameState.coins` is a public static int, written by `addCoins`.
+</details>
+
+<details>
+<summary>Hint 2</summary>
+
+You can write the field directly, or change what `addCoins` does.
+</details>
+
+<details>
+<summary>Hint 3</summary>
+
+The hook `watch_coins.js` shows the read-modify-write in action. You are
+allowed to modify what it observes.
+</details>
+
+[Counting coins](../android_journey/counting_coins.qmd) covers the field and
+the Java hook. The dummy `Memory.alloc` cell in that chapter is not
+`GameState.coins`.

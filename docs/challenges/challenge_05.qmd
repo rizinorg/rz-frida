@@ -1,0 +1,22 @@
+# Challenge 5: bypass the native checker
+
+Make `nativeCheckSecret` accept **anything**. The native C code must never
+see the input.
+
+**Hints**:
+
+<details>
+<summary>Hint 1</summary>
+
+A native Java method is still a Java method.
+</details>
+
+<details>
+<summary>Hint 2</summary>
+
+`implementation` replacement short-circuits the native side completely.
+</details>
+
+[Breaking the native check](../android_journey/breaking_the_native_check.qmd)
+shows the native address path. This challenge is the Java short-circuit
+instead.

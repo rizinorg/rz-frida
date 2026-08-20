@@ -1,0 +1,75 @@
+# URI reference
+
+The grammar:
+
+```text
+frida://<action>/<transport>/<device>/<target>
+```
+
+## Actions
+
+| Action | Target required | Purpose |
+|---|---|---|
+| `list` | no (must be empty) | enumerate processes on the device |
+| `apps` | no (must be empty) | enumerate applications on the device |
+| `attach` | yes | attach to a running process |
+| `spawn` | yes | start the target. Local stays suspended, USB/remote resume (`rn` true when RegisterNatives armed) |
+| `launch` | yes | start the target and resume it |
+
+## Transports and devices
+
+| Transport | Device field | Meaning |
+|---|---|---|
+| `local` | empty | the host itself |
+| `usb` | empty | the single connected device |
+| `usb` | device id | a specific device (see `fridadj`) |
+| `remote` | `host:port` | a frida-server listening on TCP |
+
+## Targets
+
+| Target | Works for |
+|---|---|
+| decimal pid | attach, spawn (local/remote), launch |
+| process name (the app label on Android) | attach |
+| package name | spawn, launch (Android) |
+| executable path | spawn, launch (local). Absolute paths need a leading slash |
+
+## Examples
+
+```text
+frida://attach/local//1234          attach to local pid 1234
+frida://attach/usb//FridaMin        attach by name on the USB device
+frida://attach/usb/device-1/4321    attach on device-1
+frida://attach/remote/127.0.0.1:27042/4321   remote attach
+frida://spawn/usb//re.frida.minapp  spawn a USB package (resumed, rn true if the hook armed)
+frida://spawn/local///bin/ls        spawn /bin/ls suspended (absolute path, three slashes)
+frida://spawn/local//./native_demo  spawn ./native_demo suspended (relative path)
+frida://launch/local///bin/ls       launch and resume /bin/ls
+frida://list/usb//                  processes on the USB device
+frida://apps/remote/10.0.0.5:27042/ applications over remote
+```
+
+## Validation examples (`fridauj`)
+
+```text
+[0x00000000]> fridauj frida://attach/local//1234
+{"ok":true,"result":{"action":"attach","transport":"local","device":"","target":"1234"}}
+
+[0x00000000]> fridauj frida://spawn/usb/device-1/com.example.app
+{"ok":true,"result":{"action":"spawn","transport":"usb","device":"device-1","target":"com.example.app"}}
+
+[0x00000000]> fridauj frida://launch/local///bin/ls
+{"ok":true,"result":{"action":"launch","transport":"local","device":"","target":"/bin/ls"}}
+```
+
+## Rules
+
+- action and transport are required, non-empty, and must be known
+- attach/spawn/launch require a non-empty target
+- list/apps require an empty target
+- local must have an empty device, remote must carry `host:port`, usb may
+  be empty or a device id
+- there is no percent-encoding. Slashes in paths are kept after the empty
+  device field
+- pid-vs-name resolution happens at attach time, not in the URI parser
+- `fridaoj` adds `frida://` if omitted. `fridau`, `fridap`, and `fridaa` require it

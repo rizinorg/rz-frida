@@ -1,0 +1,133 @@
+# Under the hood
+
+The agent protocol, breakpoint parking, the RegisterNatives hook, caches,
+and the plugin test suite.
+
+## The request protocol
+
+The host posts requests as JSON. The agent replies with the same id:
+
+```json
+{"id": 7, "type": "eval", "params": {"source": "Process.arch"}}
+```
+
+```json
+{"id": 7, "ok": true, "result": {"value": "x64", "type": "string"}}
+```
+
+```json
+{"id": 7, "ok": false, "error": "some failure"}
+```
+
+Request types:
+
+`ping`, `eval`, `memRead`, `memWrite`, `ranges`, `threads`, `modules`,
+`exports`, `imports`, `symbols`, `bpSet`, `bpList`, `bpRemove`, `bpParked`,
+`frida.cont.<tid>`, `regRead`, `regWrite`, `wpSet`, `wpList`, `wpRemove`,
+`isJavaAvailable`, `loaderList`, `classList`, `classLoadMonitor`,
+`newlyLoadedClasses`, `rnSet`, `rnList`, `flagModules`, `classDescribe`.
+
+The `frida.cont.<tid>` type is how continuing works: a request whose type is
+the parked thread's channel name.
+
+## Asynchronous events
+
+| Event | Payload |
+|---|---|
+| `agent.ready` | the agent booted (`version: 1`) |
+| `frida.bp` | `bp`, `address`, `threadId`, `context: {}` (intentionally empty) |
+| `frida.bp.err` | a breakpoint callback failed |
+| `frida.wp` | `threadId`, `pc`, `operation`, `address`, `watched`, full `context` |
+| `frida.rn` | `className`, `methods` (name, signature, address) |
+| `frida.rn.warn` | buffer full, oversized batch, null methods pointer |
+
+Events queue in the host buffer. `fridamj` drains them.
+
+## Breakpoint parking
+
+`bpSet` attaches an `Interceptor.attach` whose `onEnter` sends the
+`frida.bp` event, saves `this.context` into a `stopped` map keyed by
+thread id, and then blocks in `recv('frida.cont.<tid>').wait()` until the
+host posts that request. This makes per-thread continue deterministic and
+keeps register writes targeting the right context.
+
+```{mermaid}
+sequenceDiagram
+    participant H as host
+    participant A as agent
+    participant T as target thread
+    T->>A: onEnter at breakpoint
+    A->>H: frida.bp {bp, address, threadId}
+    A->>A: stopped[tid] = this.context
+    A->>A: recv('frida.cont.<tid>').wait()
+    H->>A: frida.cont.<tid> (or bpParked for the most recent)
+    A->>T: continue
+```
+
+`fridagj` with no thread first asks the agent which thread parked most
+recently (`bpParked`).
+
+## The RegisterNatives hook
+
+`rnSet` resolves ART's live `RegisterNatives` dispatch path:
+
+1. read the `JNIEnv` function table from `JNI_GetCreatedJavaVMs` when
+   possible, so spawn-time setup does not initialize `frida-java-bridge`
+   while the process is still frozen
+2. otherwise scan libart for a `RegisterNatives` symbol (skip `CheckJNI`
+   wrappers)
+3. otherwise read the table from `Java.vm.getEnv()`
+4. only then report `javaUnavailable`
+
+A per-thread depth guard records wrapper re-entry once. The interceptor
+copies the native method table in `onEnter` and promotes the class
+reference with the caller's `JNIEnv` in `onLeave`. It does not call Java,
+look up class names, or `send()` while `RegisterNatives` is running.
+`fridaRNj` flushes pending entries, resolves class names and emits
+`frida.rn` events. `fridaoj` for a USB/remote spawn arms this hook and
+resumes before returning (`rn` true if it armed). USB/remote still resume
+if Java is unavailable (`rn` false). `fridaRNj on` on a still-suspended
+spawn also resumes.
+
+```{mermaid}
+flowchart LR
+    A[env table index 215] --> B[CheckJNI or JNI RegisterNatives]
+    B -->|onEnter copies methods| C[rnPending]
+    C -->|rnList flush| D[rnBuffer + frida.rn event]
+```
+
+## Class monitor
+
+`classLoadMonitor` is a polling diff: `start` snapshots
+`Java.enumerateLoadedClassesSync()` into a "seen" set. If already
+enabled, `start` does not re-snapshot. `newlyLoadedClasses` re-enumerates and reports
+names not in the set, adding them. `stop` sets `loadClassMonitorEnabled`
+false and does not clear the seen set. No classloader hooks are involved.
+
+## Caches
+
+The agent caches the module list and the memory range list. Requests for
+either return `cached: true` from the cache. `eval` invalidates both, and a
+`refresh` argument (or any argument) forces re-enumeration.
+
+## Memory access
+
+`memRead`/`memWrite` use `NativePointer.readByteArray`/`writeByteArray`
+(after checking the address against the range cache). Hex encoding is
+lowercase. `fridawj` wants an even-length hex string.
+
+## The tests
+
+The plugin's test suite runs without any device, from the plugin source
+tree after a frida-enabled meson build:
+
+```bash
+$ meson test -C build-frida -j1 -t 6
+```
+
+![The test suite](img/under_the_hood/tests.png)
+
+The seven tests cover: the URI parser, session lifecycle, protocol helpers,
+the agent message protocol, the null backend's `frida_unavailable` replies,
+command registration, and the agent script protocol (the agent JavaScript
+run in a mocked frida environment with node).

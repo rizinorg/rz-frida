@@ -1,0 +1,109 @@
+# How rz-frida works
+
+## Architecture
+
+```{mermaid}
+flowchart LR
+    subgraph Host
+        RZ[rizin] --> PLG[rz-frida plugin]
+        PLG --> CORE[frida-core]
+    end
+    subgraph Device
+        SRV[frida-server] --> PROC[target process]
+        PROC --> AG[injected agent JS]
+    end
+    CORE <--> SRV
+    AG --> PROC
+```
+
+The plugin is a rizin core plugin: it registers commands, owns one session
+per rizin instance, and forwards every request through frida-core to the
+target. On Android, frida-core talks to frida-server on the device, which
+injects the **agent**: a JavaScript bundle running inside the target process
+with the V8 engine.
+
+The agent is loaded *lazily* on local attach: the first command that needs
+it (for example `fridaej` or `fridaij`) injects it and waits for its boot
+event (`agent.ready`). USB/remote spawn injects during `fridaoj` so
+RegisterNatives can arm before resume. Pure host-side commands like
+`fridasj` and `fridauj` never touch the target.
+
+## The JSON envelope
+
+`…j` commands reply with one of two shapes (`fridas` and `fridau` also
+print plain text):
+
+```json
+{"ok":true,"result":{...}}
+```
+
+```json
+{"ok":false,"error":{"code":"...","message":"..."}}
+```
+
+The error codes are stable strings: `invalid_uri`, `invalid_target`,
+`timeout`, `cancelled`, `frida_unavailable`, `not_implemented`,
+`internal_error`. Handlers return success even when the envelope carries an
+error, so `ok:false` always reaches your scripts and pipelines.
+
+## The session lifecycle
+
+```{mermaid}
+stateDiagram-v2
+    [*] --> NEW: rz_frida_session_new
+    NEW --> RESOLVED: fridaoj parses the URI
+    RESOLVED --> ATTACHED: frida-core connects
+    ATTACHED --> DETACHING: fridacj
+    DETACHING --> CLOSED
+    RESOLVED --> ERROR: connect failure
+    ATTACHED --> ERROR: unexpected detach
+    CLOSED --> [*]
+    ERROR --> [*]
+```
+
+The declared states are `new`, `resolved`, `connecting`, `attached`,
+`detaching`, `closed` and `error`. In practice the backend never publishes
+`connecting`: a session goes from `resolved` straight to `attached` (or to
+`error`). `fridasj` reports the current state.
+
+The plugin keeps a **single session** per rizin instance. Opening a second
+one while a session is active fails with `"a session is already open"`.
+Close the current one with `fridacj` first.
+
+Closing semantics:
+
+- an **attached** target keeps running after `fridacj`
+- a **launched** target keeps running
+- a **spawned** target that was never resumed is **killed**
+
+## Requests, replies and timeouts
+
+Host and agent exchange JSON messages:
+
+```{mermaid}
+sequenceDiagram
+    participant H as host (rizin)
+    participant A as agent (target)
+    H->>A: {id: 1, type: "ping", params: {}}
+    A-->>H: {id: 1, ok: true, result: {...}}
+    H->>A: {id: 2, type: "eval", params: {...}}
+    A-->>H: {id: 2, ok: false, error: "..."}
+    A-->>H: {type: "frida.bp", ...}  (async event)
+```
+
+Requests carry an integer id and the agent replies with the same id, which
+keeps asynchronous events from being mistaken for replies. The backend has a
+single in-flight reply slot, so requests are serialized under a recursive
+lock.
+
+Every agent request respects `frida.timeout` (5000 ms by default). On timeout
+the host replies with `{"ok":false,"error":{"code":"timeout",...}}`. Ctrl-C
+cancels a running request that registered the break hook with
+`{"code":"cancelled",...}`. `fridarj` and `fridacj` do not use that
+timeout/break hook the way `fridaoj` does.
+
+Asynchronous events (breakpoint hits, watchpoint hits, RegisterNatives
+captures, logs) do not block the host: they queue in a host-side buffer of 256
+messages and are drained with `fridamj`. Older messages are dropped, and the
+reply counts them in `dropped`.
+

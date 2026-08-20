@@ -122,7 +122,7 @@ static const RzCmdDescDetailEntry cmd_frida_Debugging_detail_entries[] = {
 	{ .text = "fridabj", .arg_str = NULL, .comment = "List the breakpoints that are set" },
 	{ .text = "fridab-j ", .arg_str = "0x1000", .comment = "Remove a breakpoint, or use * for all" },
 	{ .text = "fridagj", .arg_str = NULL, .comment = "Continue a thread parked at a breakpoint" },
-	{ .text = "fridaBj ", .arg_str = "4242", .comment = "Read the registers of the thread stopped at a breakpoint" },
+	{ .text = "fridaBj ", .arg_str = "4242", .comment = "Report the stop identity of the thread parked at a breakpoint" },
 	{ .text = "fridaBj ", .arg_str = "4242 pc 0x401000", .comment = "Set a register on the stopped thread before continuing" },
 	{ .text = "fridaWj ", .arg_str = "0x1000 8 w", .comment = "Watch 8 bytes for writes with a hardware watchpoint" },
 	{ .text = "fridaWj", .arg_str = NULL, .comment = "List the hardware watchpoints that are set" },
@@ -152,7 +152,7 @@ static const RzCmdDescArg cmd_fridas_args[] = {
 };
 static const RzCmdDescHelp cmd_fridas_help = {
 	.summary = "Print Frida session status",
-	.description = "Reports whether a session is active and prints the current session state (new, resolved, connecting, attached, detaching, closed, or error).",
+	.description = "Reports whether a session is active and prints the current session state (new, resolved, attached, detaching, closed, or error). connecting is declared but not published.",
 	.args = cmd_fridas_args,
 };
 
@@ -168,7 +168,7 @@ static const RzCmdDescDetailEntry cmd_fridau_URI_space_grammar_detail_entries[] 
 static const RzCmdDescDetailEntry cmd_fridau_Examples_detail_entries[] = {
 	{ .text = "fridau ", .arg_str = "frida://attach/local//1234", .comment = "Attach to local PID 1234" },
 	{ .text = "fridau ", .arg_str = "frida://spawn/usb/device-1/com.example.app", .comment = "Spawn an Android package on a USB device" },
-	{ .text = "fridau ", .arg_str = "frida://launch/local///bin/ls", .comment = "Launch /bin/ls locally (note the leading slash in the path)" },
+	{ .text = "fridau ", .arg_str = "frida://launch/local///bin/ls", .comment = "Launch /bin/ls locally (absolute path, three slashes)" },
 	{ .text = "fridauj ", .arg_str = "frida://attach/remote/127.0.0.1:27042/4321", .comment = "Validate remote-attach URI and emit JSON" },
 	{ 0 },
 };
@@ -258,7 +258,7 @@ static const RzCmdDescHelp cmd_fridaa_help = {
 static const RzCmdDescDetailEntry cmd_fridao_Examples_detail_entries[] = {
 	{ .text = "fridaoj ", .arg_str = "frida://attach/local//1234", .comment = "Attach to local PID 1234" },
 	{ .text = "fridaoj ", .arg_str = "frida://attach/usb//com.example.app", .comment = "Attach by process name on the single USB device" },
-	{ .text = "fridaoj ", .arg_str = "frida://spawn/usb//com.example.app", .comment = "Spawn an Android package suspended over USB, resume with fridarj" },
+	{ .text = "fridaoj ", .arg_str = "frida://spawn/usb//com.example.app", .comment = "Spawn a USB package (resumed, rn true when the hook armed)" },
 	{ .text = "fridaoj ", .arg_str = "frida://launch/local///bin/ls", .comment = "Launch /bin/ls and resume it immediately" },
 	{ .text = "fridaoj ", .arg_str = "frida://attach/remote/127.0.0.1:27042/1234", .comment = "Attach to PID 1234 over a remote frida-server" },
 	{ 0 },
@@ -278,7 +278,7 @@ static const RzCmdDescArg cmd_fridao_args[] = {
 };
 static const RzCmdDescHelp cmd_fridao_help = {
 	.summary = "Open a Frida session",
-	.description = "Opens a session for a frida:// URI on a local, USB, or remote device: attach to a pid or process name, spawn a target suspended, or launch and resume it. Stores the live session and emits a structured JSON reply.",
+	.description = "Opens a session for a frida:// URI on a local, USB, or remote device: attach to a pid or process name, spawn a target, or launch and resume it. USB/remote spawns resume before the command returns (`rn` true when RegisterNatives armed). A local spawn stays suspended. Stores the live session and emits a structured JSON reply.",
 	.details = cmd_fridao_details,
 	.args = cmd_fridao_args,
 };
@@ -288,7 +288,7 @@ static const RzCmdDescArg cmd_fridar_args[] = {
 };
 static const RzCmdDescHelp cmd_fridar_help = {
 	.summary = "Resume the open Frida session",
-	.description = "Resumes a target that was spawned suspended by the open command. Emits a structured JSON reply.",
+	.description = "Resumes a target that was spawned suspended by the open command. Safe to repeat: a spawned target that is already running, including one resumed by open on a USB/remote spawn or by 'fridaRNj on', returns ok rather than an error. Emits a structured JSON reply.",
 	.args = cmd_fridar_args,
 };
 
@@ -577,7 +577,7 @@ static const RzCmdDescArg cmd_fridab_args[] = {
 };
 static const RzCmdDescHelp cmd_fridab_help = {
 	.summary = "Set or list native breakpoints",
-	.description = "Sets a breakpoint at an address in the target process through the rz-frida agent, or lists the breakpoints that are set when called with no argument. A hit is reported asynchronously through fridam with the thread id and register context, and the thread stays parked until fridag continues it. Loads the agent into the open session on first use.",
+	.description = "Sets a breakpoint at an address in the target process through the rz-frida agent, or lists the breakpoints that are set when called with no argument. A hit is reported asynchronously through fridam with the breakpoint id and thread id (the event context is empty), and the thread stays parked until fridag continues it. Loads the agent into the open session on first use.",
 	.details = cmd_fridab_details,
 	.args = cmd_fridab_args,
 };
@@ -633,7 +633,7 @@ static const RzCmdDescHelp cmd_fridag_help = {
 };
 
 static const RzCmdDescDetailEntry cmd_fridaB_Examples_detail_entries[] = {
-	{ .text = "fridaBj ", .arg_str = "4242", .comment = "Read the registers of the thread with id 4242" },
+	{ .text = "fridaBj ", .arg_str = "4242", .comment = "Report the stop identity of thread 4242" },
 	{ .text = "fridaBj ", .arg_str = "4242 pc 0x401000", .comment = "Set pc on thread 4242 before continuing it with fridagj" },
 	{ 0 },
 };
@@ -662,8 +662,8 @@ static const RzCmdDescArg cmd_fridaB_args[] = {
 	{ 0 },
 };
 static const RzCmdDescHelp cmd_fridaB_help = {
-	.summary = "Read or write registers at a breakpoint stop",
-	.description = "Reads the saved register context of a thread parked at a breakpoint in the target process through the rz-frida agent, or sets one register when a register name and value follow the thread id. A write lands on the saved context and takes effect when the thread is continued with fridag. Loads the agent into the open session on first use.",
+	.summary = "Report stop identity or write a register at a breakpoint stop",
+	.description = "Reports the stop identity of a thread parked at a breakpoint in the target process through the rz-frida agent, or sets one register when a register name and value follow the thread id. A write lands on the live context and takes effect when the thread is continued with fridag. Loads the agent into the open session on first use.",
 	.details = cmd_fridaB_details,
 	.args = cmd_fridaB_args,
 };
@@ -762,7 +762,7 @@ static const RzCmdDescArg cmd_fridaC_args[] = {
 };
 static const RzCmdDescHelp cmd_fridaC_help = {
 	.summary = "Enumerate loaded Java classes in the target",
-	.description = "Enumerates the loaded Java classes in the target process through the rz-frida agent. An optional prefix narrows the list to classes whose canonical name starts with that string. The frida.java.max config (default 512) caps the batch; zero means unlimited.",
+	.description = "Enumerates the loaded Java classes in the target process through the rz-frida agent. An optional prefix matches classes whose canonical name starts with that string, or whose simple name after the last dot equals it. The frida.java.max config (default 512) caps the batch. Zero means unlimited.",
 	.args = cmd_fridaC_args,
 };
 
@@ -778,7 +778,7 @@ static const RzCmdDescArg cmd_fridaN_args[] = {
 };
 static const RzCmdDescHelp cmd_fridaN_help = {
 	.summary = "Monitor newly loaded Java classes in the target",
-	.description = "When called without arguments, lists classes loaded since the monitor was last started. Call 'fridaNj start' to enable classload hooks on all active classloaders and intercept new classloader creation. Call 'fridaNj stop' to detach the hooks and clear the tracking buffer. Requires an Android target with the Java VM available.",
+	.description = "When called without arguments, lists classes loaded since the last snapshot. Call 'fridaNj start' to snapshot currently loaded classes. If the monitor is already enabled, start does not re-snapshot. Later listings are the difference against that set. Call 'fridaNj stop' to disable the monitor. The seen set is kept, so a later listing can still report new names with monitor false. Requires an Android target with the Java VM available.",
 	.args = cmd_fridaN_args,
 };
 
@@ -794,7 +794,7 @@ static const RzCmdDescArg cmd_fridaRN_args[] = {
 };
 static const RzCmdDescHelp cmd_fridaRN_help = {
 	.summary = "Hook RegisterNatives to map native methods to addresses",
-	.description = "When called without arguments, lists captured JNI RegisterNatives invocations with className, method names, signatures and native function addresses. Call 'fridaRNj on' to arm the low-level JNI hook on the ART runtime (JNI function table offset 215). 'fridaRNj off' disarms and clears the buffer. 'fridaRNj import' imports the captured native method addresses into the rizin analysis class database. Requires an Android target with the Java VM available.",
+	.description = "When called without arguments, lists captured JNI RegisterNatives invocations with className, method names, signatures and native function addresses. Call 'fridaRNj on' to arm the low-level JNI hook on the ART runtime (JNI function table offset 215). A USB/remote spawn already arms it. On a still-suspended spawn, arming also resumes. 'fridaRNj off' disarms and clears the buffer. 'fridaRNj import' imports the captured native method addresses into the rizin analysis class database. Requires an Android target with the Java VM available.",
 	.args = cmd_fridaRN_args,
 };
 

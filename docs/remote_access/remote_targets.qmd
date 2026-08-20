@@ -1,0 +1,75 @@
+# Remote targets
+
+USB is the default, but frida-server can listen on TCP too. This is how we
+reach devices that adb does not reach, or a frida-server running inside a
+container.
+
+## 1. Listen on the network
+
+On the emulator, restart frida-server with a bind address:
+
+```bash
+$ adb shell 'pkill frida-server; sleep 1; /data/local/tmp/frida-server -D -l 0.0.0.0:27042 &'
+```
+
+`-l 0.0.0.0:27042` makes it listen on every interface, port 27042.
+
+## 2. Reach it from the host
+
+The emulator forwards its own ports through adb. On the host:
+
+```bash
+$ adb forward tcp:27042 tcp:27042
+27042
+```
+
+Now `127.0.0.1:27042` on the host is the emulator's frida-server.
+
+## 3. List processes remotely
+
+```text
+[0x00000000]> fridapj frida://list/remote/127.0.0.1:27042/
+{"ok":true,"result":{"processes":[{"pid":1,"name":"init"},...,{"pid":2812,"name":"FridaMin"}],"total":104}}
+```
+
+![Remote process list](img/remote_access/remote-processes.png)
+
+## 4. Attach remotely
+
+```text
+[0x00000000]> fridaoj frida://attach/remote/127.0.0.1:27042/FridaMin
+{"ok":true,"result":{"action":"attach","pid":2812,"resumed":false,"state":"attached"}}
+
+[0x00000000]> fridaij
+{"ok":true,"result":{"version":1,"platform":"linux","arch":"x64","pointerSize":8}}
+```
+
+![Remote attach](img/remote_access/remote-attach.png)
+
+Everything works as over USB: the transport is transparent once the session
+is open.
+
+## 5. Fast failures
+
+frida's remote connect has no socket timeout of its own. rz-frida opens a
+short throwaway TCP connection first, bounded by `frida.timeout`, so an
+unreachable host fails quickly and a Ctrl-C aborts it:
+
+```text
+[0x00000000]> fridapj frida://list/remote/192.0.2.1:27042/
+{"ok":false,"error":{"code":"timeout","message":"Could not connect to 192.0.2.1: Socket I/O timed out"}}
+```
+
+Without the probe the same command would hang for the TCP retry period
+(tens of seconds). The probe covers listing and session commands alike.
+
+> **Note:** the forward dies with adb restarts and emulator reboots.
+> Re-run `adb forward tcp:27042 tcp:27042` after each boot.
+
+::: {.callout-tip}
+### Try
+
+Restart frida-server with `-l 0.0.0.0:27042`, forward the port, list
+processes remotely, attach and close.
+:::
+

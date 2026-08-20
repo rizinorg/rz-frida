@@ -1,0 +1,29 @@
+# Challenge 6: find the last dynamically loaded class
+
+The app loads a library on demand. Find the exact class the app loads last
+after pressing Load Plugin, and prove it was loaded dynamically, not
+at startup.
+
+**Hints**:
+
+<details>
+<summary>Hint 1</summary>
+
+The class monitor reports what loads between drains.
+</details>
+
+<details>
+<summary>Hint 2</summary>
+
+The app's `loadDynamicLib` method uses `Class.forName` for one class and
+`System.loadLibrary` for the other.
+</details>
+
+<details>
+<summary>Hint 3</summary>
+
+`DynamicTrigger` is never referenced statically in the dex.
+</details>
+
+[Watching class loads](../android_journey/watching_class_loads.qmd) is the
+matching chapter.

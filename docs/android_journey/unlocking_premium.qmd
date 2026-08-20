@@ -1,0 +1,90 @@
+# Unlocking premium
+
+`GameState` holds two public static fields: `premium` (boolean) and `coins`
+(int). The status line at the top of the app reads them:
+
+```text
+Status: Free | Coins: 0
+```
+
+Upgrade to Premium simulates the purchase, sets the flag and updates the
+status:
+
+![Premium after purchase](img/android_journey/premium-bought.png)
+
+The goal is `Status: Premium` *without* purchasing.
+
+## 1. Read the flag
+
+Attach and read the field through the agent:
+
+```text
+[0x00000000]> fridaoj frida://attach/usb//FridaMin
+{"ok":true,"result":{"action":"attach","pid":3718,"resumed":false,"state":"attached"}}
+
+[0x00000000]> fridaej "Java.perform(function(){console.log('before premium='+Java.use('re.frida.minapp.game.GameState').premium.value)})"
+{"ok":true,"result":{"value":null,"type":"undefined"}}
+
+[0x00000000]> fridamj
+... "text":"before premium=false"
+```
+
+`Java.use(...).premium.value` reads the static field: `false`. Note the
+value is reported through `console.log` and drained with `fridamj`: Java
+values do not travel back through the eval reply, so the hook files in this
+book use the log-and-drain pattern.
+
+## 2. Flip it
+
+The example hook `docs/examples/hooks/unlock_premium.js` sets it directly:
+
+```js
+Java.perform(function () {
+  var GameState = Java.use('re.frida.minapp.game.GameState');
+  GameState.premium.value = true;
+  console.log('premium is now ' + GameState.premium.value);
+});
+```
+
+```text
+[0x00000000]> fridalj docs/examples/hooks/unlock_premium.js
+{"ok":true,"result":{"value":null,"type":"undefined"}}
+
+[0x00000000]> fridamj
+... "text":"premium is now true"
+... "text":"premium status refreshed"
+```
+
+## 3. Verify in the app
+
+The status line changes immediately to `Status: Premium | Coins: 0`. The
+hook refreshes the cached status view on Android's main thread, so no
+additional app action is required. Press Upgrade to Premium optionally: the
+feedback line then reads `Premium already active`, confirming that the flag
+was already set.
+
+![Premium without purchasing](img/android_journey/premium-hooked.png)
+
+> **Note:** the flag lives in the ART heap of the running app. A fresh app
+> launch resets it to `false`. The hook is a runtime patch, not a file
+> patch.
+
+## Alternative: flip it in one line
+
+The same change without a file, as a one-liner:
+
+```text
+[0x00000000]> fridaej "Java.perform(function(){Java.use('re.frida.minapp.game.GameState').premium.value = true})"
+{"ok":true,"result":{"value":null,"type":"undefined"}}
+```
+
+Quote the expression carefully: spaces and quotes inside a single command
+are easy to get wrong. For anything longer than a line, use `fridalj`.
+
+::: {.callout-tip}
+### Try
+
+Set `premium` to `false` after unlocking, read it back, then unlock again.
+Use both the hook file and the one-liner.
+:::
+

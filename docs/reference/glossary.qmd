@@ -1,0 +1,73 @@
+# Glossary
+
+**agent**: the JavaScript bundle rz-frida injects into the target process.
+It runs inside the target, answers requests, and emits asynchronous events.
+Version 1 protocol, V8 runtime, named `rzfrida`.
+
+**ART**: Android Runtime, the Java VM of modern Android. All the `fridaJ`,
+`fridaL`, `fridaC`, `fridaD`, `fridaN` and `fridaRN` commands talk to it.
+
+**attach**: open a session on an already-running process without stopping
+it. Closing the session leaves the process running.
+
+**breakpoint parking**: when a breakpoint hits, the agent saves the
+thread's context and blocks the thread on a per-thread receive channel
+(`frida.cont.<tid>`) until the host continues it with `fridagj`.
+
+**classloader**: the ART object that loads classes from dex files. minapp
+has three: system, boot and the app loader. `fridaLj` assigns stable ids.
+
+**envelope**: the JSON reply shape `{"ok":true,"result":...}` or
+`{"ok":false,"error":{"code":...,"message":...}}`.
+
+**flag space**: rizin's named flag collection. `fridafj` imports modules
+into the `frida.libs` space.
+
+**frida-core**: the host library that talks to devices, injects agents and
+routes messages. rz-frida links against its devkit.
+
+**frida-gadget**: a shared library embedded inside an app so that
+non-rooted devices can be instrumented. The process appears as `Gadget`.
+A gadget-embedded minapp APK is at <https://t.me/rzfrida/27>. For any
+other app, embed the library in that app.
+
+**frida-server**: the daemon that runs on a target (usually rooted) and
+serves frida-core over USB or TCP.
+
+**hardware watchpoint**: a CPU debug-register trap on a memory address
+range. `fridaW` arms them on every thread. A hit disarms the watchpoint and
+emits a `frida.wp` event. Trap delivery depends on the platform.
+
+**Interceptor**: frida's hooking engine. rz-frida breakpoints use
+`Interceptor.attach`. The plugin does not patch the target and has no slot
+cap. Frida may rewrite the function prologue.
+
+**JNI**: Java Native Interface, the boundary between Java and C.
+`RegisterNatives` is the JNI call that binds C functions to Java method
+names.
+
+**launch**: spawn plus immediate resume. Closing keeps the process
+running.
+
+**monitor (class load)**: the `fridaN` feature: a polling snapshot diff of
+`Java.enumerateLoadedClassesSync()`, reporting classes seen since the last
+drain.
+
+**RegisterNatives hook**: the `fridaRN` feature: it intercepts ART's
+`RegisterNatives` calls and records class, method names, signatures and the
+actual native addresses.
+
+**session**: one connection from rizin to one target. The plugin holds a
+single session per rizin instance. States run NEW → RESOLVED → ATTACHED →
+DETACHING → CLOSED (or ERROR).
+
+**spawn**: start a target. Local spawn stays suspended until `fridarj`.
+USB/remote spawn resumes inside `fridaoj` (`rn` true when RegisterNatives
+armed). Closing a never-resumed spawn kills the process.
+
+**static analysis**: reading the binary from disk, as opposed to
+dynamic instrumentation.
+
+**stripped module**: a library without a symbol table. `fridaSj` returns an
+empty list for it, which is why the Android journey uses the
+RegisterNatives hook instead.

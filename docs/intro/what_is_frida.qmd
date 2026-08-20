@@ -1,0 +1,73 @@
+# What is Frida?
+
+Dynamic instrumentation observes and changes a running program *while it
+runs*, without its source code and without restarting it. Static analysis
+reads the binary on disk. Dynamic instrumentation reads and writes the same
+binary in memory, with the process alive.
+
+## Frida versus a debugger
+
+A debugger like gdb or the rizin debugger stops the program (breakpoints),
+lets us inspect memory and registers, and resumes it. Frida does the same
+but the model is different:
+
+| | Debugger | Frida |
+|---|---|---|
+| Stopping | explicit breakpoints park threads | we choose what to watch |
+| Scripting | gdb scripts, rizin commands | full JavaScript inside the target |
+| Hooking | function entry mostly | function calls, method calls, memory access |
+| Reach | local, remote via protocol | local, USB, remote, embedded gadget |
+| Non-rooted Android | hard | possible via an embedded gadget |
+
+The main piece is the **agent**: a JavaScript engine that Frida injects
+*into* the target process. Our code runs inside the target, next to the
+code we are studying. From there it can call functions, replace their
+bodies, watch memory, and send findings back to the host.
+
+## The three pieces
+
+**frida-core** is the host library. It talks to targets, injects agents and
+routes messages. rz-frida links against it, which is why building the plugin
+needs the frida-core devkit.
+
+**frida-server** is a small daemon that runs *on* the target (usually a
+rooted Android device). The host connects to it over USB or TCP. Root is
+needed because attaching to another app's process requires privileges.
+
+**frida-gadget** is a shared library we *embed inside the app itself*. No
+root needed: the app loads the gadget like any other library, and the gadget
+opens a listening port for the host. This is the usual way to instrument
+non-rooted apps.
+
+```{mermaid}
+flowchart LR
+    HOST[host: frida-core + rz-frida]
+    USB[USB or TCP]
+    SERVER[frida-server<br/>rooted device]
+    APP1[target app]
+    GADGET[gadget embedded in app]
+    HOST <--> USB <--> SERVER <--> APP1
+    HOST <--> USB <--> GADGET
+```
+
+## Why rz-frida?
+
+rz-frida is the Frida plugin for Rizin. It gives us:
+
+- the whole command surface inside rizin: JSON for the `…j` forms, plus
+  plain text for `fridas` and `fridau`
+- a single-session model with cancellation
+- memory read/write, module and thread listing, breakpoints with stop
+  identity and register write, hardware watchpoints
+- Android class inspection: classloaders, classes, descriptions, import into
+  rizin's analysis
+- a RegisterNatives hook that maps native methods to their actual addresses
+- the same remote, USB and local transports frida itself offers
+
+And because rizin is around it, we can combine it with everything else
+rizin does: flag spaces, analysis classes, expressions in addresses, `~`
+grep filters.
+
+> **Note:** Frida is a trademark of its own project. rz-frida is an
+> independent plugin. It uses frida-core under the hood.
+

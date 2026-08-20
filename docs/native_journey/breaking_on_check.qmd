@@ -1,0 +1,97 @@
+# Breaking on check
+
+`check_key` decides ACCEPTED or DENIED. Stop it while it runs.
+
+## 1. Resolve and break
+
+Read `check_key`'s address from `fridaSj` (yours will differ), then:
+
+```text
+[0x00000000]> fridabj 0x5c95c467e209
+{"ok":true,"result":{"address":"0x5c95c467e209","bp":1}}
+
+[0x00000000]> fridabj
+{"ok":true,"result":{"breakpoints":[{"bp":1,"address":"0x5c95c467e209"}]}}
+```
+
+Breakpoints use frida's `Interceptor.attach`: no plugin-side patching, no
+slot cap, they fire on **every thread**, and Frida may rewrite the prologue.
+
+## 2. Trigger
+
+In the demo's terminal, feed a wrong key. The thread entering `check_key`
+parks:
+
+```text
+[0x00000000]> fridamj
+{"ok":true,"result":{"messages":[...,{"kind":"send","payload":{"type":"frida.bp","bp":1,"address":"0x5c95c467e209","threadId":46117,"context":{}}}],"dropped":0}}
+```
+
+The demo is now frozen at the breakpoint, waiting for you.
+
+![Breakpoint hit](img/native_journey/bp-check.png)
+
+## 3. Inspect the stop
+
+```text
+[0x00000000]> fridaBj 46117
+{"ok":true,"result":{"threadId":46117,"bp":1,"address":"0x5c95c467e209"}}
+```
+
+Same as on Android: the stop identity only, no register values.
+
+## 4. Write a register
+
+```text
+[0x00000000]> fridaBj 46117 rip 0x414141414141
+{"ok":true,"result":{"threadId":46117,"register":"rip","value":"0x414141414141"}}
+```
+
+The write mutates the parked thread's live context. (Setting rip to garbage
+here is just a demo, an actual patch would point the flow somewhere useful.)
+Type the register name.
+
+## 5. Continue
+
+```text
+[0x00000000]> fridagj 46117
+{"ok":true,"result":{"resumed":true,"threadId":46117}}
+```
+
+The demo resumes and prints its verdict. Clean up:
+
+```text
+[0x00000000]> fridab-j *
+{"ok":true,"result":{"removed":1}}
+```
+
+## How the parking works
+
+```{mermaid}
+sequenceDiagram
+    participant T as target thread
+    participant A as agent
+    participant H as host
+    T->>A: enters check_key (onEnter)
+    A->>H: frida.bp event (bp, address, threadId)
+    A->>A: park: recv('frida.cont.<tid>').wait()
+    H->>H: fridaBj stop identity or write live context
+    H->>A: frida.cont.<tid> request
+    A->>T: resume the function
+```
+
+The agent parks the thread with a `recv` on a per-thread channel
+(`frida.cont.<tid>`), so continuing a specific thread is deterministic, and
+the host keeps the thread's live Interceptor context for a register write.
+
+> **Note:** the breakpoint's `context` is intentionally empty in the event:
+> the full serialized CPU context can exceed the transport limit on arm64.
+> The context for register work is kept inside the agent.
+
+::: {.callout-tip}
+### Try
+
+Break on `check_key`, feed a wrong key, read the stop, write a register,
+continue. Repeat with the real key.
+:::
+
