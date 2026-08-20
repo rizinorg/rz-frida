@@ -5,6 +5,7 @@
     "Module": "readonly",
     "Memory": "readonly",
     "Interceptor": "readonly",
+    "NativeFunction": "readonly",
     "Java": "readonly",
     "ptr": "readonly",
     "send": "readonly",
