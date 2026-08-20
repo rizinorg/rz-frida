@@ -551,7 +551,7 @@ static bool test_invalid_open_uri(RzCore *core) {
 }
 
 static bool test_open_command(RzCore *core) {
-	char *open = rz_core_cmd_str(core, "fridaoj frida://attach/local//1234");
+	char *open = rz_core_cmd_str(core, "fridaoj frida://attach/local//2147483647"); // random number, can't be a PID 
 	mu_assert_notnull(open, "open command returns output");
 	mu_assert_true(rz_str_startswith(open, "{\"ok\":false,\"error\":{\"code\":\"") ||
 			rz_str_startswith(open, "{\"ok\":true,\"result\":{\"action\":"),
