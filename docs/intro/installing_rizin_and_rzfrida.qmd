@@ -1,13 +1,18 @@
 # Installing rizin and rz-frida
 
 The plugin is a rizin core plugin: it registers the `frida` command group
-inside rizin. It needs rizin's development files. With `-Dfrida_core=enabled`
-and no manual paths, meson fetches the frida-core devkit for the host
-(see `frida_version` in `meson_options.txt`). Without frida-core the plugin
-still builds, and device commands answer with a `frida_unavailable` error.
+inside rizin. It needs rizin v0.9.0 or later (the per-core plugin context
+from [rizin#6404](https://github.com/rizinorg/rizin/pull/6404)). CI builds
+against v0.9.1. It also needs rizin's development files. With
+`-Dfrida_core=enabled` and no manual paths, meson fetches the frida-core
+devkit for the host (see `frida_version` in `meson_options.txt`). Without
+frida-core the plugin still builds, and device commands answer with a
+`frida_unavailable` error.
 
 The examples below use a prefix of `$PREFIX`. Replace it with wherever you
-install rizin (`/usr/local`, `$HOME/.local`, and so on).
+install rizin (`/usr/local`, `$HOME/.local`, and so on). `rizin -H` prints
+the paths of the rizin you are running (`RZ_PREFIX`, `RZ_INCDIR`,
+`RZ_LIBDIR`, `RZ_LIB_PLUGINS`) if you are not sure.
 
 ## Install via rz-pm (experimental)
 

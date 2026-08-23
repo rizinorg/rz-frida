@@ -43,6 +43,9 @@ Lines starting with `$` run in a shell. Lines starting with
 output. Addresses, process ids and counts change between runs: treat them as
 examples and read the values from your own terminal.
 
+Most plugin cmds are JSON-only, so the book uses the `j` forms
+(`fridaoj`, `fridasj`). Only `fridas` and `fridau` also print plain text.
+
 > **Note:** this book documents the rizin plugin only. The Cutter integration
 > is a separate frontend over the same backend and is not covered here.
 
