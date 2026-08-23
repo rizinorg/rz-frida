@@ -8,17 +8,17 @@ finds them.
 ## 1. Start the monitor
 
 ```text
-[0x00000000]> fridaoj frida://attach/usb//FridaMin
+[0x00000000]> Froj frida://attach/usb//FridaMin
 {"ok":true,"result":{"action":"attach","pid":3718,"resumed":false,"state":"attached"}}
 
-[0x00000000]> fridaNj start
+[0x00000000]> FrNj start
 {"ok":true,"result":{"enabled":true}}
 ```
 
 ## 2. Drain (empty at first)
 
 ```text
-[0x00000000]> fridaNj
+[0x00000000]> FrNj
 {"ok":true,"result":{"classes":[],"count":0,"monitor":true}}
 ```
 
@@ -31,7 +31,7 @@ dynamic-lib-v1`. Pressing it again reports `Plugin already loaded`), then
 drain again:
 
 ```text
-[0x00000000]> fridaNj
+[0x00000000]> FrNj
 {"ok":true,"result":{"classes":["android.animation.AnimatorSet$$ExternalSyntheticLambda0","re.frida.minapp.dynamic.DynamicClass","re.frida.minapp.dynamic.DynamicTrigger"],"count":3,"monitor":true}}
 ```
 
@@ -39,7 +39,7 @@ The two dynamic classes appeared: plus a framework lambda that happened to
 load at the same time. Drain again and the buffer is empty:
 
 ```text
-[0x00000000]> fridaNj
+[0x00000000]> FrNj
 {"ok":true,"result":{"classes":[],"count":0,"monitor":true}}
 ```
 
@@ -48,15 +48,15 @@ load at the same time. Drain again and the buffer is empty:
 ## 4. Stop
 
 ```text
-[0x00000000]> fridaNj stop
+[0x00000000]> FrNj stop
 {"ok":true,"result":{"enabled":false}}
 ```
 
 Wrong arguments are rejected:
 
 ```text
-[0x00000000]> fridaNj bogus
-{"ok":false,"error":{"code":"invalid_target","message":"fridaNj expects start, stop, or no arguments to list"}}
+[0x00000000]> FrNj bogus
+{"ok":false,"error":{"code":"invalid_target","message":"FrNj expects start, stop, or no arguments to list"}}
 ```
 
 ## Under the hood
@@ -65,7 +65,7 @@ The monitor is a **polling snapshot diff**: `start` records every loaded
 class as "seen" (if the monitor is already enabled, `start` does not
 re-snapshot), and each drain asks ART for the current class list and
 reports the names that were not seen before. `stop` sets the monitor flag
-false and does **not** clear the seen set, so a later `fridaNj` can still
+false and does **not** clear the seen set, so a later `FrNj` can still
 list new names with `monitor: false`. It is not a classloader hook: no new
 classloader is intercepted, and classes loaded and unloaded between two
 drains are never seen.
@@ -75,10 +75,10 @@ sequenceDiagram
     participant R as rizin
     participant A as agent
     participant ART as ART
-    R->>A: fridaNj start
+    R->>A: FrNj start
     A->>ART: enumerateLoadedClassesSync
     A-->>R: enabled
-    R->>A: fridaNj
+    R->>A: FrNj
     A->>ART: enumerateLoadedClassesSync
     A-->>R: new names since last snapshot
 ```

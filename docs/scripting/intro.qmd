@@ -5,6 +5,6 @@ variables.
 
 | Chapter | Contents |
 |---|---|
-| [Evaluating and hooking](evaluating_and_hooking.qmd) | `fridaej`, `fridalj`, hook recipes |
+| [Evaluating and hooking](evaluating_and_hooking.qmd) | `Frej`, `Frlj`, hook recipes |
 | [Messages and errors](messages_and_errors.qmd) | logs, errors, binary payloads |
 | [Configuration](configuration.qmd) | the seven config variables |

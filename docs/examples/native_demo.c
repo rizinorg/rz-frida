@@ -10,7 +10,7 @@
 
 #define MAX_KEY 128
 
-// writable in memory secret, fridawj patch target
+// writable in memory secret, Frwj patch target
 static char g_secret[] = "N4T1V3-D3M0-K3Y";
 
 // attempt counter, the bump_counter trace target

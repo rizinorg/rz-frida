@@ -3,10 +3,10 @@
 With the demo running, attach and read the symbols:
 
 ```text
-[0x00000000]> fridaoj frida://attach/local//native_demo
+[0x00000000]> Froj frida://attach/local//native_demo
 {"ok":true,"result":{"action":"attach","pid":46117,"resumed":false,"state":"attached"}}
 
-[0x00000000]> fridaSj native_demo
+[0x00000000]> FrSj native_demo
 {"ok":true,"result":{"module":"native_demo","symbols":[
   {"name":"g_secret","address":"0x5c95c4681010","size":16},
   {"name":"g_attempts","address":"0x5c95c468103c","size":4},
@@ -30,14 +30,14 @@ gives us the addresses directly:
 
 | Android | Native host |
 |---|---|
-| `fridaRNj` hook + spawn to capture | `fridaSj` symbol listing |
+| `FrRNj` hook + spawn to capture | `FrSj` symbol listing |
 | static native methods, stripped library | actual `.symtab`, nothing hidden |
 | addresses in the ART heap | addresses in the process memory map |
 
 ## Read the secret
 
 ```text
-[0x00000000]> fridaxj 0x5c95c4681010 16
+[0x00000000]> Frxj 0x5c95c4681010 16
 {"ok":true,"result":{"address":"0x5c95c4681010","size":16,"bytes":"4e34543156332d44334d302d4b335900"}}
 ```
 
@@ -47,7 +47,7 @@ readable in memory. That is why patching it later will work.
 ## Read the counter
 
 ```text
-[0x00000000]> fridaxj 0x5c95c468103c 4
+[0x00000000]> Frxj 0x5c95c468103c 4
 {"ok":true,"result":{"address":"0x5c95c468103c","size":4,"bytes":"01000000"}}
 ```
 
@@ -56,7 +56,7 @@ The little-endian `01000000` is attempt number 1.
 ## Explore the ranges
 
 ```text
-[0x00000000]> fridaRj
+[0x00000000]> FrRj
 {"ok":true,"result":{"ranges":[{"base":"0x5c95c467e000","size":4096,"protection":"r-x","file":{...}},{"base":"0x5c95c4681000","size":4096,"protection":"rw-","file":{...}},...],"cached":false}}
 ```
 

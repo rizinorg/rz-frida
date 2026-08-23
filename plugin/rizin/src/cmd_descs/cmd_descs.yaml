@@ -3,8 +3,8 @@
 ---
 name: root
 commands:
-  - name: frida
-    cname: cmd_frida
+  - name: Fr
+    cname: cmd_Fr
     summary: "Interact with Frida targets"
     description: >
       Commands for the rz-frida integration covering plugin and session status,
@@ -13,117 +13,117 @@ commands:
     details:
       - name: "Session status"
         entries:
-          - text: "fridas"
+          - text: "Frs"
             comment: "Print plugin/session status in plain text"
-          - text: "fridasj"
+          - text: "Frsj"
             comment: "Print plugin/session status as JSON"
       - name: "URI grammar"
         entries:
-          - text: "fridau "
+          - text: "Fru "
             arg_str: "frida://attach/local//1234"
             comment: "Validate URI for attaching to local PID 1234"
-          - text: "fridau "
+          - text: "Fru "
             arg_str: "frida://spawn/usb/device-1/com.example.app"
             comment: "Validate URI for spawning an Android package over USB"
-          - text: "fridau "
+          - text: "Fru "
             arg_str: "frida://attach/remote/127.0.0.1:27042/4321"
             comment: "Validate URI for attaching to PID 4321 over remote frida-server"
-          - text: "fridauj "
+          - text: "Fruj "
             arg_str: "frida://launch/local///bin/ls"
             comment: "Validate launch URI for /bin/ls and emit JSON"
       - name: "Device enumeration"
         entries:
-          - text: "fridadj"
+          - text: "Frdj"
             comment: "Enumerate connected Frida devices as JSON"
       - name: "Process listing"
         entries:
-          - text: "fridapj"
+          - text: "Frpj"
             comment: "Enumerate local processes as JSON"
-          - text: "fridapj "
+          - text: "Frpj "
             arg_str: "frida://list/usb/device-1/"
             comment: "Enumerate processes on a USB device as JSON"
       - name: "Application listing"
         entries:
-          - text: "fridaaj"
+          - text: "Fraj"
             comment: "Enumerate local applications as JSON"
-          - text: "fridaaj "
+          - text: "Fraj "
             arg_str: "frida://apps/usb/device-1/"
             comment: "Enumerate applications on a USB device as JSON"
       - name: "Session control"
         entries:
-          - text: "fridaoj "
+          - text: "Froj "
             arg_str: "frida://spawn/local///bin/ls"
             comment: "Spawn /bin/ls suspended and open a session"
-          - text: "fridarj"
+          - text: "Frrj"
             comment: "Resume the spawned target"
-          - text: "fridacj"
+          - text: "Frcj"
             comment: "Close the open session"
       - name: "Script execution"
         entries:
-          - text: "fridaij"
+          - text: "Frij"
             comment: "Ping the agent and read its version and target info"
-          - text: "fridaej "
+          - text: "Frej "
             arg_str: "Process.arch"
             comment: "Evaluate a JavaScript expression in the target process"
-          - text: "fridalj "
+          - text: "Frlj "
             arg_str: "hook.js"
             comment: "Load and evaluate a JavaScript file in the target process"
-          - text: "fridamj"
+          - text: "Frmj"
             comment: "Read buffered agent log, error, and send messages"
       - name: "Memory access"
         entries:
-          - text: "fridaxj "
+          - text: "Frxj "
             arg_str: "0x1000 64"
             comment: "Read 64 bytes of the target memory as hex"
-          - text: "fridawj "
+          - text: "Frwj "
             arg_str: "0x1000 deadbeef"
             comment: "Write four bytes into the target memory"
       - name: "Runtime info"
         entries:
-          - text: "fridaRj"
+          - text: "FrRj"
             comment: "List the target memory ranges"
-          - text: "fridatj"
+          - text: "Frtj"
             comment: "List the target threads"
-          - text: "fridaMj"
+          - text: "FrMj"
             comment: "List the target modules"
-          - text: "fridaEj "
+          - text: "FrEj "
             arg_str: "libc.so"
             comment: "List the exports of a module"
-          - text: "fridaIj "
+          - text: "FrIj "
             arg_str: "libc.so"
             comment: "List the imports of a module"
-          - text: "fridaSj "
+          - text: "FrSj "
             arg_str: "libc.so"
             comment: "List the symbols of a module"
       - name: "Debugging"
         entries:
-          - text: "fridabj "
+          - text: "Frbj "
             arg_str: "0x1000"
             comment: "Set a breakpoint at an address"
-          - text: "fridabj"
+          - text: "Frbj"
             comment: "List the breakpoints that are set"
-          - text: "fridab-j "
+          - text: "Frb-j "
             arg_str: "0x1000"
             comment: "Remove a breakpoint, or use * for all"
-          - text: "fridagj"
+          - text: "Frgj"
             comment: "Continue a thread parked at a breakpoint"
-          - text: "fridaBj "
+          - text: "FrBj "
             arg_str: "4242"
             comment: "Report the stop identity of the thread parked at a breakpoint"
-          - text: "fridaBj "
+          - text: "FrBj "
             arg_str: "4242 pc 0x401000"
             comment: "Set a register on the stopped thread before continuing"
-          - text: "fridaWj "
+          - text: "FrWj "
             arg_str: "0x1000 8 w"
             comment: "Watch 8 bytes for writes with a hardware watchpoint"
-          - text: "fridaWj"
+          - text: "FrWj"
             comment: "List the hardware watchpoints that are set"
-          - text: "fridaW-j "
+          - text: "FrW-j "
             arg_str: "0x1000"
             comment: "Remove a watchpoint, or use * for all"
     subcommands:
-      - name: fridas
-        cname: cmd_fridas
+      - name: Frs
+        cname: cmd_Frs
         summary: "Print Frida session status"
         description: >
           Reports whether a session is active and prints the current session
@@ -134,8 +134,8 @@ commands:
           - RZ_OUTPUT_MODE_STANDARD
           - RZ_OUTPUT_MODE_JSON
         args: []
-      - name: fridau
-        cname: cmd_fridau
+      - name: Fru
+        cname: cmd_Fru
         summary: "Validate a frida:// URI"
         description: >
           Parses and validates a frida:// URI without contacting any Frida
@@ -168,20 +168,20 @@ commands:
                 comment: "Target selector required by attach/spawn/launch"
           - name: "Examples"
             entries:
-              - text: "fridau "
+              - text: "Fru "
                 arg_str: "frida://attach/local//1234"
                 comment: "Attach to local PID 1234"
-              - text: "fridau "
+              - text: "Fru "
                 arg_str: "frida://spawn/usb/device-1/com.example.app"
                 comment: "Spawn an Android package on a USB device"
-              - text: "fridau "
+              - text: "Fru "
                 arg_str: "frida://launch/local///bin/ls"
                 comment: "Launch /bin/ls locally (absolute path, three slashes)"
-              - text: "fridauj "
+              - text: "Fruj "
                 arg_str: "frida://attach/remote/127.0.0.1:27042/4321"
                 comment: "Validate remote-attach URI and emit JSON"
-      - name: fridad
-        cname: cmd_fridad
+      - name: Frd
+        cname: cmd_Frd
         summary: "List Frida devices"
         description: >
           Enumerates devices known to the Frida device manager (local, USB, and
@@ -190,8 +190,8 @@ commands:
         modes:
           - RZ_OUTPUT_MODE_JSON
         args: []
-      - name: fridap
-        cname: cmd_fridap
+      - name: Frp
+        cname: cmd_Frp
         summary: "List processes on a device"
         description: >
           Enumerates the processes visible to a Frida device and emits a
@@ -207,16 +207,16 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridapj"
+              - text: "Frpj"
                 comment: "List local processes as JSON, returns a frida_unavailable error if built without frida-core"
-              - text: "fridapj "
+              - text: "Frpj "
                 arg_str: "frida://list/usb/device-1/"
                 comment: "List processes on a USB device by id"
-              - text: "fridapj "
+              - text: "Frpj "
                 arg_str: "frida://list/remote/127.0.0.1:27042/"
                 comment: "List processes on a remote frida-server"
-      - name: fridaa
-        cname: cmd_fridaa
+      - name: Fra
+        cname: cmd_Fra
         summary: "List applications on a device"
         description: >
           Enumerates the applications known to a Frida device and emits a
@@ -233,13 +233,13 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaaj"
+              - text: "Fraj"
                 comment: "List local applications as JSON, returns a frida_unavailable error if built without frida-core"
-              - text: "fridaaj "
+              - text: "Fraj "
                 arg_str: "frida://apps/usb/device-1/"
                 comment: "List applications on a USB device by id"
-      - name: fridao
-        cname: cmd_fridao
+      - name: Fro
+        cname: cmd_Fro
         summary: "Open a Frida session"
         description: >
           Opens a session for a frida:// URI on a local, USB, or remote device:
@@ -256,35 +256,35 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaoj "
+              - text: "Froj "
                 arg_str: "frida://attach/local//1234"
                 comment: "Attach to local PID 1234"
-              - text: "fridaoj "
+              - text: "Froj "
                 arg_str: "frida://attach/usb//com.example.app"
                 comment: "Attach by process name on the single USB device"
-              - text: "fridaoj "
+              - text: "Froj "
                 arg_str: "frida://spawn/usb//com.example.app"
                 comment: "Spawn a USB package (resumed, rn true when the hook armed)"
-              - text: "fridaoj "
+              - text: "Froj "
                 arg_str: "frida://launch/local///bin/ls"
                 comment: "Launch /bin/ls and resume it immediately"
-              - text: "fridaoj "
+              - text: "Froj "
                 arg_str: "frida://attach/remote/127.0.0.1:27042/1234"
                 comment: "Attach to PID 1234 over a remote frida-server"
-      - name: fridar
-        cname: cmd_fridar
+      - name: Frr
+        cname: cmd_Frr
         summary: "Resume the open Frida session"
         description: >
           Resumes a target that was spawned suspended by the open command.
           Safe to repeat: a spawned target that is already running, including
-          one resumed by open on a USB/remote spawn or by 'fridaRNj on',
+          one resumed by open on a USB/remote spawn or by 'FrRNj on',
           returns ok rather than an error. Emits a structured JSON reply.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
           - RZ_OUTPUT_MODE_JSON
         args: []
-      - name: fridac
-        cname: cmd_fridac
+      - name: Frc
+        cname: cmd_Frc
         summary: "Close the open Frida session"
         description: >
           Detaches the open session and forgets it. A target that was spawned
@@ -294,14 +294,14 @@ commands:
         modes:
           - RZ_OUTPUT_MODE_JSON
         args: []
-      - name: fridae
-        cname: cmd_fridae
+      - name: Fre
+        cname: cmd_Fre
         summary: "Evaluate JavaScript in the target process"
         description: >
           Loads the rz-frida agent into the open session on first use, then
           evaluates a JavaScript expression inside the target process and
           returns its value and type. Quote the expression when it contains
-          spaces, or use fridal for a script that lives in a file.
+          spaces, or use Frl for a script that lives in a file.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
           - RZ_OUTPUT_MODE_JSON
@@ -311,14 +311,14 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaej "
+              - text: "Frej "
                 arg_str: "Process.arch"
                 comment: "Read the target architecture from the agent"
-              - text: "fridaej "
+              - text: "Frej "
                 arg_str: "\"1 + 1\""
                 comment: "Evaluate an expression, quote it when it has spaces"
-      - name: fridal
-        cname: cmd_fridal
+      - name: Frl
+        cname: cmd_Frl
         summary: "Load and evaluate a JavaScript file in the target process"
         description: >
           Reads a JavaScript file from disk and evaluates it inside the target
@@ -333,11 +333,11 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridalj "
+              - text: "Frlj "
                 arg_str: "hook.js"
                 comment: "Evaluate hook.js inside the target process"
-      - name: fridai
-        cname: cmd_fridai
+      - name: Fri
+        cname: cmd_Fri
         summary: "Ping the agent in the target process"
         description: >
           Loads the rz-frida agent into the open session on first use and pings
@@ -348,8 +348,8 @@ commands:
         modes:
           - RZ_OUTPUT_MODE_JSON
         args: []
-      - name: fridam
-        cname: cmd_fridam
+      - name: Frm
+        cname: cmd_Frm
         summary: "Read buffered agent messages"
         description: >
           Drains the asynchronous output captured from the injected agent:
@@ -360,8 +360,8 @@ commands:
         modes:
           - RZ_OUTPUT_MODE_JSON
         args: []
-      - name: fridax
-        cname: cmd_fridax
+      - name: Frx
+        cname: cmd_Frx
         summary: "Read target memory"
         description: >
           Reads a block of memory from the target process through the rz-frida
@@ -378,11 +378,11 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaxj "
+              - text: "Frxj "
                 arg_str: "0x1000 64"
                 comment: "Read 64 bytes at 0x1000 from the target process"
-      - name: fridaw
-        cname: cmd_fridaw
+      - name: Frw
+        cname: cmd_Frw
         summary: "Write target memory"
         description: >
           Writes a hex byte string into the target process memory through the
@@ -399,11 +399,11 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridawj "
+              - text: "Frwj "
                 arg_str: "0x1000 deadbeef"
                 comment: "Write the bytes 'de ad be ef' at 0x1000 in the target"
-      - name: fridaR
-        cname: cmd_fridaR
+      - name: FrR
+        cname: cmd_FrR
         summary: "List target memory ranges"
         description: >
           Lists the memory ranges of the target process through the rz-frida
@@ -421,13 +421,13 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaRj"
+              - text: "FrRj"
                 comment: "List the cached target memory ranges"
-              - text: "fridaRj "
+              - text: "FrRj "
                 arg_str: "refresh"
                 comment: "Re-enumerate the ranges instead of using the cache"
-      - name: fridat
-        cname: cmd_fridat
+      - name: Frt
+        cname: cmd_Frt
         summary: "List target threads"
         description: >
           Lists the threads of the target process through the rz-frida agent,
@@ -437,8 +437,8 @@ commands:
         modes:
           - RZ_OUTPUT_MODE_JSON
         args: []
-      - name: fridaM
-        cname: cmd_fridaM
+      - name: FrM
+        cname: cmd_FrM
         summary: "List target modules"
         description: >
           Lists the modules loaded in the target process through the rz-frida
@@ -456,13 +456,13 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaMj"
+              - text: "FrMj"
                 comment: "List the cached target modules"
-              - text: "fridaMj "
+              - text: "FrMj "
                 arg_str: "refresh"
                 comment: "Re-enumerate the modules instead of using the cache"
-      - name: fridaE
-        cname: cmd_fridaE
+      - name: FrE
+        cname: cmd_FrE
         summary: "List target module exports"
         description: >
           Lists the exports of a module loaded in the target process through the
@@ -477,11 +477,11 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaEj "
+              - text: "FrEj "
                 arg_str: "libc.so"
                 comment: "List the exports of libc.so in the target"
-      - name: fridaI
-        cname: cmd_fridaI
+      - name: FrI
+        cname: cmd_FrI
         summary: "List target module imports"
         description: >
           Lists the imports of a module loaded in the target process through the
@@ -496,11 +496,11 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaIj "
+              - text: "FrIj "
                 arg_str: "libc.so"
                 comment: "List the imports of libc.so in the target"
-      - name: fridaS
-        cname: cmd_fridaS
+      - name: FrS
+        cname: cmd_FrS
         summary: "List target module symbols"
         description: >
           Lists the symbols of a module loaded in the target process through the
@@ -516,18 +516,18 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaSj "
+              - text: "FrSj "
                 arg_str: "libc.so"
                 comment: "List the symbols of libc.so in the target"
-      - name: fridab
-        cname: cmd_fridab
+      - name: Frb
+        cname: cmd_Frb
         summary: "Set or list native breakpoints"
         description: >
           Sets a breakpoint at an address in the target process through the
           rz-frida agent, or lists the breakpoints that are set when called with
-          no argument. A hit is reported asynchronously through fridam with the
+          no argument. A hit is reported asynchronously through Frm with the
           breakpoint id and thread id (the event context is empty), and the thread
-          stays parked until fridag continues it. Loads the agent into the open
+          stays parked until Frg continues it. Loads the agent into the open
           session on first use.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
@@ -539,13 +539,13 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridabj "
+              - text: "Frbj "
                 arg_str: "0x1000"
                 comment: "Set a breakpoint at 0x1000 in the target"
-              - text: "fridabj"
+              - text: "Frbj"
                 comment: "List the breakpoints that are set"
-      - name: fridab-
-        cname: cmd_fridab_minus
+      - name: Frb-
+        cname: cmd_Frb_minus
         summary: "Remove native breakpoints"
         description: >
           Removes the breakpoint at an address in the target process through the
@@ -560,14 +560,14 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridab-j "
+              - text: "Frb-j "
                 arg_str: "0x1000"
                 comment: "Remove the breakpoint at 0x1000"
-              - text: "fridab-j "
+              - text: "Frb-j "
                 arg_str: "*"
                 comment: "Remove every breakpoint"
-      - name: fridag
-        cname: cmd_fridag
+      - name: Frg
+        cname: cmd_Frg
         summary: "Continue a thread parked at a breakpoint"
         description: >
           Continues a thread parked at a breakpoint in the target process
@@ -585,19 +585,19 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridagj"
+              - text: "Frgj"
                 comment: "Continue the most recently parked thread"
-              - text: "fridagj "
+              - text: "Frgj "
                 arg_str: "4242"
                 comment: "Continue the thread with id 4242"
-      - name: fridaB
-        cname: cmd_fridaB
+      - name: FrB
+        cname: cmd_FrB
         summary: "Report stop identity or write a register at a breakpoint stop"
         description: >
           Reports the stop identity of a thread parked at a breakpoint in
           the target process through the rz-frida agent, or sets one register when
           a register name and value follow the thread id. A write lands on the
-          live context and takes effect when the thread is continued with fridag.
+          live context and takes effect when the thread is continued with Frg.
           Loads the agent into the open session on first use.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
@@ -614,14 +614,14 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaBj "
+              - text: "FrBj "
                 arg_str: "4242"
                 comment: "Report the stop identity of thread 4242"
-              - text: "fridaBj "
+              - text: "FrBj "
                 arg_str: "4242 pc 0x401000"
-                comment: "Set pc on thread 4242 before continuing it with fridagj"
-      - name: fridaW
-        cname: cmd_fridaW
+                comment: "Set pc on thread 4242 before continuing it with Frgj"
+      - name: FrW
+        cname: cmd_FrW
         summary: "Set or list hardware watchpoints"
         description: >
           Sets a hardware watchpoint on an address in the target process through
@@ -629,7 +629,7 @@ commands:
           with no argument. The optional size defaults to the pointer size and the
           optional conditions are r, w, or rw (default rw). The watchpoint is armed
           on every target thread, an access is reported asynchronously through
-          fridam as a frida.wp event with the faulting thread, program counter, and
+          Frm as a Fr.wp event with the faulting thread, program counter, and
           register context, and the watchpoint disarms itself on that hit. The CPU
           has a small fixed number of watchpoint slots. Loads the agent into the
           open session on first use.
@@ -649,16 +649,16 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaWj "
+              - text: "FrWj "
                 arg_str: "0x1000"
                 comment: "Watch the pointer-sized word at 0x1000 for reads and writes"
-              - text: "fridaWj "
+              - text: "FrWj "
                 arg_str: "0x1000 8 w"
                 comment: "Watch 8 bytes at 0x1000 for writes only"
-              - text: "fridaWj"
+              - text: "FrWj"
                 comment: "List the watchpoints that are set"
-      - name: fridaW-
-        cname: cmd_fridaW_minus
+      - name: FrW-
+        cname: cmd_FrW_minus
         summary: "Remove hardware watchpoints"
         description: >
           Removes the hardware watchpoint at an address in the target process
@@ -673,14 +673,14 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaW-j "
+              - text: "FrW-j "
                 arg_str: "0x1000"
                 comment: "Remove the watchpoint at 0x1000"
-              - text: "fridaW-j "
+              - text: "FrW-j "
                 arg_str: "*"
                 comment: "Remove every watchpoint"
-      - name: fridaJ
-        cname: cmd_fridaJ
+      - name: FrJ
+        cname: cmd_FrJ
         summary: "Check whether the Android Java VM is reachable"
         description: >
           Checks whether the Java VM (ART) is available in the target process and
@@ -690,8 +690,8 @@ commands:
         modes:
           - RZ_OUTPUT_MODE_JSON
         args: []
-      - name: fridaL
-        cname: cmd_fridaL
+      - name: FrL
+        cname: cmd_FrL
         summary: "Enumerate Java classloaders in the target"
         description: >
           Enumerates the classloaders in the target process through the rz-frida
@@ -701,14 +701,14 @@ commands:
         modes:
           - RZ_OUTPUT_MODE_JSON
         args: []
-      - name: fridaC
-        cname: cmd_fridaC
+      - name: FrC
+        cname: cmd_FrC
         summary: "Enumerate loaded Java classes in the target"
         description: >
           Enumerates the loaded Java classes in the target process through the
           rz-frida agent. An optional prefix matches classes whose canonical
           name starts with that string, or whose simple name after the last
-          dot equals it. The frida.java.max config (default 512) caps the
+          dot equals it. The Fr.java.max config (default 512) caps the
           batch. Zero means unlimited.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
@@ -717,15 +717,15 @@ commands:
           - name: prefix
             type: RZ_CMD_ARG_TYPE_STRING
             optional: true
-      - name: fridaN
-        cname: cmd_fridaN
+      - name: FrN
+        cname: cmd_FrN
         summary: "Monitor newly loaded Java classes in the target"
         description: >
           When called without arguments, lists classes loaded since the last
-          snapshot. Call 'fridaNj start' to snapshot currently loaded classes.
+          snapshot. Call 'FrNj start' to snapshot currently loaded classes.
           If the monitor is already enabled, start does not re-snapshot.
           Later listings are the difference against that set.
-          Call 'fridaNj stop' to disable the monitor. The seen set is kept, so
+          Call 'FrNj stop' to disable the monitor. The seen set is kept, so
           a later listing can still report new names with monitor false.
           Requires an Android target with the Java VM available.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
@@ -735,17 +735,17 @@ commands:
           - name: mode
             type: RZ_CMD_ARG_TYPE_STRING
             optional: true
-      - name: fridaRN
-        cname: cmd_fridaRN
+      - name: FrRN
+        cname: cmd_FrRN
         summary: "Hook RegisterNatives to map native methods to addresses"
         description: >
           When called without arguments, lists captured JNI RegisterNatives
           invocations with className, method names, signatures and native
-          function addresses. Call 'fridaRNj on' to arm the low-level JNI
+          function addresses. Call 'FrRNj on' to arm the low-level JNI
           hook on the ART runtime (JNI function table offset 215).
           A USB/remote spawn already arms it. On a still-suspended spawn, arming
-          also resumes. 'fridaRNj off' disarms and clears the buffer.
-          'fridaRNj import' imports the captured native method addresses
+          also resumes. 'FrRNj off' disarms and clears the buffer.
+          'FrRNj import' imports the captured native method addresses
           into the rizin analysis class database.
           Requires an Android target with the Java VM available.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
@@ -755,19 +755,19 @@ commands:
           - name: mode
             type: RZ_CMD_ARG_TYPE_STRING
             optional: true
-      - name: fridaf
-        cname: cmd_fridaf
+      - name: Frf
+        cname: cmd_Frf
         summary: "Import runtime modules as rizin flags"
         description: >
           Enumerates the target process modules via the rz-frida agent and
-          imports their base addresses into the frida.libs flag space as
+          imports their base addresses into the Fr.libs flag space as
           rizin flags. Returns the count of modules imported.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
           - RZ_OUTPUT_MODE_JSON
         args: []
-      - name: fridaX
-        cname: cmd_fridaX
+      - name: FrX
+        cname: cmd_FrX
         summary: "Compare static binary classes with runtime Frida classes"
         description: >
           Compares classes from a loaded binary (DEX, ELF, etc.) with classes
@@ -783,8 +783,8 @@ commands:
           - name: prefix
             type: RZ_CMD_ARG_TYPE_STRING
             optional: true
-      - name: fridaD
-        cname: cmd_fridaD
+      - name: FrD
+        cname: cmd_FrD
         summary: "Describe a Java class in the target"
         description: >
           Describes a Java class in the target process through the rz-frida
@@ -806,14 +806,14 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaDj "
+              - text: "FrDj "
                 arg_str: "java.lang.String"
                 comment: "Describe String using the default system loader, Tab to autocomplete class names"
-              - text: "fridaDj "
+              - text: "FrDj "
                 arg_str: "com.example.Foo 3"
                 comment: "Describe Foo loaded by classloader id 3"
-      - name: fridaIm
-        cname: cmd_fridaIm
+      - name: FrIm
+        cname: cmd_FrIm
         summary: "Import a Java class description into rizin analysis"
         description: >
           Describes a Java class in the target through the rz-frida agent and
@@ -833,9 +833,9 @@ commands:
         details:
           - name: "Examples"
             entries:
-              - text: "fridaImj "
+              - text: "FrImj "
                 arg_str: "java.lang.String"
                 comment: "Import String using the default system loader, Tab to autocomplete class names"
-              - text: "fridaImj "
+              - text: "FrImj "
                 arg_str: "com.example.Foo 3"
                 comment: "Import Foo loaded by classloader id 3"

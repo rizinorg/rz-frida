@@ -55,7 +55,7 @@ flowchart LR
 rz-frida is the Frida plugin for Rizin. It gives us:
 
 - the whole command surface inside rizin: JSON for the `…j` forms, plus
-  plain text for `fridas` and `fridau`
+  plain text for `Frs` and `Fru`
 - a single-session model with cancellation
 - memory read/write, module and thread listing, breakpoints with stop
   identity and register write, hardware watchpoints

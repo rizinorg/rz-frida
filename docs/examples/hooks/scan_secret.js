@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 // scan_secret.js -- find the decoded secret in libnative.so.
-// Load with: fridalj docs/examples/hooks/scan_secret.js
+// Load with: Frlj docs/examples/hooks/scan_secret.js
 
 var nativeModule = null;
 var modules = Process.enumerateModules();

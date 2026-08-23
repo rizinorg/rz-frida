@@ -42,14 +42,14 @@ $ frida-ps -D <serial> | grep Gadget
 ![The gadget process](img/remote_access/gadget-process.png)
 
 ```text
-[0x00000000]> fridaoj frida://attach/usb//Gadget
+[0x00000000]> Froj frida://attach/usb//Gadget
 {"ok":true,"result":{"action":"attach","pid":12345,"resumed":false,"state":"attached"}}
 ```
 
 Or with the device serial in the URI:
 
 ```text
-[0x00000000]> fridaoj frida://attach/usb/<serial>/Gadget
+[0x00000000]> Froj frida://attach/usb/<serial>/Gadget
 ```
 
 Attaching also resumes a paused app.
@@ -62,7 +62,7 @@ $ adb forward tcp:27042 tcp:27042
 ```
 
 ```text
-[0x00000000]> fridaoj frida://attach/remote/127.0.0.1:27042/Gadget
+[0x00000000]> Froj frida://attach/remote/127.0.0.1:27042/Gadget
 ```
 
 When another device already occupies host port 27042, pick a free host

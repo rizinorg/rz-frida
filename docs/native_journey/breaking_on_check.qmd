@@ -4,13 +4,13 @@
 
 ## 1. Resolve and break
 
-Read `check_key`'s address from `fridaSj` (yours will differ), then:
+Read `check_key`'s address from `FrSj` (yours will differ), then:
 
 ```text
-[0x00000000]> fridabj 0x5c95c467e209
+[0x00000000]> Frbj 0x5c95c467e209
 {"ok":true,"result":{"address":"0x5c95c467e209","bp":1}}
 
-[0x00000000]> fridabj
+[0x00000000]> Frbj
 {"ok":true,"result":{"breakpoints":[{"bp":1,"address":"0x5c95c467e209"}]}}
 ```
 
@@ -23,8 +23,8 @@ In the demo's terminal, feed a wrong key. The thread entering `check_key`
 parks:
 
 ```text
-[0x00000000]> fridamj
-{"ok":true,"result":{"messages":[...,{"kind":"send","payload":{"type":"frida.bp","bp":1,"address":"0x5c95c467e209","threadId":46117,"context":{}}}],"dropped":0}}
+[0x00000000]> Frmj
+{"ok":true,"result":{"messages":[...,{"kind":"send","payload":{"type":"Fr.bp","bp":1,"address":"0x5c95c467e209","threadId":46117,"context":{}}}],"dropped":0}}
 ```
 
 The demo is now frozen at the breakpoint, waiting for you.
@@ -34,7 +34,7 @@ The demo is now frozen at the breakpoint, waiting for you.
 ## 3. Inspect the stop
 
 ```text
-[0x00000000]> fridaBj 46117
+[0x00000000]> FrBj 46117
 {"ok":true,"result":{"threadId":46117,"bp":1,"address":"0x5c95c467e209"}}
 ```
 
@@ -43,7 +43,7 @@ Same as on Android: the stop identity only, no register values.
 ## 4. Write a register
 
 ```text
-[0x00000000]> fridaBj 46117 rip 0x414141414141
+[0x00000000]> FrBj 46117 rip 0x414141414141
 {"ok":true,"result":{"threadId":46117,"register":"rip","value":"0x414141414141"}}
 ```
 
@@ -54,14 +54,14 @@ Type the register name.
 ## 5. Continue
 
 ```text
-[0x00000000]> fridagj 46117
+[0x00000000]> Frgj 46117
 {"ok":true,"result":{"resumed":true,"threadId":46117}}
 ```
 
 The demo resumes and prints its verdict. Clean up:
 
 ```text
-[0x00000000]> fridab-j *
+[0x00000000]> Frb-j *
 {"ok":true,"result":{"removed":1}}
 ```
 
@@ -73,15 +73,15 @@ sequenceDiagram
     participant A as agent
     participant H as host
     T->>A: enters check_key (onEnter)
-    A->>H: frida.bp event (bp, address, threadId)
-    A->>A: park: recv('frida.cont.<tid>').wait()
-    H->>H: fridaBj stop identity or write live context
-    H->>A: frida.cont.<tid> request
+    A->>H: Fr.bp event (bp, address, threadId)
+    A->>A: park: recv('Fr.cont.<tid>').wait()
+    H->>H: FrBj stop identity or write live context
+    H->>A: Fr.cont.<tid> request
     A->>T: resume the function
 ```
 
 The agent parks the thread with a `recv` on a per-thread channel
-(`frida.cont.<tid>`), so continuing a specific thread is deterministic, and
+(`Fr.cont.<tid>`), so continuing a specific thread is deterministic, and
 the host keeps the thread's live Interceptor context for a register write.
 
 > **Note:** the breakpoint's `context` is intentionally empty in the event:

@@ -15,19 +15,19 @@ Hardware watchpoints need a concrete address. Allocate a cell in the app
 and keep it alive:
 
 ```text
-[0x00000000]> fridaoj frida://attach/usb//FridaMin
+[0x00000000]> Froj frida://attach/usb//FridaMin
 {"ok":true,"result":{"action":"attach","pid":3718,"resumed":false,"state":"attached"}}
 
-[0x00000000]> fridaej "(globalThis.coinsCell=Memory.alloc(8)).toString()"
+[0x00000000]> Frej "(globalThis.coinsCell=Memory.alloc(8)).toString()"
 {"ok":true,"result":{"value":"0x7ae269978400","type":"string"}}
 ```
 
-`globalThis.coinsCell` survives across `fridaej` calls.
+`globalThis.coinsCell` survives across `Frej` calls.
 
 ## 2. Arm the watchpoint
 
 ```text
-[0x00000000]> fridaWj 0x7ae269978400 8 w
+[0x00000000]> FrWj 0x7ae269978400 8 w
 {"ok":true,"result":{"slot":0,"address":"0x7ae269978400","size":8,"conditions":"w"}}
 ```
 
@@ -37,7 +37,7 @@ and keep it alive:
 ## 3. List
 
 ```text
-[0x00000000]> fridaWj
+[0x00000000]> FrWj
 {"ok":true,"result":{"watchpoints":[{"slot":0,"address":"0x7ae269978400","size":8,"conditions":"w"}]}}
 ```
 
@@ -48,14 +48,14 @@ and keep it alive:
 Write to the cell:
 
 ```text
-[0x00000000]> fridaej "globalThis.coinsCell.writeU64(0x41414141);\"written\""
+[0x00000000]> Frej "globalThis.coinsCell.writeU64(0x41414141);\"written\""
 {"ok":true,"result":{"value":"written","type":"string"}}
 ```
 
-On hardware that delivers the trap, `fridamj` reports a `frida.wp` event:
+On hardware that delivers the trap, `Frmj` reports a `Fr.wp` event:
 
 ```json
-{"kind":"send","payload":{"type":"frida.wp","threadId":2213,"pc":"0x...","operation":"write","address":"0x7ae269978400","watched":[{"slot":0,"address":"0x7ae269978400","size":8,"conditions":"w"}],"context":{...}}}
+{"kind":"send","payload":{"type":"Fr.wp","threadId":2213,"pc":"0x...","operation":"write","address":"0x7ae269978400","watched":[{"slot":0,"address":"0x7ae269978400","size":8,"conditions":"w"}],"context":{...}}}
 ```
 
 The event carries the faulting thread, the program counter, the operation
@@ -65,10 +65,10 @@ arm it again to keep watching.
 ## 5. Remove
 
 ```text
-[0x00000000]> fridaW-j 0x7ae269978400
+[0x00000000]> FrW-j 0x7ae269978400
 {"ok":true,"result":{"address":"0x7ae269978400","removed":1}}
 
-[0x00000000]> fridaW-j *
+[0x00000000]> FrW-j *
 {"ok":true,"result":{"removed":0}}
 ```
 
@@ -107,15 +107,15 @@ Java.perform(function () {
 ```
 
 ```text
-[0x00000000]> fridalj docs/examples/hooks/watch_coins.js
-[0x00000000]> fridamj
+[0x00000000]> Frlj docs/examples/hooks/watch_coins.js
+[0x00000000]> Frmj
 ... "text":"coins monitor installed"
-[0x00000000]> fridaej "Java.perform(function(){Java.use('re.frida.minapp.game.GameState').addCoins(10)})"
-[0x00000000]> fridamj
+[0x00000000]> Frej "Java.perform(function(){Java.use('re.frida.minapp.game.GameState').addCoins(10)})"
+[0x00000000]> Frmj
 ... "text":"addCoins(10) coins 0 -> 10"
 ```
 
-`frida.hw.watchpoints` (default 4) caps how many slots `fridaWj` may use.
+`Fr.hw.watchpoints` (default 4) caps how many slots `FrWj` may use.
 The example also refreshes the app's cached status line after a direct
 scripted coin mutation.
 

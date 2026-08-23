@@ -28,7 +28,7 @@ Now `127.0.0.1:27042` on the host is the emulator's frida-server.
 ## 3. List processes remotely
 
 ```text
-[0x00000000]> fridapj frida://list/remote/127.0.0.1:27042/
+[0x00000000]> Frpj frida://list/remote/127.0.0.1:27042/
 {"ok":true,"result":{"processes":[{"pid":1,"name":"init"},...,{"pid":2812,"name":"FridaMin"}],"total":104}}
 ```
 
@@ -37,10 +37,10 @@ Now `127.0.0.1:27042` on the host is the emulator's frida-server.
 ## 4. Attach remotely
 
 ```text
-[0x00000000]> fridaoj frida://attach/remote/127.0.0.1:27042/FridaMin
+[0x00000000]> Froj frida://attach/remote/127.0.0.1:27042/FridaMin
 {"ok":true,"result":{"action":"attach","pid":2812,"resumed":false,"state":"attached"}}
 
-[0x00000000]> fridaij
+[0x00000000]> Frij
 {"ok":true,"result":{"version":1,"platform":"linux","arch":"x64","pointerSize":8}}
 ```
 
@@ -52,11 +52,11 @@ is open.
 ## 5. Fast failures
 
 frida's remote connect has no socket timeout of its own. rz-frida opens a
-short throwaway TCP connection first, bounded by `frida.timeout`, so an
+short throwaway TCP connection first, bounded by `Fr.timeout`, so an
 unreachable host fails quickly and a Ctrl-C aborts it:
 
 ```text
-[0x00000000]> fridapj frida://list/remote/192.0.2.1:27042/
+[0x00000000]> Frpj frida://list/remote/192.0.2.1:27042/
 {"ok":false,"error":{"code":"timeout","message":"Could not connect to 192.0.2.1: Socket I/O timed out"}}
 ```
 

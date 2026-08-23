@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 // watch_coins.js -- log every coin credit as the app applies it.
-// Load with: fridalj docs/examples/hooks/watch_coins.js
+// Load with: Frlj docs/examples/hooks/watch_coins.js
 
 Java.perform(function () {
   var GameState = Java.use('re.frida.minapp.game.GameState');

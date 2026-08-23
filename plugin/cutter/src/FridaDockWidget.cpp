@@ -979,7 +979,7 @@ void FridaDockWidget::setupFlagsTab()
 		flagsImportBtn->setEnabled(false);
 		m_tasks->run([this]() -> QJsonObject { return m_api->flagImport(); }, this,
 			[this](const QJsonObject &result) {
-				flagsOutput->setPlainText(tr("Imported %1 module(s) into frida.libs flag space")
+				flagsOutput->setPlainText(tr("Imported %1 module(s) into Fr.libs flag space")
 					.arg(result["modules"].toInt()));
 				Core()->triggerRefreshAll();
 				flagsImportBtn->setEnabled(true);
@@ -1297,7 +1297,7 @@ void FridaDockWidget::setupDebugTab()
 				for (const auto &m : result["messages"].toArray()) {
 					QJsonObject msg = m.toObject();
 					QString payload = QJsonDocument(msg["payload"].toObject()).toJson(QJsonDocument::Compact);
-					if (payload.contains("frida.bp") || payload.contains("frida.wp")) {
+					if (payload.contains("Fr.bp") || payload.contains("Fr.wp")) {
 						bpNotifyLog->appendPlainText(QString("[%1] %2").arg(
 							msg["type"].toString(), payload));
 					}

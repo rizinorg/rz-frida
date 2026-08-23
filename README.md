@@ -66,14 +66,14 @@ Then open a rizin session and use the plugin commands:
 
 ```
 rizin malloc://512              # open rizin with a small binary
-fridaoj attach/local//<pid>    # attach to the local target
-fridaRj                        # dump memory ranges
-fridatj                        # list threads
-fridaej Process.arch           # evaluate JS in the target
-fridacj                        # close the session
+Froj attach/local//<pid>    # attach to the local target
+FrRj                        # dump memory ranges
+Frtj                        # list threads
+Frej Process.arch           # evaluate JS in the target
+Frcj                        # close the session
 ```
 
-The `frida` command group is available inside rizin after the plugin loads. The
+The `Fr` command group is available inside rizin after the plugin loads. The
 `attach/local` transport targets the host, `attach/usb` a USB device, and
 `attach/remote` a remote frida-server (see Targets and transports below).
 
@@ -96,11 +96,11 @@ Session tab and click Connect.
 
 The plugin has two halves that share one session model.
 
-The **Rizin plugin** opens a session on a target device (`fridaoj`) and talks
+The **Rizin plugin** opens a session on a target device (`Froj`) and talks
 to it over a request/response channel. Local attach injects the JS agent on
-first agent command, USB/remote spawn injects during `fridaoj`. The `…j`
-commands use a JSON envelope (`ok`, `result` or `error`). `fridas` and
-`fridau` also print plain text. Open respects the session timeout and can be
+first agent command, USB/remote spawn injects during `Froj`. The `…j`
+commands use a JSON envelope (`ok`, `result` or `error`). `Frs` and
+`Fru` also print plain text. Open respects the session timeout and can be
 cancelled.
 
 The **Cutter plugin** is a dock widget frontend. It calls the rizin plugin's
@@ -166,75 +166,75 @@ prompt.
 
 ## Commands
 
-All commands are subcommands of the `frida` group, run `frida?` in Rizin for the
+All commands are subcommands of the `Fr` group, run `Fr?` in Rizin for the
 built-in help with summary of each. The list below is a quick reference,
 and the sections that follow explain them.
 
 ```
-fridas                                              # plugin/session status, plain text
-fridasj                                             # plugin/session status, JSON
-fridau frida://attach/local//1234                   # validate attach URI
-fridauj frida://attach/local//1234                  # validate attach URI, JSON
-fridadj                                             # list connected Frida devices
-fridapj                                             # list local processes
-fridapj frida://list/usb/device-1/                  # list processes on a USB device
-fridaaj                                             # list local applications
-fridaaj frida://apps/usb/device-1/                  # list applications on a USB device
-fridaoj frida://attach/local//1234                  # attach to a local pid
-fridaoj frida://spawn/local///bin/ls                # spawn a local process suspended
-fridaoj frida://attach/usb//com.example.app         # attach to a USB target by name
-fridaoj frida://spawn/usb//com.example.app          # spawn a USB package (resumed, rn true when the hook armed)
-fridaoj frida://attach/remote/127.0.0.1:27042/1234 # attach over a remote frida-server
-fridarj                                             # resume a spawned target
-fridacj                                             # close the open session
-fridaij                                             # ping the agent
-fridaej Process.arch                                # evaluate JS in the target
-fridalj hook.js                                     # load and evaluate a script file
-fridamj                                             # drain agent message buffer
-fridaxj 0x1000 64                                   # read 64 bytes of target memory
-fridawj 0x1000 deadbeef                             # write bytes to target memory
-fridaRj                                             # list target memory ranges
-fridatj                                             # list target threads
-fridaMj                                             # list loaded modules
-fridaEj libc.so                                     # list module exports
-fridaIj libc.so                                     # list module imports
-fridaSj libc.so                                     # list module symbols
-fridabj 0x1000                                      # set a breakpoint
-fridabj                                             # list breakpoints
-fridab-j 0x1000                                     # remove a breakpoint
-fridab-j *                                          # remove all breakpoints
-fridagj                                             # continue last parked thread
-fridagj 4242                                        # continue a specific thread
-fridaBj 4242                                        # stop identity of a parked thread
-fridaBj 4242 pc 0x401000                            # write a register of a parked thread
-fridaWj 0x1000 8 w                                  # set a hardware watchpoint (write, 8 bytes)
-fridaWj                                             # list watchpoints
-fridaW-j 0x1000                                     # remove a watchpoint
-fridaW-j *                                          # remove all watchpoints
-fridaJj                                             # check Java VM availability
-fridaLj                                             # list classloaders
-fridaCj                                             # list loaded classes
-fridaCj re.frida.minapp                             # list loaded classes by prefix
-fridaXj                                             # compare runtime vs static classes
-fridaXj re.frida.minapp                             # compare by prefix
-fridaNj                                             # list newly loaded classes since start
-fridaNj start                                       # snapshot currently loaded classes
-fridaNj stop                                        # disarm class load monitor
-fridaRNj                                            # list RegisterNatives hook captures
-fridaRNj on                                         # arm RegisterNatives hook
-fridaRNj off                                        # disarm RegisterNatives hook
-fridaRNj import                                     # import captured natives into analysis
-fridafj                                             # import runtime modules as rizin flags
+Frs                                              # plugin/session status, plain text
+Frsj                                             # plugin/session status, JSON
+Fru frida://attach/local//1234                   # validate attach URI
+Fruj frida://attach/local//1234                  # validate attach URI, JSON
+Frdj                                             # list connected Frida devices
+Frpj                                             # list local processes
+Frpj frida://list/usb/device-1/                  # list processes on a USB device
+Fraj                                             # list local applications
+Fraj frida://apps/usb/device-1/                  # list applications on a USB device
+Froj frida://attach/local//1234                  # attach to a local pid
+Froj frida://spawn/local///bin/ls                # spawn a local process suspended
+Froj frida://attach/usb//com.example.app         # attach to a USB target by name
+Froj frida://spawn/usb//com.example.app          # spawn a USB package (resumed, rn true when the hook armed)
+Froj frida://attach/remote/127.0.0.1:27042/1234 # attach over a remote frida-server
+Frrj                                             # resume a spawned target
+Frcj                                             # close the open session
+Frij                                             # ping the agent
+Frej Process.arch                                # evaluate JS in the target
+Frlj hook.js                                     # load and evaluate a script file
+Frmj                                             # drain agent message buffer
+Frxj 0x1000 64                                   # read 64 bytes of target memory
+Frwj 0x1000 deadbeef                             # write bytes to target memory
+FrRj                                             # list target memory ranges
+Frtj                                             # list target threads
+FrMj                                             # list loaded modules
+FrEj libc.so                                     # list module exports
+FrIj libc.so                                     # list module imports
+FrSj libc.so                                     # list module symbols
+Frbj 0x1000                                      # set a breakpoint
+Frbj                                             # list breakpoints
+Frb-j 0x1000                                     # remove a breakpoint
+Frb-j *                                          # remove all breakpoints
+Frgj                                             # continue last parked thread
+Frgj 4242                                        # continue a specific thread
+FrBj 4242                                        # stop identity of a parked thread
+FrBj 4242 pc 0x401000                            # write a register of a parked thread
+FrWj 0x1000 8 w                                  # set a hardware watchpoint (write, 8 bytes)
+FrWj                                             # list watchpoints
+FrW-j 0x1000                                     # remove a watchpoint
+FrW-j *                                          # remove all watchpoints
+FrJj                                             # check Java VM availability
+FrLj                                             # list classloaders
+FrCj                                             # list loaded classes
+FrCj re.frida.minapp                             # list loaded classes by prefix
+FrXj                                             # compare runtime vs static classes
+FrXj re.frida.minapp                             # compare by prefix
+FrNj                                             # list newly loaded classes since start
+FrNj start                                       # snapshot currently loaded classes
+FrNj stop                                        # disarm class load monitor
+FrRNj                                            # list RegisterNatives hook captures
+FrRNj on                                         # arm RegisterNatives hook
+FrRNj off                                        # disarm RegisterNatives hook
+FrRNj import                                     # import captured natives into analysis
+Frfj                                             # import runtime modules as rizin flags
 ```
 
-`fridadj`, `fridapj`, `fridaaj`, and `fridaoj` return a structured `frida_unavailable`
-error when the plugin is built without `frida-core`. `fridapj` and `fridaaj` list the
+`Frdj`, `Frpj`, `Fraj`, and `Froj` return a structured `frida_unavailable`
+error when the plugin is built without `frida-core`. `Frpj` and `Fraj` list the
 local device by default, or take a `frida://` URI to select a USB or remote device.
-`fridaoj` opens a session on the device named by the URI (attach, spawn, or
-launch on local, USB, or remote). USB/remote spawn resumes before `fridaoj`
+`Froj` opens a session on the device named by the URI (attach, spawn, or
+launch on local, USB, or remote). USB/remote spawn resumes before `Froj`
 returns (`rn` true when RegisterNatives armed, else `rn` false). A local
-spawn stays suspended until `fridarj`. `fridarj` resumes a still-suspended
-spawn (safe if the target is already running), and `fridacj` closes the
+spawn stays suspended until `Frrj`. `Frrj` resumes a still-suspended
+spawn (safe if the target is already running), and `Frcj` closes the
 session. Closing kills a target that was spawned but never resumed and
 leaves an attached or launched target running. Open respects the session
 timeout and can be cancelled.
@@ -249,8 +249,8 @@ transport the device is the `host:port` of a frida-server.
 `attach` accepts a numeric pid or a process name. A name is matched against the running
 processes and resolved to a pid, and an unknown name returns an `invalid_target` error.
 `spawn` and `launch` accept an executable path on local and remote targets or a package
-identifier on USB targets. Local spawn stays suspended for `fridarj`. USB/remote
-spawn resumes before `fridaoj` returns (`rn` true when the hook armed). `launch`
+identifier on USB targets. Local spawn stays suspended for `Frrj`. USB/remote
+spawn resumes before `Froj` returns (`rn` true when the hook armed). `launch`
 resumes immediately.
 
 ### Android over USB
@@ -258,12 +258,12 @@ resumes immediately.
 Start `frida-server` on the device, then enumerate and open over USB:
 
 ```
-fridadj                                            # list USB devices
-fridaaj frida://apps/usb//                         # list apps on the USB device
-fridapj frida://list/usb//                         # list processes on the USB device
-fridaoj frida://spawn/usb//com.example.app         # spawn USB/remote (resumed, rn true when the hook armed)
-fridarj                                            # resume if still suspended (safe if already running)
-fridacj                                            # close the session
+Frdj                                            # list USB devices
+Fraj frida://apps/usb//                         # list apps on the USB device
+Frpj frida://list/usb//                         # list processes on the USB device
+Froj frida://spawn/usb//com.example.app         # spawn USB/remote (resumed, rn true when the hook armed)
+Frrj                                            # resume if still suspended (safe if already running)
+Frcj                                            # close the session
 ```
 
 A device that is not reachable, because `frida-server` is not running or the cable is
@@ -280,8 +280,8 @@ Start `frida-server -l 0.0.0.0:27042` on the host, then dial it from the listing
 session commands:
 
 ```
-fridapj frida://list/remote/127.0.0.1:27042/       # list processes on the remote host
-fridaoj frida://attach/remote/127.0.0.1:27042/1234  # attach to pid 1234 remotely
+Frpj frida://list/remote/127.0.0.1:27042/       # list processes on the remote host
+Froj frida://attach/remote/127.0.0.1:27042/1234  # attach to pid 1234 remotely
 ```
 
 The remote transport connects to a plain frida-server. TLS and token authenticated
@@ -291,38 +291,38 @@ portals are not wired up.
 
 Once a session is open, the plugin talks to the target over a request/response
 channel. Local attach injects the agent on the first agent command, USB/remote
-spawn already injected during `fridaoj`. Script commands do not need a separate
+spawn already injected during `Froj`. Script commands do not need a separate
 load step.
 
 ```
-fridaij                          # ping the agent, get platform/arch/ptrsize
-fridaej Process.arch             # evaluate JS in the target, return value and type
-fridalj /path/to/hook.js         # load and eval a script file from disk
-fridamj                          # drain the agent message buffer, return JSON array
+Frij                          # ping the agent, get platform/arch/ptrsize
+Frej Process.arch             # evaluate JS in the target, return value and type
+Frlj /path/to/hook.js         # load and eval a script file from disk
+Frmj                          # drain the agent message buffer, return JSON array
 ```
 
-`fridaij` pings the agent and returns its ver and the target platform, arch, and
-ptr size, a quick check that the host-agent channel is alive. `fridaej` evals a
-JS expression inside the target and returns its val and type. `fridalj` reads a
+`Frij` pings the agent and returns its ver and the target platform, arch, and
+ptr size, a quick check that the host-agent channel is alive. `Frej` evals a
+JS expression inside the target and returns its val and type. `Frlj` reads a
 script from a file and evals it same way, for instrumentation too large for the
 cmd line. Each request respects the session timeout and can be interrupted with Ctrl-C.
 
 Not every msg from the agent is a reply. Console o/p, uncaught script errors, and
 unsolicited `send()` notifs are buffered per session in a bounded queue that drops the
-oldest entry when full and counts how many it dropped. `fridamj` drains that buffer as a JSON
+oldest entry when full and counts how many it dropped. `Frmj` drains that buffer as a JSON
 array and clears it. Binary data attached to a `send()` is carried through as base64 with its
 byte length.
 
 ## Memory
 
-`fridaxj` reads a block of target memory and returns the bytes as a hex string. `fridawj`
+`Frxj` reads a block of target memory and returns the bytes as a hex string. `Frwj`
 writes a hex byte string into target memory and returns the number of bytes written. Both
 load the agent on first use, take an addr that rizin evals (so expressions and symbols
-work), and are bounded by the `frida.mem.max` config.
+work), and are bounded by the `Fr.mem.max` config.
 
 ```
-fridaxj 0x1000 64           # read 64 bytes at 0x1000
-fridawj 0x1000 deadbeef     # write 4 bytes (de ad be ef) at 0x1000
+Frxj 0x1000 64           # read 64 bytes at 0x1000
+Frwj 0x1000 deadbeef     # write 4 bytes (de ad be ef) at 0x1000
 ```
 
 The first reads 64 bytes at `0x1000`, the second writes the four bytes `de ad be ef` at
@@ -332,25 +332,25 @@ when no session is open.
 
 ## Runtime info
 
-`fridaRj` lists the target memory ranges, each with its base, size, protection, and backing
-file when mapped. `fridatj` lists target threads, each with its id, state, register
-context, and entrypoint. `fridaMj` lists loaded modules with their name, base, size, and
-path. `fridaEj <module>`, `fridaIj <module>`, and `fridaSj <module>` list a module's exports,
+`FrRj` lists the target memory ranges, each with its base, size, protection, and backing
+file when mapped. `Frtj` lists target threads, each with its id, state, register
+context, and entrypoint. `FrMj` lists loaded modules with their name, base, size, and
+path. `FrEj <module>`, `FrIj <module>`, and `FrSj <module>` list a module's exports,
 imports, and symbols. All load the agent on first use.
 
 ```
-fridaRj                       # list memory ranges
-fridatj                       # list threads
-fridaMj                       # list loaded modules
-fridaEj libc.so               # list exports of a module
-fridaIj libc.so               # list imports of a module
-fridaSj libc.so               # list symbols of a module
+FrRj                       # list memory ranges
+Frtj                       # list threads
+FrMj                       # list loaded modules
+FrEj libc.so               # list exports of a module
+FrIj libc.so               # list imports of a module
+FrSj libc.so               # list symbols of a module
 ```
 
 The agent caches the range and module lists and re-enumerates after code runs in the target
-(`fridaej` or `fridalj`), so listing stays current w/o re-scanning on every call. The reply's
-`cached` flag says whether it came from the cache, and passing any arg to `fridaRj` or
-`fridaMj` forces a fresh enumeration.
+(`Frej` or `Frlj`), so listing stays current w/o re-scanning on every call. The reply's
+`cached` flag says whether it came from the cache, and passing any arg to `FrRj` or
+`FrMj` forces a fresh enumeration.
 
 ## Debugging
 
@@ -358,53 +358,53 @@ Once a session is open, the plugin sets native breakpoints in the target through
 and parks the thread that hits one until you continue it.
 
 ```
-fridabj 0x1000              # set a breakpoint at 0x1000
-fridabj                     # list breakpoints
-fridab-j 0x1000             # remove breakpoint at 0x1000
-fridab-j *                  # remove all breakpoints
-fridagj                     # continue most recently parked thread
-fridagj 4242                # continue thread 4242
-fridaBj 4242                # stop identity of parked thread 4242
-fridaBj 4242 pc 0x401000    # write pc register of parked thread 4242
-fridaWj 0x1000 8 w          # set write watchpoint on 8 bytes at 0x1000
-fridaWj                     # list watchpoints
-fridaW-j 0x1000             # remove watchpoint at 0x1000
-fridaW-j *                  # remove all watchpoints
+Frbj 0x1000              # set a breakpoint at 0x1000
+Frbj                     # list breakpoints
+Frb-j 0x1000             # remove breakpoint at 0x1000
+Frb-j *                  # remove all breakpoints
+Frgj                     # continue most recently parked thread
+Frgj 4242                # continue thread 4242
+FrBj 4242                # stop identity of parked thread 4242
+FrBj 4242 pc 0x401000    # write pc register of parked thread 4242
+FrWj 0x1000 8 w          # set write watchpoint on 8 bytes at 0x1000
+FrWj                     # list watchpoints
+FrW-j 0x1000             # remove watchpoint at 0x1000
+FrW-j *                  # remove all watchpoints
 ```
 
-`fridabj <addr>` sets a breakpoint, `fridabj` with no arg lists the ones that are set, and
-`fridab-j` removes one addr or `*` for all. A breakpoint is an `Interceptor.attach`, so it
+`Frbj <addr>` sets a breakpoint, `Frbj` with no arg lists the ones that are set, and
+`Frb-j` removes one addr or `*` for all. A breakpoint is an `Interceptor.attach`, so it
 fires on whichever thread reaches the addr and there is no plugin-side slot cap.
 The plugin does not patch the target, Frida may rewrite the prologue.
 
-A hit isn't a reply, it arrives asynchronously and `fridamj` drains it as a `frida.bp`
+A hit isn't a reply, it arrives asynchronously and `Frmj` drains it as a `Fr.bp`
 msg carrying the breakpoint id (under `bp`) and the thread id. The event context
-is empty. The thread that hit stays parked until you continue it. `fridagj <tid>` continues
-that exact thread, `fridagj` with no arg continues the most recently parked one, and it
+is empty. The thread that hit stays parked until you continue it. `Frgj <tid>` continues
+that exact thread, `Frgj` with no arg continues the most recently parked one, and it
 reports whether a thread was released. Other agent cmds keep working while a thread is parked,
 so you can read mem or list threads at the stop, and one continue releases one parked thread.
 
-`fridaBj <tid>` reports the stop identity (`threadId`, `bp`, `address`) of the
-parked thread. It does not return register values. `fridaBj <tid> <reg>
+`FrBj <tid>` reports the stop identity (`threadId`, `bp`, `address`) of the
+parked thread. It does not return register values. `FrBj <tid> <reg>
 <value>` sets one register. A write goes on the live context and takes effect when the
 thread is continued, so set `pc`, an arg reg, or a return value at the stop and
-then `fridagj` to resume with it.
+then `Frgj` to resume with it.
 
-`fridaWj <addr> [size] [r|w|rw]` sets a hardware watchpoint, `fridaWj` with no arg lists the
-ones that are set, and `fridaW-j` removes one addr or `*` for all. The watchpoint is there on
+`FrWj <addr> [size] [r|w|rw]` sets a hardware watchpoint, `FrWj` with no arg lists the
+ones that are set, and `FrW-j` removes one addr or `*` for all. The watchpoint is there on
 **every** target thread (the hardware debug registers are per-thread, so covering all of them
 catches the access wherever it comes from), size defaults to the ptr size, and the
-conditions default to `rw`. An access arrives through `fridamj` as a `frida.wp` msg with
+conditions default to `rw`. An access arrives through `Frmj` as a `Fr.wp` msg with
 the faulting thread, the program counter, the access operation and addr, and the full
 register context. A watchpoint disarms itself on the hit so the faulting
 instruction does not re-trap, re-arm it to catch the next access. The slot count is bounded by
-`frida.hw.watchpoints` (default 4) and by the CPU, so a set fails when they're full.
+`Fr.hw.watchpoints` (default 4) and by the CPU, so a set fails when they're full.
 
-Execution breakpoints (`fridab`) use `Interceptor`, which fires on every thread with no
-plugin-side slot limit (Frida may rewrite the prologue), and data watchpoints (`fridaW`)
+Execution breakpoints (`Frb`) use `Interceptor`, which fires on every thread with no
+plugin-side slot limit (Frida may rewrite the prologue), and data watchpoints (`FrW`)
 use the hardware debug registers, so the two cover different needs without slot conflicts. Instruction
 single stepping isn't exposed as a cmd, Frida offers it only through Stalker tracing,
-which `fridaej` can drive directly when needed. Parking a thread that's there for UI could
+which `Frej` can drive directly when needed. Parking a thread that's there for UI could
 make app unresponsive, so continue promptly, and closing the session releases any thread
 still parked.
 
@@ -415,62 +415,62 @@ The Java bridge is bundled at build time when `node_modules` is present, and the
 degrades on non-Android targets.
 
 ```
-fridaJj                                    # check Java VM availability
-fridaLj                                    # list classloaders with int ids
-fridaCj                                    # list all loaded classes
-fridaCj re.frida.minapp                    # list loaded classes filtered by prefix
-fridaDj java.lang.String                   # describe a class via reflection
-fridaDj sg.vantagepoint.uncrackable1.MainActivity 3  # describe with loader id
-fridaImj sg.vantagepoint.uncrackable1.MainActivity   # describe + import into rizin analysis
+FrJj                                    # check Java VM availability
+FrLj                                    # list classloaders with int ids
+FrCj                                    # list all loaded classes
+FrCj re.frida.minapp                    # list loaded classes filtered by prefix
+FrDj java.lang.String                   # describe a class via reflection
+FrDj sg.vantagepoint.uncrackable1.MainActivity 3  # describe with loader id
+FrImj sg.vantagepoint.uncrackable1.MainActivity   # describe + import into rizin analysis
 ```
 
-`fridaJj` checks whether the Java VM is reachable. `fridaLj` enumerates the classloaders
+`FrJj` checks whether the Java VM is reachable. `FrLj` enumerates the classloaders
 with stable session-scoped int ids, each reporting its runtime type and `toString`
-representation. `fridaCj` lists loaded classes. Pass a prefix to match a
+representation. `FrCj` lists loaded classes. Pass a prefix to match a
 canonical name start or the simple name after the last dot, otherwise the
-full list is returned. The `frida.java.max` config (default 512)
+full list is returned. The `Fr.java.max` config (default 512)
 caps the batch and a `truncated` flag in the reply says whether more classes exist beyond
 the cap.
 
-`fridaDj <class> [loader]` describes one Java class through the reflection API and returns
+`FrDj <class> [loader]` describes one Java class through the reflection API and returns
 its name, superclass, interfaces, declared fields (name, type, modifiers), declared methods
 (name, returnType, parameterTypes, flags, isNative), declared ctors, modifier flag
 arrays from the Java.ACC_* bitmask, and optional kotlin.Metadata when the class
 was compiled with the Kotlin compiler. An optional loader id selects a specific classloader
-from a prior `fridaLj` listing.
+from a prior `FrLj` listing.
 
-`fridaImj <class> [loader]` describes and imports the class into rizin's analysis class
+`FrImj <class> [loader]` describes and imports the class into rizin's analysis class
 database. It creates the class node, sets the superclass relation (skipping
 java.lang.Object), and registers each method and ctor. The imported class is then
 visible with `ac` (list classes) and `acl <name>` (show details). Methods carry the
 UT64_MAX sentinel address (runtime addresses are unknown without native method resolution).
 
-Both `fridaDj` and `fridaImj` support Tab-completion for class names. Pressing Tab reads
+Both `FrDj` and `FrImj` support Tab-completion for class names. Pressing Tab reads
 the partially typed prefix from the line buffer, queries the agent for matching loaded
-classes, and shows suggestions. `frida.ac.min` (default 2) sets the minimum characters
-before autocomplete fires, and `frida.ac.max` (default 12) caps the number of suggestions.
+classes, and shows suggestions. `Fr.ac.min` (default 2) sets the minimum characters
+before autocomplete fires, and `Fr.ac.max` (default 12) caps the number of suggestions.
 
-`fridaXj [prefix]` compares the runtime class list against the statically-loaded binary
+`FrXj [prefix]` compares the runtime class list against the statically-loaded binary
 classes (when a binary is open in rizin) and returns counts: `only_static`, `only_runtime`,
-and `both`. An optional prefix filters both sides. The `frida.dex.max` config (default 0,
+and `both`. An optional prefix filters both sides. The `Fr.dex.max` config (default 0,
 unlimited) caps how many runtime classes are fetched during comparison.
 
-`fridaNj start` snapshots currently loaded classes into a seen set. Calling
-`start` again while already enabled does not re-snapshot. `fridaNj` with no
+`FrNj start` snapshots currently loaded classes into a seen set. Calling
+`start` again while already enabled does not re-snapshot. `FrNj` with no
 arg lists classes that appeared since that snapshot (a polling diff, not a
-classload interceptor). `fridaNj stop` disables the monitor and does not
+classload interceptor). `FrNj stop` disables the monitor and does not
 clear the seen set. A later listing can still report new names with
 `monitor: false`.
 
-`fridaRNj on` hooks the live JNI `RegisterNatives` slot on the ART runtime (JNI
+`FrRNj on` hooks the live JNI `RegisterNatives` slot on the ART runtime (JNI
 function table index 215) to intercept native method registrations. USB/remote
-spawn already arms that hook and resumes inside `fridaoj`. On a still-suspended
-spawn, `fridaRNj on` also resumes the process. `fridaRNj off` disarms the hook
-and clears the buffer. `fridaRNj` lists captured invocations with class name,
-method names, signatures, and native function addresses. `fridaRNj import`
+spawn already arms that hook and resumes inside `Froj`. On a still-suspended
+spawn, `FrRNj on` also resumes the process. `FrRNj off` disarms the hook
+and clears the buffer. `FrRNj` lists captured invocations with class name,
+method names, signatures, and native function addresses. `FrRNj import`
 imports the captured native method entries into rizin's analysis class database.
 
-`fridafj` imports the target's loaded runtime modules as rizin flags in the `frida.libs`
+`Frfj` imports the target's loaded runtime modules as rizin flags in the `Fr.libs`
 flag space so they're visible with commands like `f` (list flags) and `s <name>` (seek
 to a module's base).
 
@@ -479,24 +479,24 @@ to a module's base).
 Seven `e` config variables tune the runtime behaviour:
 
 ```
-e frida.mem.max=0x100000   # max bytes per fridaxj/fridawj transfer, 0 for no limit
-e frida.timeout=5000       # session and agent request timeout in milliseconds
-e frida.hw.watchpoints=4   # max hardware watchpoint slots fridaW may use, capped by the CPU
-e frida.java.max=512       # max loaded classes fridaC returns per request, 0 for unlimited
-e frida.dex.max=0          # max runtime classes fridaX compares, 0 for unlimited
-e frida.ac.min=2           # min chars before class autocomplete triggers
-e frida.ac.max=12          # max class autocomplete suggestions shown
+e Fr.mem.max=0x100000   # max bytes per Frxj/Frwj transfer, 0 for no limit
+e Fr.timeout=5000       # session and agent request timeout in milliseconds
+e Fr.hw.watchpoints=4   # max hardware watchpoint slots FrW may use, capped by the CPU
+e Fr.java.max=512       # max loaded classes FrC returns per request, 0 for unlimited
+e Fr.dex.max=0          # max runtime classes FrX compares, 0 for unlimited
+e Fr.ac.min=2           # min chars before class autocomplete triggers
+e Fr.ac.max=12          # max class autocomplete suggestions shown
 ```
 
-`frida.timeout` is applied when a session is opened with `fridaoj`. It also applies to
+`Fr.timeout` is applied when a session is opened with `Froj`. It also applies to
 the `backend_probe_remote` TCP pre-flight that tests reachability before frida-core's
 own connect, so unreachable remote hosts fail in bounded time instead of waiting for OS
-TCP retries. `frida.hw.watchpoints` defaults to 4 (the common arm64 and x86_64 count),
-raise it on a CPU with more slots. `frida.java.max` defaults to 512 to avoid
+TCP retries. `Fr.hw.watchpoints` defaults to 4 (the common arm64 and x86_64 count),
+raise it on a CPU with more slots. `Fr.java.max` defaults to 512 to avoid
 dumping tens of thousands of classes at once, set it to 0 on a fast device when you need
-the complete list. `frida.dex.max` caps the runtime class list during `fridaXj` comparison,
-defaulting to 0 (unlimited). `frida.ac.min` and `frida.ac.max` control class-name
-Tab-completion for `fridaDj` and `fridaImj`. `frida.mem.max` guards mem r/w
+the complete list. `Fr.dex.max` caps the runtime class list during `FrXj` comparison,
+defaulting to 0 (unlimited). `Fr.ac.min` and `Fr.ac.max` control class-name
+Tab-completion for `FrDj` and `FrImj`. `Fr.mem.max` guards mem r/w
 transfers against large allocs.
 
 ## Install
@@ -556,24 +556,24 @@ The dock widget provides 9 tabs, behind a Frida session
   process listing, plus a direct Connect button that opens the session without
   the modal dialog
 - **Runtime** — subtabbed memory ranges, modules, and threads tables populated
-  via `fridaRj`/`fridaMj`/`fridatj` in parallel, memory read via `fridaxj`,
-  memory write via `fridawj`, and module detail panel showing exports
-  (`fridaEj`), imports (`fridaIj`), and symbols (`fridaSj`) for the selected
+  via `FrRj`/`FrMj`/`Frtj` in parallel, memory read via `Frxj`,
+  memory write via `Frwj`, and module detail panel showing exports
+  (`FrEj`), imports (`FrIj`), and symbols (`FrSj`) for the selected
   module
-- **Java** — classloader enumeration (`fridaLj`), class load monitor
-  (`fridaNj` start/stop/refresh-newly-loaded), prefix-filtered class list
-  (`fridaCj`), describe (`fridaDj`) with JSON detail, and import-to-analysis
-  (`fridaImj`)
-- **Script** — file loading (`fridalj`) and inline JS eval (`fridaej`)
-- **Messages** — agent message buffer drain (`fridamj`) with dropped-message count
-- **DEX Diff** — runtime-vs-static class comparison (`fridaXj`) with counts for
+- **Java** — classloader enumeration (`FrLj`), class load monitor
+  (`FrNj` start/stop/refresh-newly-loaded), prefix-filtered class list
+  (`FrCj`), describe (`FrDj`) with JSON detail, and import-to-analysis
+  (`FrImj`)
+- **Script** — file loading (`Frlj`) and inline JS eval (`Frej`)
+- **Messages** — agent message buffer drain (`Frmj`) with dropped-message count
+- **DEX Diff** — runtime-vs-static class comparison (`FrXj`) with counts for
   only-in-static, only-in-runtime, and both
-- **RegNat** — RegisterNatives hook enable/disable/refresh/import (`fridaRNj`)
-- **Flags** — runtime module import into `frida.libs` flag space (`fridafj`)
-- **Debug** — native breakpoints (`fridabj` set/list, `fridab-j` remove/all),
-  breakpoint continue (`fridagj` with optional TID), hardware watchpoints
-  (`fridaWj` set/list with address/size/conditions, `fridaW-j` remove/all),
-  register r/w for stopped threads (`fridaBj`), and a break/watchpoint
+- **RegNat** — RegisterNatives hook enable/disable/refresh/import (`FrRNj`)
+- **Flags** — runtime module import into `Fr.libs` flag space (`Frfj`)
+- **Debug** — native breakpoints (`Frbj` set/list, `Frb-j` remove/all),
+  breakpoint continue (`Frgj` with optional TID), hardware watchpoints
+  (`FrWj` set/list with address/size/conditions, `FrW-j` remove/all),
+  register r/w for stopped threads (`FrBj`), and a break/watchpoint
   notif log
 
 ## FridaApiBridge and FridaTaskRunner
@@ -628,11 +628,11 @@ with `lrelease` and installs the `.qm` next to Cutter's own translation files.
 
 | Symptom | Cause and fix |
 |---------|---------------|
-| `Unable to find process with pid <pid>` | The attach target does not exist. List processes with `fridapj` and use a live pid or a process name. |
+| `Unable to find process with pid <pid>` | The attach target does not exist. List processes with `Frpj` and use a live pid or a process name. |
 | `Device not found` | `frida-server` is not running on the device or the USB link is gone. Check with `frida-ps -U` and restart `frida-server`. |
-| `Timeout was reached` | The target is unreachable, the transport is wrong, or the operation exceeded `frida.timeout`. Check the `host:port` on the remote transport and the USB connection. |
-| `No active Frida session` | A session is required first. Open one with `fridaoj`. |
-| `A session is already open` | Only one session at a time. Close it with `fridacj` first. |
+| `Timeout was reached` | The target is unreachable, the transport is wrong, or the operation exceeded `Fr.timeout`. Check the `host:port` on the remote transport and the USB connection. |
+| `No active Frida session` | A session is required first. Open one with `Froj`. |
+| `A session is already open` | Only one session at a time. Close it with `Frcj` first. |
 | `frida_unavailable` | The plugin was built without `frida-core`. Rebuild with `-Dfrida_core=enabled` and the devkit paths. |
 | Cutter dock does not appear | The plugin `.so` may be shadowed by a stale copy in another rizin plugin directory. Remove old copies and keep the freshly built one. |
 

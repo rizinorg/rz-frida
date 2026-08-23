@@ -3,7 +3,7 @@
 The app validates the license in two layers. `LicenseChecker.check` is the
 Java layer, `SecretVault.nativeCheckSecret` is the native layer, implemented
 in C inside `libnative.so`. The native function is static (not exported) and
-the library is stripped, so `fridaEj` and `fridaSj` cannot see it.
+the library is stripped, so `FrEj` and `FrSj` cannot see it.
 
 The RegisterNatives hook changes that: it intercepts ART's
 `RegisterNatives` calls and records every registered method with its actual
@@ -12,7 +12,7 @@ address.
 ## 1. Arm the hook before the registrations happen
 
 The app registers its natives at startup, in `JNI_OnLoad`. Spawn so the
-hook is armed first. `fridaoj` for a USB/remote spawn arms RegisterNatives
+hook is armed first. `Froj` for a USB/remote spawn arms RegisterNatives
 and resumes before it returns (`rn` true when the hook armed). Keep the
 same rizin session: the address below is valid only for this process:
 
@@ -24,9 +24,9 @@ $ rizin malloc://512
 List the captures after spawn:
 
 ```text
-[0x00000000]> fridaoj frida://spawn/usb//re.frida.minapp
+[0x00000000]> Froj frida://spawn/usb//re.frida.minapp
 {"ok":true,"result":{"action":"spawn","pid":4680,"resumed":true,"rn":true,"state":"attached"}}
-[0x00000000]> fridaRNj
+[0x00000000]> FrRNj
 ```
 
 Wait until the app shows `MainActivity` (this is specific to minapp here,
@@ -36,7 +36,7 @@ reply in the same session.
 
 Read the current `nativeCheckSecret` address from the reply. Do not close
 rizin, restart the app, or start another spawn before using it. A separate
-chained command such as `rizin -c ... -c fridaRNj -c fridacj` is suitable for
+chained command such as `rizin -c ... -c FrRNj -c Frcj` is suitable for
 capturing a transcript only, its addresses must not be reused by a later
 process. (as they might've changed)
 
@@ -52,10 +52,10 @@ process. (as they might've changed)
 ![RegisterNatives capture](img/android_journey/rn-capture.png)
 
 `SecretVault.nativeCheckSecret (Ljava/lang/String;)Z` at `0x76322f7e22f0`.
-The listing **drains** the buffer: a later `fridaRNj` returns only new
+The listing **drains** the buffer: a later `FrRNj` returns only new
 registrations. Addresses change per process, read yours from the reply.
 
-> **Note:** arming `fridaRNj on` on an already-running app catches nothing
+> **Note:** arming `FrRNj on` on an already-running app catches nothing
 > for libraries that loaded before, but it does catch later loads: try it
 > after pressing Load Plugin.
 >
@@ -69,11 +69,11 @@ registrations. Addresses change per process, read yours from the reply.
 ## 2. Breakpoint the checker
 
 ```text
-[0x00000000]> fridabj 0x76322f7e22f0
+[0x00000000]> Frbj 0x76322f7e22f0
 {"ok":true,"result":{"address":"0x76322f7e22f0","bp":1}}
 ```
 
-At this point the breakpoint is only armed. An immediate `fridamj` normally
+At this point the breakpoint is only armed. An immediate `Frmj` normally
 contains only the agent's `agent.ready` message. No thread has hit the
 breakpoint yet. Use the address captured from the **same target process**
 (addresses change after a restart because of ASLR).
@@ -84,28 +84,28 @@ activation runs `nativeCheckSecret` on the UI thread, which hits the
 breakpoint and parks the thread:
 
 ```text
-[0x00000000]> fridamj
-{"ok":true,"result":{"messages":[...,{"kind":"send","payload":{"type":"frida.bp","bp":1,"address":"0x76322f7e22f0","threadId":4573,"context":{}}}],"dropped":0}}
+[0x00000000]> Frmj
+{"ok":true,"result":{"messages":[...,{"kind":"send","payload":{"type":"Fr.bp","bp":1,"address":"0x76322f7e22f0","threadId":4573,"context":{}}}],"dropped":0}}
 ```
 
-The `frida.bp` event carries the breakpoint id, the address and the parked
+The `Fr.bp` event carries the breakpoint id, the address and the parked
 thread. `context` is intentionally empty (a full serialized context can
 exceed the transport limit on arm64).
 
 ## 3. Inspect the stop
 
 ```text
-[0x00000000]> fridaBj 4573
+[0x00000000]> FrBj 4573
 {"ok":true,"result":{"threadId":4573,"bp":1,"address":"0x76322f7e22f0"}}
 ```
 
-`fridaBj <tid>` identifies the parked thread and the breakpoint. Note: it
+`FrBj <tid>` identifies the parked thread and the breakpoint. Note: it
 does **not** return the register values: only the stop identity.
 
 ## 4. Write a register
 
 ```text
-[0x00000000]> fridaBj 4573 rax 0x1337
+[0x00000000]> FrBj 4573 rax 0x1337
 {"ok":true,"result":{"threadId":4573,"register":"rax","value":"0x1337"}}
 ```
 
@@ -117,14 +117,14 @@ the thread is continued.
 ## 5. Continue
 
 ```text
-[0x00000000]> fridagj 4573
+[0x00000000]> Frgj 4573
 {"ok":true,"result":{"resumed":true,"threadId":4573}}
 ```
 
 The UI thread returns to the app and the feedback line shows the verdict.
-Without a thread id, `fridagj` continues the most recently parked thread.
+Without a thread id, `Frgj` continues the most recently parked thread.
 
-> **Note:** when the triggering call runs inside an `fridaej` request, that
+> **Note:** when the triggering call runs inside an `Frej` request, that
 > request can time out (`"the request timed out"`). That is expected: the
 > eval thread parked at the breakpoint. Continue the thread and the call
 > completes.
@@ -132,17 +132,17 @@ Without a thread id, `fridagj` continues the most recently parked thread.
 ## 6. Clean up and import
 
 ```text
-[0x00000000]> fridab-j *
+[0x00000000]> Frb-j *
 {"ok":true,"result":{"removed":1}}
 
-[0x00000000]> fridaRNj off
+[0x00000000]> FrRNj off
 {"ok":true,"result":{"enabled":false,"cleared":0}}
 
-[0x00000000]> fridacj
+[0x00000000]> Frcj
 {"ok":true,"result":{"pid":4680,"state":"closed"}}
 ```
 
-The `fridaRNj import` command turns the captured methods into rizin
+The `FrRNj import` command turns the captured methods into rizin
 analysis classes with actual addresses, it drains the buffer, so run it while
 the capture is fresh (see [Importing into analysis](importing_into_analysis.qmd)).
 
@@ -151,7 +151,7 @@ the capture is fresh (see [Importing into analysis](importing_into_analysis.qmd)
 
 Spawn the app, wait for MainActivity, capture the registrations, breakpoint
 `nativeCheckSecret`, press Activate License, read the stop, write a
-register, continue, and clean up. After `fridaoj` the process is already
+register, continue, and clean up. After `Froj` the process is already
 running, so you can pause between commands.
 :::
 

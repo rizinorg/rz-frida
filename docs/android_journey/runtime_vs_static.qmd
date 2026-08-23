@@ -1,6 +1,6 @@
 # Runtime versus static
 
-A dex on disk is a snapshot. The running app is what is actually loaded. `fridaXj`
+A dex on disk is a snapshot. The running app is what is actually loaded. `FrXj`
 compares the two.
 
 ## 1. Open the dex in rizin
@@ -26,10 +26,10 @@ listeners and the two dynamic classes.
 With the app freshly started and attached, ask for the comparison:
 
 ```text
-[0x00000000]> fridaoj frida://attach/usb//FridaMin
+[0x00000000]> Froj frida://attach/usb//FridaMin
 {"ok":true,"result":{"action":"attach","pid":4650,"resumed":false,"state":"attached"}}
 
-[0x00000000]> fridaXj
+[0x00000000]> FrXj
 {"ok":true,"result":{"loaded_bin":true,"only_static":2,"only_runtime":24881,"both":21}}
 ```
 
@@ -46,7 +46,7 @@ With the app freshly started and attached, ask for the comparison:
 Press Load Plugin, compare again:
 
 ```text
-[0x00000000]> fridaXj
+[0x00000000]> FrXj
 {"ok":true,"result":{"loaded_bin":true,"only_static":0,"only_runtime":24881,"both":23}}
 ```
 
@@ -55,7 +55,7 @@ The two classes moved from `only_static` to `both`.
 ## 4. Prefix filter
 
 ```text
-[0x00000000]> fridaXj re.frida.minapp.dynamic
+[0x00000000]> FrXj re.frida.minapp.dynamic
 {"ok":true,"result":{"loaded_bin":true,"only_static":23,"only_runtime":0,"both":0}}
 ```
 
@@ -65,15 +65,15 @@ neither dynamic class matched: all 23 dex classes are reported under
 
 ## 5. No binary loaded
 
-Run `fridaXj` on a bare file (no dex):
+Run `FrXj` on a bare file (no dex):
 
 ```text
-[0x00000000]> fridaXj
+[0x00000000]> FrXj
 {"ok":true,"result":{"loaded_bin":false,"only_runtime":24881}}
 ```
 
-`frida.dex.max` caps the number of runtime classes used for the comparison
-(0 = no limit). `fridaXj` reads the loaded binary's classes through rizin's
+`Fr.dex.max` caps the number of runtime classes used for the comparison
+(0 = no limit). `FrXj` reads the loaded binary's classes through rizin's
 bin plugin, so any binary format rizin understands works.
 
 ::: {.callout-tip}

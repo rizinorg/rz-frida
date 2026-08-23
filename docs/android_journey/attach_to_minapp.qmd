@@ -18,7 +18,7 @@ The pid is 2812 on this run. It changes on every launch, read it fresh.
 The process name is the app *label*, `FridaMin`:
 
 ```text
-[0x00000000]> fridaoj frida://attach/usb//FridaMin
+[0x00000000]> Froj frida://attach/usb//FridaMin
 {"ok":true,"result":{"action":"attach","pid":2812,"resumed":false,"state":"attached"}}
 ```
 
@@ -29,28 +29,28 @@ the session `state`.
 > its label. `frida-ps -U` shows the names to use.
 
 ```text
-[0x00000000]> fridaoj frida://attach/usb//re.frida.minapp
+[0x00000000]> Froj frida://attach/usb//re.frida.minapp
 {"ok":false,"error":{"code":"invalid_target","message":"Process not found"}}
 ```
 
 ## 3. Attach by pid
 
 ```text
-[0x00000000]> fridacj
+[0x00000000]> Frcj
 {"ok":true,"result":{"pid":2812,"state":"closed"}}
 
-[0x00000000]> fridaoj frida://attach/usb//2812
+[0x00000000]> Froj frida://attach/usb//2812
 {"ok":true,"result":{"action":"attach","pid":2812,"resumed":false,"state":"attached"}}
 ```
 
 ## 4. Check the Java VM
 
 ```text
-[0x00000000]> fridaJj
+[0x00000000]> FrJj
 {"ok":true,"result":{"available":true}}
 ```
 
-`fridaJj` checks whether the Android Java VM (ART) is reachable from the
+`FrJj` checks whether the Android Java VM (ART) is reachable from the
 agent. `available:true` means the Java commands will work.
 
 ![Attached to minapp](img/android_journey/attach-minapp.png)
@@ -58,14 +58,14 @@ agent. `available:true` means the Java commands will work.
 ## 5. Session state
 
 ```text
-[0x00000000]> fridasj
+[0x00000000]> Frsj
 {"ok":true,"result":{"active":true,"state":"attached","pid":2812,"action":"attach","target":"FridaMin"}}
 ```
 
 Close the session when done:
 
 ```text
-[0x00000000]> fridacj
+[0x00000000]> Frcj
 {"ok":true,"result":{"pid":2812,"state":"closed"}}
 ```
 
@@ -74,7 +74,7 @@ The app keeps running: attach never kills its target.
 ::: {.callout-tip}
 ### Try
 
-Attach, ping the agent (`fridaij`), check the Java VM, read the session
+Attach, ping the agent (`Frij`), check the Java VM, read the session
 state, close. Repeat with a fresh pid.
 :::
 

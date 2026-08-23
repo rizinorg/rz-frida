@@ -22,7 +22,7 @@ frida://<action>/<transport>/<device>/<target>
 |---|---|---|
 | `local` | empty | the host itself |
 | `usb` | empty | the single connected device |
-| `usb` | device id | a specific device (see `fridadj`) |
+| `usb` | device id | a specific device (see `Frdj`) |
 | `remote` | `host:port` | a frida-server listening on TCP |
 
 ## Targets
@@ -49,16 +49,16 @@ frida://list/usb//                  processes on the USB device
 frida://apps/remote/10.0.0.5:27042/ applications over remote
 ```
 
-## Validation examples (`fridauj`)
+## Validation examples (`Fruj`)
 
 ```text
-[0x00000000]> fridauj frida://attach/local//1234
+[0x00000000]> Fruj frida://attach/local//1234
 {"ok":true,"result":{"action":"attach","transport":"local","device":"","target":"1234"}}
 
-[0x00000000]> fridauj frida://spawn/usb/device-1/com.example.app
+[0x00000000]> Fruj frida://spawn/usb/device-1/com.example.app
 {"ok":true,"result":{"action":"spawn","transport":"usb","device":"device-1","target":"com.example.app"}}
 
-[0x00000000]> fridauj frida://launch/local///bin/ls
+[0x00000000]> Fruj frida://launch/local///bin/ls
 {"ok":true,"result":{"action":"launch","transport":"local","device":"","target":"/bin/ls"}}
 ```
 
@@ -72,4 +72,4 @@ frida://apps/remote/10.0.0.5:27042/ applications over remote
 - there is no percent-encoding. Slashes in paths are kept after the empty
   device field
 - pid-vs-name resolution happens at attach time, not in the URI parser
-- `fridaoj` adds `frida://` if omitted. `fridau`, `fridap`, and `fridaa` require it
+- `Froj` adds `frida://` if omitted. `Fru`, `Frp`, and `Fra` require it

@@ -21,10 +21,10 @@ $ cat /proc/sys/kernel/yama/ptrace_scope
 
 If it prints `1`, run `sudo sysctl -w kernel.yama.ptrace_scope=0` as shown in
 [Setting up the lab](setting_up_the_lab.qmd), then find the pid in the same
-shell. `fridapj` also lists local processes:
+shell. `Frpj` also lists local processes:
 
 ```bash
-$ rizin -N -q -c 'fridapj' malloc://512
+$ rizin -N -q -c 'Frpj' malloc://512
 {"ok":true,"result":{"processes":[{"pid":1,"name":"init"},...]}}
 ```
 
@@ -38,7 +38,7 @@ $ pgrep -x native_demo
 ## Open the session
 
 ```text
-[0x00000000]> fridaoj frida://attach/local//46117
+[0x00000000]> Froj frida://attach/local//46117
 {"ok":true,"result":{"action":"attach","pid":46117,"resumed":false,"state":"attached"}}
 ```
 
@@ -47,25 +47,25 @@ $ pgrep -x native_demo
 We are attached. The demo is still running and waiting for input: attaching
 does not stop it.
 
-> **Note:** pids change every run. Read yours from `pgrep` or `fridapj`.
+> **Note:** pids change every run. Read yours from `pgrep` or `Frpj`.
 
 Attach by name works too: the pid is resolved at attach time:
 
 ```text
-[0x00000000]> fridacj
+[0x00000000]> Frcj
 {"ok":true,"result":{"pid":46117,"state":"closed"}}
 
-[0x00000000]> fridaoj frida://attach/local//native_demo
+[0x00000000]> Froj frida://attach/local//native_demo
 {"ok":true,"result":{"action":"attach","pid":46117,"resumed":false,"state":"attached"}}
 ```
 
 ## Ping the agent
 
-`fridaij` loads the agent into the target on first use and asks for its
+`Frij` loads the agent into the target on first use and asks for its
 identity:
 
 ```text
-[0x00000000]> fridaij
+[0x00000000]> Frij
 {"ok":true,"result":{"version":1,"platform":"linux","arch":"x64","pointerSize":8}}
 ```
 
@@ -79,11 +79,11 @@ This is the quickest way to confirm the host-agent channel is alive.
 ## What the session state says
 
 ```text
-[0x00000000]> fridasj
+[0x00000000]> Frsj
 {"ok":true,"result":{"active":true,"state":"attached","pid":46117,"action":"attach","target":"46117"}}
 ```
 
-`fridasj` reports `active`, `state`, `pid`, `action` and `target`. Without a
+`Frsj` reports `active`, `state`, `pid`, `action` and `target`. Without a
 session it reports:
 
 ```text
@@ -93,7 +93,7 @@ session it reports:
 ## Close
 
 ```text
-[0x00000000]> fridacj
+[0x00000000]> Frcj
 {"ok":true,"result":{"pid":46117,"state":"closed"}}
 ```
 
@@ -103,9 +103,9 @@ The demo keeps running: attached targets are not killed on close.
 
 ```bash
 $ rizin -N -q \
-    -c 'fridaoj frida://attach/local//native_demo' \
-    -c 'fridaij' \
-    -c 'fridacj' malloc://512
+    -c 'Froj frida://attach/local//native_demo' \
+    -c 'Frij' \
+    -c 'Frcj' malloc://512
 {"ok":true,"result":{"action":"attach","pid":46117,"resumed":false,"state":"attached"}}
 {"ok":true,"result":{"version":1,"platform":"linux","arch":"x64","pointerSize":8}}
 {"ok":true,"result":{"pid":46117,"state":"closed"}}
@@ -118,20 +118,20 @@ sequenceDiagram
     participant T as native_demo
     R->>F: attach local pid
     F-->>R: attached
-    R->>F: ping (fridaij)
+    R->>F: ping (Frij)
     F->>T: inject agent
     T-->>F: agent.ready
     F->>T: ping request
     T-->>F: version, platform, arch, pointerSize
     F-->>R: {version:1, ...}
-    R->>F: detach (fridacj)
+    R->>F: detach (Frcj)
     F-->>R: closed
 ```
 
 ::: {.callout-tip}
 ### Try
 
-Open a session on `native_demo`, ping the agent, read `fridasj`, then close.
+Open a session on `native_demo`, ping the agent, read `Frsj`, then close.
 Watch the demo keep running in its terminal.
 :::
 

@@ -1,9 +1,9 @@
 # Messages and errors
 
-The agent talks back asynchronously with messages. `fridamj` drains them:
+The agent talks back asynchronously with messages. `Frmj` drains them:
 
 ```text
-[0x00000000]> fridamj
+[0x00000000]> Frmj
 {"ok":true,"result":{"messages":[...],"dropped":0}}
 ```
 
@@ -11,7 +11,7 @@ The agent talks back asynchronously with messages. `fridamj` drains them:
 
 | Kind | Meaning | Example |
 |---|---|---|
-| `send` | a payload from `send()` or an agent event | `{"type":"agent.ready","version":1}`, `frida.bp`, `frida.wp`, `frida.rn` |
+| `send` | a payload from `send()` or an agent event | `{"type":"agent.ready","version":1}`, `Fr.bp`, `Fr.wp`, `Fr.rn` |
 | `log` | console output | `console.log`, `console.error` |
 | `error` | an uncaught script error | description + stack |
 | `unknown` | anything the host cannot classify | rare |
@@ -19,10 +19,10 @@ The agent talks back asynchronously with messages. `fridamj` drains them:
 **console.log** becomes a `log` message:
 
 ```text
-[0x00000000]> fridaej "console.log('from console')"
+[0x00000000]> Frej "console.log('from console')"
 {"ok":true,"result":{"value":null,"type":"undefined"}}
 
-[0x00000000]> fridamj
+[0x00000000]> Frmj
 ... {"kind":"log","level":"info","text":"from console"}
 ```
 
@@ -36,7 +36,7 @@ The agent talks back asynchronously with messages. `fridamj` drains them:
 itself fails:
 
 ```text
-[0x00000000]> fridaej "throw new Error('boom')"
+[0x00000000]> Frej "throw new Error('boom')"
 {"ok":false,"error":{"code":"internal_error","message":"boom"}}
 ```
 
@@ -44,10 +44,10 @@ itself fails:
 request, so it becomes an `error` message with a stack:
 
 ```text
-[0x00000000]> fridaej "setTimeout(function(){throw new Error('async boom')},300)"
+[0x00000000]> Frej "setTimeout(function(){throw new Error('async boom')},300)"
 {"ok":true,"result":{"value":1,"type":"number"}}
 
-[0x00000000]> fridamj
+[0x00000000]> Frmj
 ... {"kind":"error","description":"Error: async boom","stack":"Error: async boom\n    at eval (undefined:1:29)\n    at /frida/runtime/core.js:55:14"}
 ```
 
@@ -59,10 +59,10 @@ request, so it becomes an `error` message with a stack:
 size:
 
 ```text
-[0x00000000]> fridaej "send('binary-payload',[1,2,3,255])"
+[0x00000000]> Frej "send('binary-payload',[1,2,3,255])"
 {"ok":true,"result":{"value":null,"type":"undefined"}}
 
-[0x00000000]> fridamj
+[0x00000000]> Frmj
 ... {"kind":"send","payload":"binary-payload","data":"AQID/w==","dataSize":4}
 ```
 

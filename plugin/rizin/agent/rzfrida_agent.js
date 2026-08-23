@@ -420,11 +420,11 @@ function bpSet(params) {
       try {
         const tid = Process.getCurrentThreadId();
         // serialized context can exceed the arm64 send limit, so keeping it empty.
-        send({ type: 'frida.bp', bp: id, address: key, threadId: tid, context: {} });
+        send({ type: 'Fr.bp', bp: id, address: key, threadId: tid, context: {} });
         stopped.set(tid, { bp: id, address: key, context: this.context });
         let resumed = false;
         do {
-          const op = recv('frida.cont.' + tid, function (message) {
+          const op = recv('Fr.cont.' + tid, function (message) {
             resumed = true;
             if (typeof message.id === 'number') {
               send({ id: message.id, ok: true, result: { resumed: true, threadId: tid } });
@@ -434,7 +434,7 @@ function bpSet(params) {
         } while (!resumed);
         stopped.delete(tid);
       } catch (e) {
-        send({ type: 'frida.bp.err', error: e && e.message ? e.message : String(e) });
+        send({ type: 'Fr.bp.err', error: e && e.message ? e.message : String(e) });
       }
     }
   });
@@ -606,7 +606,7 @@ function ensureExceptionHandler() {
       /* keep empty */
     }
     send({
-      type: 'frida.wp',
+      type: 'Fr.wp',
       threadId: Process.getCurrentThreadId(),
       pc: details.context && details.context.pc ? details.context.pc.toString() : null,
       operation: details.memory ? details.memory.operation : null,
@@ -1049,7 +1049,7 @@ function rnFlushPending() {
     while (rnPending.length) {
         const pending = rnPending.shift();
         if (pending.warning) {
-            send({ type: 'frida.rn.warn', message: pending.warning });
+            send({ type: 'Fr.rn.warn', message: pending.warning });
             continue;
         }
         let env = null;
@@ -1058,12 +1058,12 @@ function rnFlushPending() {
             const className = env.getClassName(pending.classHandle);
             const entry = { className: className, methods: pending.methods };
             rnBuffer.push(entry);
-            send({ type: 'frida.rn', className: className, methods: pending.methods });
+            send({ type: 'Fr.rn', className: className, methods: pending.methods });
         } catch (e) {
             if (pending.methods) {
                 const entry = { className: '<unknown>', methods: pending.methods };
                 rnBuffer.push(entry);
-                send({ type: 'frida.rn', className: entry.className, methods: pending.methods });
+                send({ type: 'Fr.rn', className: entry.className, methods: pending.methods });
             }
         } finally {
             rnDeleteGlobalRef(pending.envPtr || (env && env.handle), pending.classHandle);

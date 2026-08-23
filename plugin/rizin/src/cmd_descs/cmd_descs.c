@@ -7,156 +7,156 @@
 
 #include <cmd_descs.h>
 
-static const RzCmdDescDetail cmd_fridau_details[3];
-static const RzCmdDescDetail cmd_fridap_details[2];
-static const RzCmdDescDetail cmd_fridaa_details[2];
-static const RzCmdDescDetail cmd_fridao_details[2];
-static const RzCmdDescDetail cmd_fridae_details[2];
-static const RzCmdDescDetail cmd_fridal_details[2];
-static const RzCmdDescDetail cmd_fridax_details[2];
-static const RzCmdDescDetail cmd_fridaw_details[2];
-static const RzCmdDescDetail cmd_fridaR_details[2];
-static const RzCmdDescDetail cmd_fridaM_details[2];
-static const RzCmdDescDetail cmd_fridaE_details[2];
-static const RzCmdDescDetail cmd_fridaI_details[2];
-static const RzCmdDescDetail cmd_fridaS_details[2];
-static const RzCmdDescDetail cmd_fridab_details[2];
-static const RzCmdDescDetail cmd_fridab_minus_details[2];
-static const RzCmdDescDetail cmd_fridag_details[2];
-static const RzCmdDescDetail cmd_fridaB_details[2];
-static const RzCmdDescDetail cmd_fridaW_details[2];
-static const RzCmdDescDetail cmd_fridaW_minus_details[2];
-static const RzCmdDescDetail cmd_fridaD_details[2];
-static const RzCmdDescDetail cmd_fridaIm_details[2];
-static const RzCmdDescDetail cmd_frida_details[11];
-static const RzCmdDescArg cmd_fridau_args[2];
-static const RzCmdDescArg cmd_fridap_args[2];
-static const RzCmdDescArg cmd_fridaa_args[2];
-static const RzCmdDescArg cmd_fridao_args[2];
-static const RzCmdDescArg cmd_fridae_args[2];
-static const RzCmdDescArg cmd_fridal_args[2];
-static const RzCmdDescArg cmd_fridax_args[3];
-static const RzCmdDescArg cmd_fridaw_args[3];
-static const RzCmdDescArg cmd_fridaR_args[2];
-static const RzCmdDescArg cmd_fridaM_args[2];
-static const RzCmdDescArg cmd_fridaE_args[2];
-static const RzCmdDescArg cmd_fridaI_args[2];
-static const RzCmdDescArg cmd_fridaS_args[2];
-static const RzCmdDescArg cmd_fridab_args[2];
-static const RzCmdDescArg cmd_fridab_minus_args[2];
-static const RzCmdDescArg cmd_fridag_args[2];
-static const RzCmdDescArg cmd_fridaB_args[4];
-static const RzCmdDescArg cmd_fridaW_args[4];
-static const RzCmdDescArg cmd_fridaW_minus_args[2];
-static const RzCmdDescArg cmd_fridaC_args[2];
-static const RzCmdDescArg cmd_fridaN_args[2];
-static const RzCmdDescArg cmd_fridaRN_args[2];
-static const RzCmdDescArg cmd_fridaX_args[2];
-static const RzCmdDescArg cmd_fridaD_args[3];
-static const RzCmdDescArg cmd_fridaIm_args[3];
+static const RzCmdDescDetail cmd_Fru_details[3];
+static const RzCmdDescDetail cmd_Frp_details[2];
+static const RzCmdDescDetail cmd_Fra_details[2];
+static const RzCmdDescDetail cmd_Fro_details[2];
+static const RzCmdDescDetail cmd_Fre_details[2];
+static const RzCmdDescDetail cmd_Frl_details[2];
+static const RzCmdDescDetail cmd_Frx_details[2];
+static const RzCmdDescDetail cmd_Frw_details[2];
+static const RzCmdDescDetail cmd_FrR_details[2];
+static const RzCmdDescDetail cmd_FrM_details[2];
+static const RzCmdDescDetail cmd_FrE_details[2];
+static const RzCmdDescDetail cmd_FrI_details[2];
+static const RzCmdDescDetail cmd_FrS_details[2];
+static const RzCmdDescDetail cmd_Frb_details[2];
+static const RzCmdDescDetail cmd_Frb_minus_details[2];
+static const RzCmdDescDetail cmd_Frg_details[2];
+static const RzCmdDescDetail cmd_FrB_details[2];
+static const RzCmdDescDetail cmd_FrW_details[2];
+static const RzCmdDescDetail cmd_FrW_minus_details[2];
+static const RzCmdDescDetail cmd_FrD_details[2];
+static const RzCmdDescDetail cmd_FrIm_details[2];
+static const RzCmdDescDetail cmd_Fr_details[11];
+static const RzCmdDescArg cmd_Fru_args[2];
+static const RzCmdDescArg cmd_Frp_args[2];
+static const RzCmdDescArg cmd_Fra_args[2];
+static const RzCmdDescArg cmd_Fro_args[2];
+static const RzCmdDescArg cmd_Fre_args[2];
+static const RzCmdDescArg cmd_Frl_args[2];
+static const RzCmdDescArg cmd_Frx_args[3];
+static const RzCmdDescArg cmd_Frw_args[3];
+static const RzCmdDescArg cmd_FrR_args[2];
+static const RzCmdDescArg cmd_FrM_args[2];
+static const RzCmdDescArg cmd_FrE_args[2];
+static const RzCmdDescArg cmd_FrI_args[2];
+static const RzCmdDescArg cmd_FrS_args[2];
+static const RzCmdDescArg cmd_Frb_args[2];
+static const RzCmdDescArg cmd_Frb_minus_args[2];
+static const RzCmdDescArg cmd_Frg_args[2];
+static const RzCmdDescArg cmd_FrB_args[4];
+static const RzCmdDescArg cmd_FrW_args[4];
+static const RzCmdDescArg cmd_FrW_minus_args[2];
+static const RzCmdDescArg cmd_FrC_args[2];
+static const RzCmdDescArg cmd_FrN_args[2];
+static const RzCmdDescArg cmd_FrRN_args[2];
+static const RzCmdDescArg cmd_FrX_args[2];
+static const RzCmdDescArg cmd_FrD_args[3];
+static const RzCmdDescArg cmd_FrIm_args[3];
 
-static const RzCmdDescDetailEntry cmd_frida_Session_space_status_detail_entries[] = {
-	{ .text = "fridas", .arg_str = NULL, .comment = "Print plugin/session status in plain text" },
-	{ .text = "fridasj", .arg_str = NULL, .comment = "Print plugin/session status as JSON" },
-	{ 0 },
-};
-
-static const RzCmdDescDetailEntry cmd_frida_URI_space_grammar_detail_entries[] = {
-	{ .text = "fridau ", .arg_str = "frida://attach/local//1234", .comment = "Validate URI for attaching to local PID 1234" },
-	{ .text = "fridau ", .arg_str = "frida://spawn/usb/device-1/com.example.app", .comment = "Validate URI for spawning an Android package over USB" },
-	{ .text = "fridau ", .arg_str = "frida://attach/remote/127.0.0.1:27042/4321", .comment = "Validate URI for attaching to PID 4321 over remote frida-server" },
-	{ .text = "fridauj ", .arg_str = "frida://launch/local///bin/ls", .comment = "Validate launch URI for /bin/ls and emit JSON" },
+static const RzCmdDescDetailEntry cmd_Fr_Session_space_status_detail_entries[] = {
+	{ .text = "Frs", .arg_str = NULL, .comment = "Print plugin/session status in plain text" },
+	{ .text = "Frsj", .arg_str = NULL, .comment = "Print plugin/session status as JSON" },
 	{ 0 },
 };
 
-static const RzCmdDescDetailEntry cmd_frida_Device_space_enumeration_detail_entries[] = {
-	{ .text = "fridadj", .arg_str = NULL, .comment = "Enumerate connected Frida devices as JSON" },
+static const RzCmdDescDetailEntry cmd_Fr_URI_space_grammar_detail_entries[] = {
+	{ .text = "Fru ", .arg_str = "frida://attach/local//1234", .comment = "Validate URI for attaching to local PID 1234" },
+	{ .text = "Fru ", .arg_str = "frida://spawn/usb/device-1/com.example.app", .comment = "Validate URI for spawning an Android package over USB" },
+	{ .text = "Fru ", .arg_str = "frida://attach/remote/127.0.0.1:27042/4321", .comment = "Validate URI for attaching to PID 4321 over remote frida-server" },
+	{ .text = "Fruj ", .arg_str = "frida://launch/local///bin/ls", .comment = "Validate launch URI for /bin/ls and emit JSON" },
 	{ 0 },
 };
 
-static const RzCmdDescDetailEntry cmd_frida_Process_space_listing_detail_entries[] = {
-	{ .text = "fridapj", .arg_str = NULL, .comment = "Enumerate local processes as JSON" },
-	{ .text = "fridapj ", .arg_str = "frida://list/usb/device-1/", .comment = "Enumerate processes on a USB device as JSON" },
+static const RzCmdDescDetailEntry cmd_Fr_Device_space_enumeration_detail_entries[] = {
+	{ .text = "Frdj", .arg_str = NULL, .comment = "Enumerate connected Frida devices as JSON" },
 	{ 0 },
 };
 
-static const RzCmdDescDetailEntry cmd_frida_Application_space_listing_detail_entries[] = {
-	{ .text = "fridaaj", .arg_str = NULL, .comment = "Enumerate local applications as JSON" },
-	{ .text = "fridaaj ", .arg_str = "frida://apps/usb/device-1/", .comment = "Enumerate applications on a USB device as JSON" },
+static const RzCmdDescDetailEntry cmd_Fr_Process_space_listing_detail_entries[] = {
+	{ .text = "Frpj", .arg_str = NULL, .comment = "Enumerate local processes as JSON" },
+	{ .text = "Frpj ", .arg_str = "frida://list/usb/device-1/", .comment = "Enumerate processes on a USB device as JSON" },
 	{ 0 },
 };
 
-static const RzCmdDescDetailEntry cmd_frida_Session_space_control_detail_entries[] = {
-	{ .text = "fridaoj ", .arg_str = "frida://spawn/local///bin/ls", .comment = "Spawn /bin/ls suspended and open a session" },
-	{ .text = "fridarj", .arg_str = NULL, .comment = "Resume the spawned target" },
-	{ .text = "fridacj", .arg_str = NULL, .comment = "Close the open session" },
+static const RzCmdDescDetailEntry cmd_Fr_Application_space_listing_detail_entries[] = {
+	{ .text = "Fraj", .arg_str = NULL, .comment = "Enumerate local applications as JSON" },
+	{ .text = "Fraj ", .arg_str = "frida://apps/usb/device-1/", .comment = "Enumerate applications on a USB device as JSON" },
 	{ 0 },
 };
 
-static const RzCmdDescDetailEntry cmd_frida_Script_space_execution_detail_entries[] = {
-	{ .text = "fridaij", .arg_str = NULL, .comment = "Ping the agent and read its version and target info" },
-	{ .text = "fridaej ", .arg_str = "Process.arch", .comment = "Evaluate a JavaScript expression in the target process" },
-	{ .text = "fridalj ", .arg_str = "hook.js", .comment = "Load and evaluate a JavaScript file in the target process" },
-	{ .text = "fridamj", .arg_str = NULL, .comment = "Read buffered agent log, error, and send messages" },
+static const RzCmdDescDetailEntry cmd_Fr_Session_space_control_detail_entries[] = {
+	{ .text = "Froj ", .arg_str = "frida://spawn/local///bin/ls", .comment = "Spawn /bin/ls suspended and open a session" },
+	{ .text = "Frrj", .arg_str = NULL, .comment = "Resume the spawned target" },
+	{ .text = "Frcj", .arg_str = NULL, .comment = "Close the open session" },
 	{ 0 },
 };
 
-static const RzCmdDescDetailEntry cmd_frida_Memory_space_access_detail_entries[] = {
-	{ .text = "fridaxj ", .arg_str = "0x1000 64", .comment = "Read 64 bytes of the target memory as hex" },
-	{ .text = "fridawj ", .arg_str = "0x1000 deadbeef", .comment = "Write four bytes into the target memory" },
+static const RzCmdDescDetailEntry cmd_Fr_Script_space_execution_detail_entries[] = {
+	{ .text = "Frij", .arg_str = NULL, .comment = "Ping the agent and read its version and target info" },
+	{ .text = "Frej ", .arg_str = "Process.arch", .comment = "Evaluate a JavaScript expression in the target process" },
+	{ .text = "Frlj ", .arg_str = "hook.js", .comment = "Load and evaluate a JavaScript file in the target process" },
+	{ .text = "Frmj", .arg_str = NULL, .comment = "Read buffered agent log, error, and send messages" },
 	{ 0 },
 };
 
-static const RzCmdDescDetailEntry cmd_frida_Runtime_space_info_detail_entries[] = {
-	{ .text = "fridaRj", .arg_str = NULL, .comment = "List the target memory ranges" },
-	{ .text = "fridatj", .arg_str = NULL, .comment = "List the target threads" },
-	{ .text = "fridaMj", .arg_str = NULL, .comment = "List the target modules" },
-	{ .text = "fridaEj ", .arg_str = "libc.so", .comment = "List the exports of a module" },
-	{ .text = "fridaIj ", .arg_str = "libc.so", .comment = "List the imports of a module" },
-	{ .text = "fridaSj ", .arg_str = "libc.so", .comment = "List the symbols of a module" },
+static const RzCmdDescDetailEntry cmd_Fr_Memory_space_access_detail_entries[] = {
+	{ .text = "Frxj ", .arg_str = "0x1000 64", .comment = "Read 64 bytes of the target memory as hex" },
+	{ .text = "Frwj ", .arg_str = "0x1000 deadbeef", .comment = "Write four bytes into the target memory" },
 	{ 0 },
 };
 
-static const RzCmdDescDetailEntry cmd_frida_Debugging_detail_entries[] = {
-	{ .text = "fridabj ", .arg_str = "0x1000", .comment = "Set a breakpoint at an address" },
-	{ .text = "fridabj", .arg_str = NULL, .comment = "List the breakpoints that are set" },
-	{ .text = "fridab-j ", .arg_str = "0x1000", .comment = "Remove a breakpoint, or use * for all" },
-	{ .text = "fridagj", .arg_str = NULL, .comment = "Continue a thread parked at a breakpoint" },
-	{ .text = "fridaBj ", .arg_str = "4242", .comment = "Report the stop identity of the thread parked at a breakpoint" },
-	{ .text = "fridaBj ", .arg_str = "4242 pc 0x401000", .comment = "Set a register on the stopped thread before continuing" },
-	{ .text = "fridaWj ", .arg_str = "0x1000 8 w", .comment = "Watch 8 bytes for writes with a hardware watchpoint" },
-	{ .text = "fridaWj", .arg_str = NULL, .comment = "List the hardware watchpoints that are set" },
-	{ .text = "fridaW-j ", .arg_str = "0x1000", .comment = "Remove a watchpoint, or use * for all" },
+static const RzCmdDescDetailEntry cmd_Fr_Runtime_space_info_detail_entries[] = {
+	{ .text = "FrRj", .arg_str = NULL, .comment = "List the target memory ranges" },
+	{ .text = "Frtj", .arg_str = NULL, .comment = "List the target threads" },
+	{ .text = "FrMj", .arg_str = NULL, .comment = "List the target modules" },
+	{ .text = "FrEj ", .arg_str = "libc.so", .comment = "List the exports of a module" },
+	{ .text = "FrIj ", .arg_str = "libc.so", .comment = "List the imports of a module" },
+	{ .text = "FrSj ", .arg_str = "libc.so", .comment = "List the symbols of a module" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_frida_details[] = {
-	{ .name = "Session status", .entries = cmd_frida_Session_space_status_detail_entries },
-	{ .name = "URI grammar", .entries = cmd_frida_URI_space_grammar_detail_entries },
-	{ .name = "Device enumeration", .entries = cmd_frida_Device_space_enumeration_detail_entries },
-	{ .name = "Process listing", .entries = cmd_frida_Process_space_listing_detail_entries },
-	{ .name = "Application listing", .entries = cmd_frida_Application_space_listing_detail_entries },
-	{ .name = "Session control", .entries = cmd_frida_Session_space_control_detail_entries },
-	{ .name = "Script execution", .entries = cmd_frida_Script_space_execution_detail_entries },
-	{ .name = "Memory access", .entries = cmd_frida_Memory_space_access_detail_entries },
-	{ .name = "Runtime info", .entries = cmd_frida_Runtime_space_info_detail_entries },
-	{ .name = "Debugging", .entries = cmd_frida_Debugging_detail_entries },
+
+static const RzCmdDescDetailEntry cmd_Fr_Debugging_detail_entries[] = {
+	{ .text = "Frbj ", .arg_str = "0x1000", .comment = "Set a breakpoint at an address" },
+	{ .text = "Frbj", .arg_str = NULL, .comment = "List the breakpoints that are set" },
+	{ .text = "Frb-j ", .arg_str = "0x1000", .comment = "Remove a breakpoint, or use * for all" },
+	{ .text = "Frgj", .arg_str = NULL, .comment = "Continue a thread parked at a breakpoint" },
+	{ .text = "FrBj ", .arg_str = "4242", .comment = "Report the stop identity of the thread parked at a breakpoint" },
+	{ .text = "FrBj ", .arg_str = "4242 pc 0x401000", .comment = "Set a register on the stopped thread before continuing" },
+	{ .text = "FrWj ", .arg_str = "0x1000 8 w", .comment = "Watch 8 bytes for writes with a hardware watchpoint" },
+	{ .text = "FrWj", .arg_str = NULL, .comment = "List the hardware watchpoints that are set" },
+	{ .text = "FrW-j ", .arg_str = "0x1000", .comment = "Remove a watchpoint, or use * for all" },
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_frida_help = {
+static const RzCmdDescDetail cmd_Fr_details[] = {
+	{ .name = "Session status", .entries = cmd_Fr_Session_space_status_detail_entries },
+	{ .name = "URI grammar", .entries = cmd_Fr_URI_space_grammar_detail_entries },
+	{ .name = "Device enumeration", .entries = cmd_Fr_Device_space_enumeration_detail_entries },
+	{ .name = "Process listing", .entries = cmd_Fr_Process_space_listing_detail_entries },
+	{ .name = "Application listing", .entries = cmd_Fr_Application_space_listing_detail_entries },
+	{ .name = "Session control", .entries = cmd_Fr_Session_space_control_detail_entries },
+	{ .name = "Script execution", .entries = cmd_Fr_Script_space_execution_detail_entries },
+	{ .name = "Memory access", .entries = cmd_Fr_Memory_space_access_detail_entries },
+	{ .name = "Runtime info", .entries = cmd_Fr_Runtime_space_info_detail_entries },
+	{ .name = "Debugging", .entries = cmd_Fr_Debugging_detail_entries },
+	{ 0 },
+};
+static const RzCmdDescHelp cmd_Fr_help = {
 	.summary = "Interact with Frida targets",
 	.description = "Commands for the rz-frida integration covering plugin and session status, frida:// URI validation, device, process, and application enumeration, and session lifecycle across local, USB, and remote targets.",
-	.details = cmd_frida_details,
+	.details = cmd_Fr_details,
 };
-static const RzCmdDescArg cmd_fridas_args[] = {
+static const RzCmdDescArg cmd_Frs_args[] = {
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridas_help = {
+static const RzCmdDescHelp cmd_Frs_help = {
 	.summary = "Print Frida session status",
 	.description = "Reports whether a session is active and prints the current session state (new, resolved, attached, detaching, closed, or error). connecting is declared but not published.",
-	.args = cmd_fridas_args,
+	.args = cmd_Frs_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridau_URI_space_grammar_detail_entries[] = {
+static const RzCmdDescDetailEntry cmd_Fru_URI_space_grammar_detail_entries[] = {
 	{ .text = "frida://", .arg_str = "<action>/<transport>/<device>/<target>", .comment = "Full grammar for the frida:// URI" },
 	{ .text = "action   ", .arg_str = "= list | apps | attach | spawn | launch", .comment = "Operation requested for the session" },
 	{ .text = "transport", .arg_str = "= local | usb | remote", .comment = "Transport used to reach the Frida target" },
@@ -165,19 +165,19 @@ static const RzCmdDescDetailEntry cmd_fridau_URI_space_grammar_detail_entries[] 
 	{ 0 },
 };
 
-static const RzCmdDescDetailEntry cmd_fridau_Examples_detail_entries[] = {
-	{ .text = "fridau ", .arg_str = "frida://attach/local//1234", .comment = "Attach to local PID 1234" },
-	{ .text = "fridau ", .arg_str = "frida://spawn/usb/device-1/com.example.app", .comment = "Spawn an Android package on a USB device" },
-	{ .text = "fridau ", .arg_str = "frida://launch/local///bin/ls", .comment = "Launch /bin/ls locally (absolute path, three slashes)" },
-	{ .text = "fridauj ", .arg_str = "frida://attach/remote/127.0.0.1:27042/4321", .comment = "Validate remote-attach URI and emit JSON" },
+static const RzCmdDescDetailEntry cmd_Fru_Examples_detail_entries[] = {
+	{ .text = "Fru ", .arg_str = "frida://attach/local//1234", .comment = "Attach to local PID 1234" },
+	{ .text = "Fru ", .arg_str = "frida://spawn/usb/device-1/com.example.app", .comment = "Spawn an Android package on a USB device" },
+	{ .text = "Fru ", .arg_str = "frida://launch/local///bin/ls", .comment = "Launch /bin/ls locally (absolute path, three slashes)" },
+	{ .text = "Fruj ", .arg_str = "frida://attach/remote/127.0.0.1:27042/4321", .comment = "Validate remote-attach URI and emit JSON" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridau_details[] = {
-	{ .name = "URI grammar", .entries = cmd_fridau_URI_space_grammar_detail_entries },
-	{ .name = "Examples", .entries = cmd_fridau_Examples_detail_entries },
+static const RzCmdDescDetail cmd_Fru_details[] = {
+	{ .name = "URI grammar", .entries = cmd_Fru_URI_space_grammar_detail_entries },
+	{ .name = "Examples", .entries = cmd_Fru_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridau_args[] = {
+static const RzCmdDescArg cmd_Fru_args[] = {
 	{
 		.name = "uri",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -186,33 +186,33 @@ static const RzCmdDescArg cmd_fridau_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridau_help = {
+static const RzCmdDescHelp cmd_Fru_help = {
 	.summary = "Validate a frida:// URI",
 	.description = "Parses and validates a frida:// URI without contacting any Frida device. Useful for verifying URI syntax in scripts or CI before attempting to attach.",
-	.details = cmd_fridau_details,
-	.args = cmd_fridau_args,
+	.details = cmd_Fru_details,
+	.args = cmd_Fru_args,
 };
 
-static const RzCmdDescArg cmd_fridad_args[] = {
+static const RzCmdDescArg cmd_Frd_args[] = {
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridad_help = {
+static const RzCmdDescHelp cmd_Frd_help = {
 	.summary = "List Frida devices",
 	.description = "Enumerates devices known to the Frida device manager (local, USB, and remote) and emits a structured JSON reply.",
-	.args = cmd_fridad_args,
+	.args = cmd_Frd_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridap_Examples_detail_entries[] = {
-	{ .text = "fridapj", .arg_str = NULL, .comment = "List local processes as JSON, returns a frida_unavailable error if built without frida-core" },
-	{ .text = "fridapj ", .arg_str = "frida://list/usb/device-1/", .comment = "List processes on a USB device by id" },
-	{ .text = "fridapj ", .arg_str = "frida://list/remote/127.0.0.1:27042/", .comment = "List processes on a remote frida-server" },
+static const RzCmdDescDetailEntry cmd_Frp_Examples_detail_entries[] = {
+	{ .text = "Frpj", .arg_str = NULL, .comment = "List local processes as JSON, returns a frida_unavailable error if built without frida-core" },
+	{ .text = "Frpj ", .arg_str = "frida://list/usb/device-1/", .comment = "List processes on a USB device by id" },
+	{ .text = "Frpj ", .arg_str = "frida://list/remote/127.0.0.1:27042/", .comment = "List processes on a remote frida-server" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridap_details[] = {
-	{ .name = "Examples", .entries = cmd_fridap_Examples_detail_entries },
+static const RzCmdDescDetail cmd_Frp_details[] = {
+	{ .name = "Examples", .entries = cmd_Frp_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridap_args[] = {
+static const RzCmdDescArg cmd_Frp_args[] = {
 	{
 		.name = "uri",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -222,23 +222,23 @@ static const RzCmdDescArg cmd_fridap_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridap_help = {
+static const RzCmdDescHelp cmd_Frp_help = {
 	.summary = "List processes on a device",
 	.description = "Enumerates the processes visible to a Frida device and emits a structured JSON reply. With no argument it lists the local device, or pass a frida:// URI to select a USB or remote device.",
-	.details = cmd_fridap_details,
-	.args = cmd_fridap_args,
+	.details = cmd_Frp_details,
+	.args = cmd_Frp_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaa_Examples_detail_entries[] = {
-	{ .text = "fridaaj", .arg_str = NULL, .comment = "List local applications as JSON, returns a frida_unavailable error if built without frida-core" },
-	{ .text = "fridaaj ", .arg_str = "frida://apps/usb/device-1/", .comment = "List applications on a USB device by id" },
+static const RzCmdDescDetailEntry cmd_Fra_Examples_detail_entries[] = {
+	{ .text = "Fraj", .arg_str = NULL, .comment = "List local applications as JSON, returns a frida_unavailable error if built without frida-core" },
+	{ .text = "Fraj ", .arg_str = "frida://apps/usb/device-1/", .comment = "List applications on a USB device by id" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaa_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaa_Examples_detail_entries },
+static const RzCmdDescDetail cmd_Fra_details[] = {
+	{ .name = "Examples", .entries = cmd_Fra_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaa_args[] = {
+static const RzCmdDescArg cmd_Fra_args[] = {
 	{
 		.name = "uri",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -248,26 +248,26 @@ static const RzCmdDescArg cmd_fridaa_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaa_help = {
+static const RzCmdDescHelp cmd_Fra_help = {
 	.summary = "List applications on a device",
 	.description = "Enumerates the applications known to a Frida device and emits a structured JSON reply. With no argument it lists the local device, or pass a frida:// URI to select a USB or remote device. Application listing is most useful for Android and iOS targets reached over USB.",
-	.details = cmd_fridaa_details,
-	.args = cmd_fridaa_args,
+	.details = cmd_Fra_details,
+	.args = cmd_Fra_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridao_Examples_detail_entries[] = {
-	{ .text = "fridaoj ", .arg_str = "frida://attach/local//1234", .comment = "Attach to local PID 1234" },
-	{ .text = "fridaoj ", .arg_str = "frida://attach/usb//com.example.app", .comment = "Attach by process name on the single USB device" },
-	{ .text = "fridaoj ", .arg_str = "frida://spawn/usb//com.example.app", .comment = "Spawn a USB package (resumed, rn true when the hook armed)" },
-	{ .text = "fridaoj ", .arg_str = "frida://launch/local///bin/ls", .comment = "Launch /bin/ls and resume it immediately" },
-	{ .text = "fridaoj ", .arg_str = "frida://attach/remote/127.0.0.1:27042/1234", .comment = "Attach to PID 1234 over a remote frida-server" },
+static const RzCmdDescDetailEntry cmd_Fro_Examples_detail_entries[] = {
+	{ .text = "Froj ", .arg_str = "frida://attach/local//1234", .comment = "Attach to local PID 1234" },
+	{ .text = "Froj ", .arg_str = "frida://attach/usb//com.example.app", .comment = "Attach by process name on the single USB device" },
+	{ .text = "Froj ", .arg_str = "frida://spawn/usb//com.example.app", .comment = "Spawn a USB package (resumed, rn true when the hook armed)" },
+	{ .text = "Froj ", .arg_str = "frida://launch/local///bin/ls", .comment = "Launch /bin/ls and resume it immediately" },
+	{ .text = "Froj ", .arg_str = "frida://attach/remote/127.0.0.1:27042/1234", .comment = "Attach to PID 1234 over a remote frida-server" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridao_details[] = {
-	{ .name = "Examples", .entries = cmd_fridao_Examples_detail_entries },
+static const RzCmdDescDetail cmd_Fro_details[] = {
+	{ .name = "Examples", .entries = cmd_Fro_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridao_args[] = {
+static const RzCmdDescArg cmd_Fro_args[] = {
 	{
 		.name = "uri",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -276,41 +276,41 @@ static const RzCmdDescArg cmd_fridao_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridao_help = {
+static const RzCmdDescHelp cmd_Fro_help = {
 	.summary = "Open a Frida session",
 	.description = "Opens a session for a frida:// URI on a local, USB, or remote device: attach to a pid or process name, spawn a target, or launch and resume it. USB/remote spawns resume before the command returns (`rn` true when RegisterNatives armed). A local spawn stays suspended. Stores the live session and emits a structured JSON reply.",
-	.details = cmd_fridao_details,
-	.args = cmd_fridao_args,
+	.details = cmd_Fro_details,
+	.args = cmd_Fro_args,
 };
 
-static const RzCmdDescArg cmd_fridar_args[] = {
+static const RzCmdDescArg cmd_Frr_args[] = {
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridar_help = {
+static const RzCmdDescHelp cmd_Frr_help = {
 	.summary = "Resume the open Frida session",
-	.description = "Resumes a target that was spawned suspended by the open command. Safe to repeat: a spawned target that is already running, including one resumed by open on a USB/remote spawn or by 'fridaRNj on', returns ok rather than an error. Emits a structured JSON reply.",
-	.args = cmd_fridar_args,
+	.description = "Resumes a target that was spawned suspended by the open command. Safe to repeat: a spawned target that is already running, including one resumed by open on a USB/remote spawn or by 'FrRNj on', returns ok rather than an error. Emits a structured JSON reply.",
+	.args = cmd_Frr_args,
 };
 
-static const RzCmdDescArg cmd_fridac_args[] = {
+static const RzCmdDescArg cmd_Frc_args[] = {
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridac_help = {
+static const RzCmdDescHelp cmd_Frc_help = {
 	.summary = "Close the open Frida session",
 	.description = "Detaches the open session and forgets it. A target that was spawned but never resumed is killed. An attached or launched target keeps running. Emits a structured JSON reply.",
-	.args = cmd_fridac_args,
+	.args = cmd_Frc_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridae_Examples_detail_entries[] = {
-	{ .text = "fridaej ", .arg_str = "Process.arch", .comment = "Read the target architecture from the agent" },
-	{ .text = "fridaej ", .arg_str = "\"1 + 1\"", .comment = "Evaluate an expression, quote it when it has spaces" },
+static const RzCmdDescDetailEntry cmd_Fre_Examples_detail_entries[] = {
+	{ .text = "Frej ", .arg_str = "Process.arch", .comment = "Read the target architecture from the agent" },
+	{ .text = "Frej ", .arg_str = "\"1 + 1\"", .comment = "Evaluate an expression, quote it when it has spaces" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridae_details[] = {
-	{ .name = "Examples", .entries = cmd_fridae_Examples_detail_entries },
+static const RzCmdDescDetail cmd_Fre_details[] = {
+	{ .name = "Examples", .entries = cmd_Fre_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridae_args[] = {
+static const RzCmdDescArg cmd_Fre_args[] = {
 	{
 		.name = "source",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -319,22 +319,22 @@ static const RzCmdDescArg cmd_fridae_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridae_help = {
+static const RzCmdDescHelp cmd_Fre_help = {
 	.summary = "Evaluate JavaScript in the target process",
-	.description = "Loads the rz-frida agent into the open session on first use, then evaluates a JavaScript expression inside the target process and returns its value and type. Quote the expression when it contains spaces, or use fridal for a script that lives in a file.",
-	.details = cmd_fridae_details,
-	.args = cmd_fridae_args,
+	.description = "Loads the rz-frida agent into the open session on first use, then evaluates a JavaScript expression inside the target process and returns its value and type. Quote the expression when it contains spaces, or use Frl for a script that lives in a file.",
+	.details = cmd_Fre_details,
+	.args = cmd_Fre_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridal_Examples_detail_entries[] = {
-	{ .text = "fridalj ", .arg_str = "hook.js", .comment = "Evaluate hook.js inside the target process" },
+static const RzCmdDescDetailEntry cmd_Frl_Examples_detail_entries[] = {
+	{ .text = "Frlj ", .arg_str = "hook.js", .comment = "Evaluate hook.js inside the target process" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridal_details[] = {
-	{ .name = "Examples", .entries = cmd_fridal_Examples_detail_entries },
+static const RzCmdDescDetail cmd_Frl_details[] = {
+	{ .name = "Examples", .entries = cmd_Frl_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridal_args[] = {
+static const RzCmdDescArg cmd_Frl_args[] = {
 	{
 		.name = "file",
 		.type = RZ_CMD_ARG_TYPE_FILE,
@@ -342,40 +342,40 @@ static const RzCmdDescArg cmd_fridal_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridal_help = {
+static const RzCmdDescHelp cmd_Frl_help = {
 	.summary = "Load and evaluate a JavaScript file in the target process",
 	.description = "Reads a JavaScript file from disk and evaluates it inside the target process through the rz-frida agent. Useful for instrumentation scripts that are too large to pass on the command line.",
-	.details = cmd_fridal_details,
-	.args = cmd_fridal_args,
+	.details = cmd_Frl_details,
+	.args = cmd_Frl_args,
 };
 
-static const RzCmdDescArg cmd_fridai_args[] = {
+static const RzCmdDescArg cmd_Fri_args[] = {
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridai_help = {
+static const RzCmdDescHelp cmd_Fri_help = {
 	.summary = "Ping the agent in the target process",
 	.description = "Loads the rz-frida agent into the open session on first use and pings it, returning the agent version and the target platform, architecture, and pointer size. A quick way to check the host-agent message channel is alive.",
-	.args = cmd_fridai_args,
+	.args = cmd_Fri_args,
 };
 
-static const RzCmdDescArg cmd_fridam_args[] = {
+static const RzCmdDescArg cmd_Frm_args[] = {
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridam_help = {
+static const RzCmdDescHelp cmd_Frm_help = {
 	.summary = "Read buffered agent messages",
 	.description = "Drains the asynchronous output captured from the injected agent: console logs, uncaught script errors, and unsolicited send() notifications with any binary data. Returns them as a JSON array and clears the buffer.",
-	.args = cmd_fridam_args,
+	.args = cmd_Frm_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridax_Examples_detail_entries[] = {
-	{ .text = "fridaxj ", .arg_str = "0x1000 64", .comment = "Read 64 bytes at 0x1000 from the target process" },
+static const RzCmdDescDetailEntry cmd_Frx_Examples_detail_entries[] = {
+	{ .text = "Frxj ", .arg_str = "0x1000 64", .comment = "Read 64 bytes at 0x1000 from the target process" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridax_details[] = {
-	{ .name = "Examples", .entries = cmd_fridax_Examples_detail_entries },
+static const RzCmdDescDetail cmd_Frx_details[] = {
+	{ .name = "Examples", .entries = cmd_Frx_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridax_args[] = {
+static const RzCmdDescArg cmd_Frx_args[] = {
 	{
 		.name = "address",
 		.type = RZ_CMD_ARG_TYPE_NUM,
@@ -388,22 +388,22 @@ static const RzCmdDescArg cmd_fridax_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridax_help = {
+static const RzCmdDescHelp cmd_Frx_help = {
 	.summary = "Read target memory",
 	.description = "Reads a block of memory from the target process through the rz-frida agent and returns the bytes as a hex string. Loads the agent into the open session on first use.",
-	.details = cmd_fridax_details,
-	.args = cmd_fridax_args,
+	.details = cmd_Frx_details,
+	.args = cmd_Frx_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaw_Examples_detail_entries[] = {
-	{ .text = "fridawj ", .arg_str = "0x1000 deadbeef", .comment = "Write the bytes 'de ad be ef' at 0x1000 in the target" },
+static const RzCmdDescDetailEntry cmd_Frw_Examples_detail_entries[] = {
+	{ .text = "Frwj ", .arg_str = "0x1000 deadbeef", .comment = "Write the bytes 'de ad be ef' at 0x1000 in the target" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaw_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaw_Examples_detail_entries },
+static const RzCmdDescDetail cmd_Frw_details[] = {
+	{ .name = "Examples", .entries = cmd_Frw_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaw_args[] = {
+static const RzCmdDescArg cmd_Frw_args[] = {
 	{
 		.name = "address",
 		.type = RZ_CMD_ARG_TYPE_NUM,
@@ -417,23 +417,23 @@ static const RzCmdDescArg cmd_fridaw_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaw_help = {
+static const RzCmdDescHelp cmd_Frw_help = {
 	.summary = "Write target memory",
 	.description = "Writes a hex byte string into the target process memory through the rz-frida agent and returns the number of bytes written. Loads the agent into the open session on first use.",
-	.details = cmd_fridaw_details,
-	.args = cmd_fridaw_args,
+	.details = cmd_Frw_details,
+	.args = cmd_Frw_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaR_Examples_detail_entries[] = {
-	{ .text = "fridaRj", .arg_str = NULL, .comment = "List the cached target memory ranges" },
-	{ .text = "fridaRj ", .arg_str = "refresh", .comment = "Re-enumerate the ranges instead of using the cache" },
+static const RzCmdDescDetailEntry cmd_FrR_Examples_detail_entries[] = {
+	{ .text = "FrRj", .arg_str = NULL, .comment = "List the cached target memory ranges" },
+	{ .text = "FrRj ", .arg_str = "refresh", .comment = "Re-enumerate the ranges instead of using the cache" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaR_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaR_Examples_detail_entries },
+static const RzCmdDescDetail cmd_FrR_details[] = {
+	{ .name = "Examples", .entries = cmd_FrR_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaR_args[] = {
+static const RzCmdDescArg cmd_FrR_args[] = {
 	{
 		.name = "refresh",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -443,32 +443,32 @@ static const RzCmdDescArg cmd_fridaR_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaR_help = {
+static const RzCmdDescHelp cmd_FrR_help = {
 	.summary = "List target memory ranges",
 	.description = "Lists the memory ranges of the target process through the rz-frida agent, each with its base, size, protection, and backing file when mapped. The agent caches the list and re-enumerates it after code runs in the target, pass any argument to force a fresh enumeration. Loads the agent into the open session on first use.",
-	.details = cmd_fridaR_details,
-	.args = cmd_fridaR_args,
+	.details = cmd_FrR_details,
+	.args = cmd_FrR_args,
 };
 
-static const RzCmdDescArg cmd_fridat_args[] = {
+static const RzCmdDescArg cmd_Frt_args[] = {
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridat_help = {
+static const RzCmdDescHelp cmd_Frt_help = {
 	.summary = "List target threads",
 	.description = "Lists the threads of the target process through the rz-frida agent, each with its id and state. Loads the agent into the open session on first use.",
-	.args = cmd_fridat_args,
+	.args = cmd_Frt_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaM_Examples_detail_entries[] = {
-	{ .text = "fridaMj", .arg_str = NULL, .comment = "List the cached target modules" },
-	{ .text = "fridaMj ", .arg_str = "refresh", .comment = "Re-enumerate the modules instead of using the cache" },
+static const RzCmdDescDetailEntry cmd_FrM_Examples_detail_entries[] = {
+	{ .text = "FrMj", .arg_str = NULL, .comment = "List the cached target modules" },
+	{ .text = "FrMj ", .arg_str = "refresh", .comment = "Re-enumerate the modules instead of using the cache" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaM_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaM_Examples_detail_entries },
+static const RzCmdDescDetail cmd_FrM_details[] = {
+	{ .name = "Examples", .entries = cmd_FrM_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaM_args[] = {
+static const RzCmdDescArg cmd_FrM_args[] = {
 	{
 		.name = "refresh",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -478,22 +478,22 @@ static const RzCmdDescArg cmd_fridaM_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaM_help = {
+static const RzCmdDescHelp cmd_FrM_help = {
 	.summary = "List target modules",
 	.description = "Lists the modules loaded in the target process through the rz-frida agent, each with its name, base, size, and path. The agent caches the list and re-enumerates it after code runs in the target, pass any argument to force a fresh enumeration. Loads the agent into the open session on first use.",
-	.details = cmd_fridaM_details,
-	.args = cmd_fridaM_args,
+	.details = cmd_FrM_details,
+	.args = cmd_FrM_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaE_Examples_detail_entries[] = {
-	{ .text = "fridaEj ", .arg_str = "libc.so", .comment = "List the exports of libc.so in the target" },
+static const RzCmdDescDetailEntry cmd_FrE_Examples_detail_entries[] = {
+	{ .text = "FrEj ", .arg_str = "libc.so", .comment = "List the exports of libc.so in the target" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaE_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaE_Examples_detail_entries },
+static const RzCmdDescDetail cmd_FrE_details[] = {
+	{ .name = "Examples", .entries = cmd_FrE_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaE_args[] = {
+static const RzCmdDescArg cmd_FrE_args[] = {
 	{
 		.name = "module",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -502,22 +502,22 @@ static const RzCmdDescArg cmd_fridaE_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaE_help = {
+static const RzCmdDescHelp cmd_FrE_help = {
 	.summary = "List target module exports",
 	.description = "Lists the exports of a module loaded in the target process through the rz-frida agent, each with its type, name, and address. Loads the agent into the open session on first use.",
-	.details = cmd_fridaE_details,
-	.args = cmd_fridaE_args,
+	.details = cmd_FrE_details,
+	.args = cmd_FrE_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaI_Examples_detail_entries[] = {
-	{ .text = "fridaIj ", .arg_str = "libc.so", .comment = "List the imports of libc.so in the target" },
+static const RzCmdDescDetailEntry cmd_FrI_Examples_detail_entries[] = {
+	{ .text = "FrIj ", .arg_str = "libc.so", .comment = "List the imports of libc.so in the target" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaI_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaI_Examples_detail_entries },
+static const RzCmdDescDetail cmd_FrI_details[] = {
+	{ .name = "Examples", .entries = cmd_FrI_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaI_args[] = {
+static const RzCmdDescArg cmd_FrI_args[] = {
 	{
 		.name = "module",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -526,22 +526,22 @@ static const RzCmdDescArg cmd_fridaI_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaI_help = {
+static const RzCmdDescHelp cmd_FrI_help = {
 	.summary = "List target module imports",
 	.description = "Lists the imports of a module loaded in the target process through the rz-frida agent, each with its type, name, source module, and address. Loads the agent into the open session on first use.",
-	.details = cmd_fridaI_details,
-	.args = cmd_fridaI_args,
+	.details = cmd_FrI_details,
+	.args = cmd_FrI_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaS_Examples_detail_entries[] = {
-	{ .text = "fridaSj ", .arg_str = "libc.so", .comment = "List the symbols of libc.so in the target" },
+static const RzCmdDescDetailEntry cmd_FrS_Examples_detail_entries[] = {
+	{ .text = "FrSj ", .arg_str = "libc.so", .comment = "List the symbols of libc.so in the target" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaS_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaS_Examples_detail_entries },
+static const RzCmdDescDetail cmd_FrS_details[] = {
+	{ .name = "Examples", .entries = cmd_FrS_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaS_args[] = {
+static const RzCmdDescArg cmd_FrS_args[] = {
 	{
 		.name = "module",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -550,23 +550,23 @@ static const RzCmdDescArg cmd_fridaS_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaS_help = {
+static const RzCmdDescHelp cmd_FrS_help = {
 	.summary = "List target module symbols",
 	.description = "Lists the symbols of a module loaded in the target process through the rz-frida agent, each with its name, address, and type. The list is empty for a module that carries no symbol table. Loads the agent into the open session on first use.",
-	.details = cmd_fridaS_details,
-	.args = cmd_fridaS_args,
+	.details = cmd_FrS_details,
+	.args = cmd_FrS_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridab_Examples_detail_entries[] = {
-	{ .text = "fridabj ", .arg_str = "0x1000", .comment = "Set a breakpoint at 0x1000 in the target" },
-	{ .text = "fridabj", .arg_str = NULL, .comment = "List the breakpoints that are set" },
+static const RzCmdDescDetailEntry cmd_Frb_Examples_detail_entries[] = {
+	{ .text = "Frbj ", .arg_str = "0x1000", .comment = "Set a breakpoint at 0x1000 in the target" },
+	{ .text = "Frbj", .arg_str = NULL, .comment = "List the breakpoints that are set" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridab_details[] = {
-	{ .name = "Examples", .entries = cmd_fridab_Examples_detail_entries },
+static const RzCmdDescDetail cmd_Frb_details[] = {
+	{ .name = "Examples", .entries = cmd_Frb_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridab_args[] = {
+static const RzCmdDescArg cmd_Frb_args[] = {
 	{
 		.name = "address",
 		.type = RZ_CMD_ARG_TYPE_NUM,
@@ -575,23 +575,23 @@ static const RzCmdDescArg cmd_fridab_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridab_help = {
+static const RzCmdDescHelp cmd_Frb_help = {
 	.summary = "Set or list native breakpoints",
-	.description = "Sets a breakpoint at an address in the target process through the rz-frida agent, or lists the breakpoints that are set when called with no argument. A hit is reported asynchronously through fridam with the breakpoint id and thread id (the event context is empty), and the thread stays parked until fridag continues it. Loads the agent into the open session on first use.",
-	.details = cmd_fridab_details,
-	.args = cmd_fridab_args,
+	.description = "Sets a breakpoint at an address in the target process through the rz-frida agent, or lists the breakpoints that are set when called with no argument. A hit is reported asynchronously through Frm with the breakpoint id and thread id (the event context is empty), and the thread stays parked until Frg continues it. Loads the agent into the open session on first use.",
+	.details = cmd_Frb_details,
+	.args = cmd_Frb_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridab_minus_Examples_detail_entries[] = {
-	{ .text = "fridab-j ", .arg_str = "0x1000", .comment = "Remove the breakpoint at 0x1000" },
-	{ .text = "fridab-j ", .arg_str = "*", .comment = "Remove every breakpoint" },
+static const RzCmdDescDetailEntry cmd_Frb_minus_Examples_detail_entries[] = {
+	{ .text = "Frb-j ", .arg_str = "0x1000", .comment = "Remove the breakpoint at 0x1000" },
+	{ .text = "Frb-j ", .arg_str = "*", .comment = "Remove every breakpoint" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridab_minus_details[] = {
-	{ .name = "Examples", .entries = cmd_fridab_minus_Examples_detail_entries },
+static const RzCmdDescDetail cmd_Frb_minus_details[] = {
+	{ .name = "Examples", .entries = cmd_Frb_minus_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridab_minus_args[] = {
+static const RzCmdDescArg cmd_Frb_minus_args[] = {
 	{
 		.name = "address",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -600,23 +600,23 @@ static const RzCmdDescArg cmd_fridab_minus_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridab_minus_help = {
+static const RzCmdDescHelp cmd_Frb_minus_help = {
 	.summary = "Remove native breakpoints",
 	.description = "Removes the breakpoint at an address in the target process through the rz-frida agent, or every breakpoint when the address is *. Loads the agent into the open session on first use.",
-	.details = cmd_fridab_minus_details,
-	.args = cmd_fridab_minus_args,
+	.details = cmd_Frb_minus_details,
+	.args = cmd_Frb_minus_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridag_Examples_detail_entries[] = {
-	{ .text = "fridagj", .arg_str = NULL, .comment = "Continue the most recently parked thread" },
-	{ .text = "fridagj ", .arg_str = "4242", .comment = "Continue the thread with id 4242" },
+static const RzCmdDescDetailEntry cmd_Frg_Examples_detail_entries[] = {
+	{ .text = "Frgj", .arg_str = NULL, .comment = "Continue the most recently parked thread" },
+	{ .text = "Frgj ", .arg_str = "4242", .comment = "Continue the thread with id 4242" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridag_details[] = {
-	{ .name = "Examples", .entries = cmd_fridag_Examples_detail_entries },
+static const RzCmdDescDetail cmd_Frg_details[] = {
+	{ .name = "Examples", .entries = cmd_Frg_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridag_args[] = {
+static const RzCmdDescArg cmd_Frg_args[] = {
 	{
 		.name = "thread",
 		.type = RZ_CMD_ARG_TYPE_NUM,
@@ -625,23 +625,23 @@ static const RzCmdDescArg cmd_fridag_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridag_help = {
+static const RzCmdDescHelp cmd_Frg_help = {
 	.summary = "Continue a thread parked at a breakpoint",
 	.description = "Continues a thread parked at a breakpoint in the target process through the rz-frida agent. With a thread id it continues that exact thread, with no argument it continues the most recently parked thread, and reports whether a thread was released. Loads the agent into the open session on first use.",
-	.details = cmd_fridag_details,
-	.args = cmd_fridag_args,
+	.details = cmd_Frg_details,
+	.args = cmd_Frg_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaB_Examples_detail_entries[] = {
-	{ .text = "fridaBj ", .arg_str = "4242", .comment = "Report the stop identity of thread 4242" },
-	{ .text = "fridaBj ", .arg_str = "4242 pc 0x401000", .comment = "Set pc on thread 4242 before continuing it with fridagj" },
+static const RzCmdDescDetailEntry cmd_FrB_Examples_detail_entries[] = {
+	{ .text = "FrBj ", .arg_str = "4242", .comment = "Report the stop identity of thread 4242" },
+	{ .text = "FrBj ", .arg_str = "4242 pc 0x401000", .comment = "Set pc on thread 4242 before continuing it with Frgj" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaB_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaB_Examples_detail_entries },
+static const RzCmdDescDetail cmd_FrB_details[] = {
+	{ .name = "Examples", .entries = cmd_FrB_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaB_args[] = {
+static const RzCmdDescArg cmd_FrB_args[] = {
 	{
 		.name = "thread",
 		.type = RZ_CMD_ARG_TYPE_NUM,
@@ -661,24 +661,24 @@ static const RzCmdDescArg cmd_fridaB_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaB_help = {
+static const RzCmdDescHelp cmd_FrB_help = {
 	.summary = "Report stop identity or write a register at a breakpoint stop",
-	.description = "Reports the stop identity of a thread parked at a breakpoint in the target process through the rz-frida agent, or sets one register when a register name and value follow the thread id. A write lands on the live context and takes effect when the thread is continued with fridag. Loads the agent into the open session on first use.",
-	.details = cmd_fridaB_details,
-	.args = cmd_fridaB_args,
+	.description = "Reports the stop identity of a thread parked at a breakpoint in the target process through the rz-frida agent, or sets one register when a register name and value follow the thread id. A write lands on the live context and takes effect when the thread is continued with Frg. Loads the agent into the open session on first use.",
+	.details = cmd_FrB_details,
+	.args = cmd_FrB_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaW_Examples_detail_entries[] = {
-	{ .text = "fridaWj ", .arg_str = "0x1000", .comment = "Watch the pointer-sized word at 0x1000 for reads and writes" },
-	{ .text = "fridaWj ", .arg_str = "0x1000 8 w", .comment = "Watch 8 bytes at 0x1000 for writes only" },
-	{ .text = "fridaWj", .arg_str = NULL, .comment = "List the watchpoints that are set" },
+static const RzCmdDescDetailEntry cmd_FrW_Examples_detail_entries[] = {
+	{ .text = "FrWj ", .arg_str = "0x1000", .comment = "Watch the pointer-sized word at 0x1000 for reads and writes" },
+	{ .text = "FrWj ", .arg_str = "0x1000 8 w", .comment = "Watch 8 bytes at 0x1000 for writes only" },
+	{ .text = "FrWj", .arg_str = NULL, .comment = "List the watchpoints that are set" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaW_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaW_Examples_detail_entries },
+static const RzCmdDescDetail cmd_FrW_details[] = {
+	{ .name = "Examples", .entries = cmd_FrW_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaW_args[] = {
+static const RzCmdDescArg cmd_FrW_args[] = {
 	{
 		.name = "address",
 		.type = RZ_CMD_ARG_TYPE_NUM,
@@ -700,23 +700,23 @@ static const RzCmdDescArg cmd_fridaW_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaW_help = {
+static const RzCmdDescHelp cmd_FrW_help = {
 	.summary = "Set or list hardware watchpoints",
-	.description = "Sets a hardware watchpoint on an address in the target process through the rz-frida agent, or lists the watchpoints that are set when called with no argument. The optional size defaults to the pointer size and the optional conditions are r, w, or rw (default rw). The watchpoint is armed on every target thread, an access is reported asynchronously through fridam as a frida.wp event with the faulting thread, program counter, and register context, and the watchpoint disarms itself on that hit. The CPU has a small fixed number of watchpoint slots. Loads the agent into the open session on first use.",
-	.details = cmd_fridaW_details,
-	.args = cmd_fridaW_args,
+	.description = "Sets a hardware watchpoint on an address in the target process through the rz-frida agent, or lists the watchpoints that are set when called with no argument. The optional size defaults to the pointer size and the optional conditions are r, w, or rw (default rw). The watchpoint is armed on every target thread, an access is reported asynchronously through Frm as a Fr.wp event with the faulting thread, program counter, and register context, and the watchpoint disarms itself on that hit. The CPU has a small fixed number of watchpoint slots. Loads the agent into the open session on first use.",
+	.details = cmd_FrW_details,
+	.args = cmd_FrW_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaW_minus_Examples_detail_entries[] = {
-	{ .text = "fridaW-j ", .arg_str = "0x1000", .comment = "Remove the watchpoint at 0x1000" },
-	{ .text = "fridaW-j ", .arg_str = "*", .comment = "Remove every watchpoint" },
+static const RzCmdDescDetailEntry cmd_FrW_minus_Examples_detail_entries[] = {
+	{ .text = "FrW-j ", .arg_str = "0x1000", .comment = "Remove the watchpoint at 0x1000" },
+	{ .text = "FrW-j ", .arg_str = "*", .comment = "Remove every watchpoint" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaW_minus_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaW_minus_Examples_detail_entries },
+static const RzCmdDescDetail cmd_FrW_minus_details[] = {
+	{ .name = "Examples", .entries = cmd_FrW_minus_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaW_minus_args[] = {
+static const RzCmdDescArg cmd_FrW_minus_args[] = {
 	{
 		.name = "address",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -725,32 +725,32 @@ static const RzCmdDescArg cmd_fridaW_minus_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaW_minus_help = {
+static const RzCmdDescHelp cmd_FrW_minus_help = {
 	.summary = "Remove hardware watchpoints",
 	.description = "Removes the hardware watchpoint at an address in the target process through the rz-frida agent, or every watchpoint when the address is *. Loads the agent into the open session on first use.",
-	.details = cmd_fridaW_minus_details,
-	.args = cmd_fridaW_minus_args,
+	.details = cmd_FrW_minus_details,
+	.args = cmd_FrW_minus_args,
 };
 
-static const RzCmdDescArg cmd_fridaJ_args[] = {
+static const RzCmdDescArg cmd_FrJ_args[] = {
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaJ_help = {
+static const RzCmdDescHelp cmd_FrJ_help = {
 	.summary = "Check whether the Android Java VM is reachable",
 	.description = "Checks whether the Java VM (ART) is available in the target process and reports whether Java instrumentation is possible. Requires an Android target with the frida-java-bridge bundled into the agent.",
-	.args = cmd_fridaJ_args,
+	.args = cmd_FrJ_args,
 };
 
-static const RzCmdDescArg cmd_fridaL_args[] = {
+static const RzCmdDescArg cmd_FrL_args[] = {
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaL_help = {
+static const RzCmdDescHelp cmd_FrL_help = {
 	.summary = "Enumerate Java classloaders in the target",
 	.description = "Enumerates the classloaders in the target process through the rz-frida agent and assigns each one a stable integer id for the current session. Requires an Android target with the Java VM available.",
-	.args = cmd_fridaL_args,
+	.args = cmd_FrL_args,
 };
 
-static const RzCmdDescArg cmd_fridaC_args[] = {
+static const RzCmdDescArg cmd_FrC_args[] = {
 	{
 		.name = "prefix",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -760,13 +760,13 @@ static const RzCmdDescArg cmd_fridaC_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaC_help = {
+static const RzCmdDescHelp cmd_FrC_help = {
 	.summary = "Enumerate loaded Java classes in the target",
-	.description = "Enumerates the loaded Java classes in the target process through the rz-frida agent. An optional prefix matches classes whose canonical name starts with that string, or whose simple name after the last dot equals it. The frida.java.max config (default 512) caps the batch. Zero means unlimited.",
-	.args = cmd_fridaC_args,
+	.description = "Enumerates the loaded Java classes in the target process through the rz-frida agent. An optional prefix matches classes whose canonical name starts with that string, or whose simple name after the last dot equals it. The Fr.java.max config (default 512) caps the batch. Zero means unlimited.",
+	.args = cmd_FrC_args,
 };
 
-static const RzCmdDescArg cmd_fridaN_args[] = {
+static const RzCmdDescArg cmd_FrN_args[] = {
 	{
 		.name = "mode",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -776,13 +776,13 @@ static const RzCmdDescArg cmd_fridaN_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaN_help = {
+static const RzCmdDescHelp cmd_FrN_help = {
 	.summary = "Monitor newly loaded Java classes in the target",
-	.description = "When called without arguments, lists classes loaded since the last snapshot. Call 'fridaNj start' to snapshot currently loaded classes. If the monitor is already enabled, start does not re-snapshot. Later listings are the difference against that set. Call 'fridaNj stop' to disable the monitor. The seen set is kept, so a later listing can still report new names with monitor false. Requires an Android target with the Java VM available.",
-	.args = cmd_fridaN_args,
+	.description = "When called without arguments, lists classes loaded since the last snapshot. Call 'FrNj start' to snapshot currently loaded classes. If the monitor is already enabled, start does not re-snapshot. Later listings are the difference against that set. Call 'FrNj stop' to disable the monitor. The seen set is kept, so a later listing can still report new names with monitor false. Requires an Android target with the Java VM available.",
+	.args = cmd_FrN_args,
 };
 
-static const RzCmdDescArg cmd_fridaRN_args[] = {
+static const RzCmdDescArg cmd_FrRN_args[] = {
 	{
 		.name = "mode",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -792,22 +792,22 @@ static const RzCmdDescArg cmd_fridaRN_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaRN_help = {
+static const RzCmdDescHelp cmd_FrRN_help = {
 	.summary = "Hook RegisterNatives to map native methods to addresses",
-	.description = "When called without arguments, lists captured JNI RegisterNatives invocations with className, method names, signatures and native function addresses. Call 'fridaRNj on' to arm the low-level JNI hook on the ART runtime (JNI function table offset 215). A USB/remote spawn already arms it. On a still-suspended spawn, arming also resumes. 'fridaRNj off' disarms and clears the buffer. 'fridaRNj import' imports the captured native method addresses into the rizin analysis class database. Requires an Android target with the Java VM available.",
-	.args = cmd_fridaRN_args,
+	.description = "When called without arguments, lists captured JNI RegisterNatives invocations with className, method names, signatures and native function addresses. Call 'FrRNj on' to arm the low-level JNI hook on the ART runtime (JNI function table offset 215). A USB/remote spawn already arms it. On a still-suspended spawn, arming also resumes. 'FrRNj off' disarms and clears the buffer. 'FrRNj import' imports the captured native method addresses into the rizin analysis class database. Requires an Android target with the Java VM available.",
+	.args = cmd_FrRN_args,
 };
 
-static const RzCmdDescArg cmd_fridaf_args[] = {
+static const RzCmdDescArg cmd_Frf_args[] = {
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaf_help = {
+static const RzCmdDescHelp cmd_Frf_help = {
 	.summary = "Import runtime modules as rizin flags",
-	.description = "Enumerates the target process modules via the rz-frida agent and imports their base addresses into the frida.libs flag space as rizin flags. Returns the count of modules imported.",
-	.args = cmd_fridaf_args,
+	.description = "Enumerates the target process modules via the rz-frida agent and imports their base addresses into the Fr.libs flag space as rizin flags. Returns the count of modules imported.",
+	.args = cmd_Frf_args,
 };
 
-static const RzCmdDescArg cmd_fridaX_args[] = {
+static const RzCmdDescArg cmd_FrX_args[] = {
 	{
 		.name = "prefix",
 		.type = RZ_CMD_ARG_TYPE_STRING,
@@ -817,22 +817,22 @@ static const RzCmdDescArg cmd_fridaX_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaX_help = {
+static const RzCmdDescHelp cmd_FrX_help = {
 	.summary = "Compare static binary classes with runtime Frida classes",
 	.description = "Compares classes from a loaded binary (DEX, ELF, etc.) with classes enumerated at runtime through the Frida agent. Reports only_static (in binary but not runtime), only_runtime (runtime but not binary), and both (present in both) with per-category counts. An optional prefix filters both sides. If no binary is loaded, all runtime classes are reported as only_runtime with loaded_bin:false.",
-	.args = cmd_fridaX_args,
+	.args = cmd_FrX_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaD_Examples_detail_entries[] = {
-	{ .text = "fridaDj ", .arg_str = "java.lang.String", .comment = "Describe String using the default system loader, Tab to autocomplete class names" },
-	{ .text = "fridaDj ", .arg_str = "com.example.Foo 3", .comment = "Describe Foo loaded by classloader id 3" },
+static const RzCmdDescDetailEntry cmd_FrD_Examples_detail_entries[] = {
+	{ .text = "FrDj ", .arg_str = "java.lang.String", .comment = "Describe String using the default system loader, Tab to autocomplete class names" },
+	{ .text = "FrDj ", .arg_str = "com.example.Foo 3", .comment = "Describe Foo loaded by classloader id 3" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaD_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaD_Examples_detail_entries },
+static const RzCmdDescDetail cmd_FrD_details[] = {
+	{ .name = "Examples", .entries = cmd_FrD_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaD_args[] = {
+static const RzCmdDescArg cmd_FrD_args[] = {
 	{
 		.name = "class",
 		.type = RZ_CMD_ARG_TYPE_CHOICES,
@@ -847,23 +847,23 @@ static const RzCmdDescArg cmd_fridaD_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaD_help = {
+static const RzCmdDescHelp cmd_FrD_help = {
 	.summary = "Describe a Java class in the target",
 	.description = "Describes a Java class in the target process through the rz-frida agent. Takes a fully qualified class name and an optional classloader id from a prior loader listing, extracts the superclass, interfaces, declared fields, declared methods, constructors, modifier flags, and Kotlin metadata when the class was compiled with the Kotlin compiler, and returns everything in a structured JSON envelope.",
-	.details = cmd_fridaD_details,
-	.args = cmd_fridaD_args,
+	.details = cmd_FrD_details,
+	.args = cmd_FrD_args,
 };
 
-static const RzCmdDescDetailEntry cmd_fridaIm_Examples_detail_entries[] = {
-	{ .text = "fridaImj ", .arg_str = "java.lang.String", .comment = "Import String using the default system loader, Tab to autocomplete class names" },
-	{ .text = "fridaImj ", .arg_str = "com.example.Foo 3", .comment = "Import Foo loaded by classloader id 3" },
+static const RzCmdDescDetailEntry cmd_FrIm_Examples_detail_entries[] = {
+	{ .text = "FrImj ", .arg_str = "java.lang.String", .comment = "Import String using the default system loader, Tab to autocomplete class names" },
+	{ .text = "FrImj ", .arg_str = "com.example.Foo 3", .comment = "Import Foo loaded by classloader id 3" },
 	{ 0 },
 };
-static const RzCmdDescDetail cmd_fridaIm_details[] = {
-	{ .name = "Examples", .entries = cmd_fridaIm_Examples_detail_entries },
+static const RzCmdDescDetail cmd_FrIm_details[] = {
+	{ .name = "Examples", .entries = cmd_FrIm_Examples_detail_entries },
 	{ 0 },
 };
-static const RzCmdDescArg cmd_fridaIm_args[] = {
+static const RzCmdDescArg cmd_FrIm_args[] = {
 	{
 		.name = "class",
 		.type = RZ_CMD_ARG_TYPE_CHOICES,
@@ -878,122 +878,122 @@ static const RzCmdDescArg cmd_fridaIm_args[] = {
 	},
 	{ 0 },
 };
-static const RzCmdDescHelp cmd_fridaIm_help = {
+static const RzCmdDescHelp cmd_FrIm_help = {
 	.summary = "Import a Java class description into rizin analysis",
 	.description = "Describes a Java class in the target through the rz-frida agent and imports its name, superclass, methods, and constructors into the rizin analysis class database. After import the class is visible with ac and acl. Takes a fully qualified class name and an optional classloader id.",
-	.details = cmd_fridaIm_details,
-	.args = cmd_fridaIm_args,
+	.details = cmd_FrIm_details,
+	.args = cmd_FrIm_args,
 };
 
 RZ_IPI void rzshell_cmddescs_init(RzCore *core) {
 	RzCmdDesc *root_cd = rz_cmd_get_root(core->rcmd);
 	rz_cmd_batch_start(core->rcmd);
 
-	RzCmdDesc *cmd_frida_cd = rz_cmd_desc_group_new(core->rcmd, root_cd, "frida", NULL, NULL, &cmd_frida_help);
-	rz_warn_if_fail(cmd_frida_cd);
-	RzCmdDesc *cmd_fridas_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridas", RZ_OUTPUT_MODE_STANDARD | RZ_OUTPUT_MODE_JSON, rz_cmd_fridas_handler, &cmd_fridas_help);
-	rz_warn_if_fail(cmd_fridas_cd);
+	RzCmdDesc *cmd_Fr_cd = rz_cmd_desc_group_new(core->rcmd, root_cd, "Fr", NULL, NULL, &cmd_Fr_help);
+	rz_warn_if_fail(cmd_Fr_cd);
+	RzCmdDesc *cmd_Frs_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frs", RZ_OUTPUT_MODE_STANDARD | RZ_OUTPUT_MODE_JSON, rz_cmd_Frs_handler, &cmd_Frs_help);
+	rz_warn_if_fail(cmd_Frs_cd);
 
-	RzCmdDesc *cmd_fridau_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridau", RZ_OUTPUT_MODE_STANDARD | RZ_OUTPUT_MODE_JSON, rz_cmd_fridau_handler, &cmd_fridau_help);
-	rz_warn_if_fail(cmd_fridau_cd);
+	RzCmdDesc *cmd_Fru_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Fru", RZ_OUTPUT_MODE_STANDARD | RZ_OUTPUT_MODE_JSON, rz_cmd_Fru_handler, &cmd_Fru_help);
+	rz_warn_if_fail(cmd_Fru_cd);
 
-	RzCmdDesc *cmd_fridad_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridad", RZ_OUTPUT_MODE_JSON, rz_cmd_fridad_handler, &cmd_fridad_help);
-	rz_warn_if_fail(cmd_fridad_cd);
+	RzCmdDesc *cmd_Frd_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frd", RZ_OUTPUT_MODE_JSON, rz_cmd_Frd_handler, &cmd_Frd_help);
+	rz_warn_if_fail(cmd_Frd_cd);
 
-	RzCmdDesc *cmd_fridap_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridap", RZ_OUTPUT_MODE_JSON, rz_cmd_fridap_handler, &cmd_fridap_help);
-	rz_warn_if_fail(cmd_fridap_cd);
+	RzCmdDesc *cmd_Frp_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frp", RZ_OUTPUT_MODE_JSON, rz_cmd_Frp_handler, &cmd_Frp_help);
+	rz_warn_if_fail(cmd_Frp_cd);
 
-	RzCmdDesc *cmd_fridaa_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaa", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaa_handler, &cmd_fridaa_help);
-	rz_warn_if_fail(cmd_fridaa_cd);
+	RzCmdDesc *cmd_Fra_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Fra", RZ_OUTPUT_MODE_JSON, rz_cmd_Fra_handler, &cmd_Fra_help);
+	rz_warn_if_fail(cmd_Fra_cd);
 
-	RzCmdDesc *cmd_fridao_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridao", RZ_OUTPUT_MODE_JSON, rz_cmd_fridao_handler, &cmd_fridao_help);
-	rz_warn_if_fail(cmd_fridao_cd);
+	RzCmdDesc *cmd_Fro_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Fro", RZ_OUTPUT_MODE_JSON, rz_cmd_Fro_handler, &cmd_Fro_help);
+	rz_warn_if_fail(cmd_Fro_cd);
 
-	RzCmdDesc *cmd_fridar_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridar", RZ_OUTPUT_MODE_JSON, rz_cmd_fridar_handler, &cmd_fridar_help);
-	rz_warn_if_fail(cmd_fridar_cd);
+	RzCmdDesc *cmd_Frr_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frr", RZ_OUTPUT_MODE_JSON, rz_cmd_Frr_handler, &cmd_Frr_help);
+	rz_warn_if_fail(cmd_Frr_cd);
 
-	RzCmdDesc *cmd_fridac_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridac", RZ_OUTPUT_MODE_JSON, rz_cmd_fridac_handler, &cmd_fridac_help);
-	rz_warn_if_fail(cmd_fridac_cd);
+	RzCmdDesc *cmd_Frc_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frc", RZ_OUTPUT_MODE_JSON, rz_cmd_Frc_handler, &cmd_Frc_help);
+	rz_warn_if_fail(cmd_Frc_cd);
 
-	RzCmdDesc *cmd_fridae_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridae", RZ_OUTPUT_MODE_JSON, rz_cmd_fridae_handler, &cmd_fridae_help);
-	rz_warn_if_fail(cmd_fridae_cd);
+	RzCmdDesc *cmd_Fre_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Fre", RZ_OUTPUT_MODE_JSON, rz_cmd_Fre_handler, &cmd_Fre_help);
+	rz_warn_if_fail(cmd_Fre_cd);
 
-	RzCmdDesc *cmd_fridal_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridal", RZ_OUTPUT_MODE_JSON, rz_cmd_fridal_handler, &cmd_fridal_help);
-	rz_warn_if_fail(cmd_fridal_cd);
+	RzCmdDesc *cmd_Frl_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frl", RZ_OUTPUT_MODE_JSON, rz_cmd_Frl_handler, &cmd_Frl_help);
+	rz_warn_if_fail(cmd_Frl_cd);
 
-	RzCmdDesc *cmd_fridai_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridai", RZ_OUTPUT_MODE_JSON, rz_cmd_fridai_handler, &cmd_fridai_help);
-	rz_warn_if_fail(cmd_fridai_cd);
+	RzCmdDesc *cmd_Fri_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Fri", RZ_OUTPUT_MODE_JSON, rz_cmd_Fri_handler, &cmd_Fri_help);
+	rz_warn_if_fail(cmd_Fri_cd);
 
-	RzCmdDesc *cmd_fridam_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridam", RZ_OUTPUT_MODE_JSON, rz_cmd_fridam_handler, &cmd_fridam_help);
-	rz_warn_if_fail(cmd_fridam_cd);
+	RzCmdDesc *cmd_Frm_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frm", RZ_OUTPUT_MODE_JSON, rz_cmd_Frm_handler, &cmd_Frm_help);
+	rz_warn_if_fail(cmd_Frm_cd);
 
-	RzCmdDesc *cmd_fridax_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridax", RZ_OUTPUT_MODE_JSON, rz_cmd_fridax_handler, &cmd_fridax_help);
-	rz_warn_if_fail(cmd_fridax_cd);
+	RzCmdDesc *cmd_Frx_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frx", RZ_OUTPUT_MODE_JSON, rz_cmd_Frx_handler, &cmd_Frx_help);
+	rz_warn_if_fail(cmd_Frx_cd);
 
-	RzCmdDesc *cmd_fridaw_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaw", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaw_handler, &cmd_fridaw_help);
-	rz_warn_if_fail(cmd_fridaw_cd);
+	RzCmdDesc *cmd_Frw_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frw", RZ_OUTPUT_MODE_JSON, rz_cmd_Frw_handler, &cmd_Frw_help);
+	rz_warn_if_fail(cmd_Frw_cd);
 
-	RzCmdDesc *cmd_fridaR_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaR", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaR_handler, &cmd_fridaR_help);
-	rz_warn_if_fail(cmd_fridaR_cd);
+	RzCmdDesc *cmd_FrR_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrR", RZ_OUTPUT_MODE_JSON, rz_cmd_FrR_handler, &cmd_FrR_help);
+	rz_warn_if_fail(cmd_FrR_cd);
 
-	RzCmdDesc *cmd_fridat_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridat", RZ_OUTPUT_MODE_JSON, rz_cmd_fridat_handler, &cmd_fridat_help);
-	rz_warn_if_fail(cmd_fridat_cd);
+	RzCmdDesc *cmd_Frt_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frt", RZ_OUTPUT_MODE_JSON, rz_cmd_Frt_handler, &cmd_Frt_help);
+	rz_warn_if_fail(cmd_Frt_cd);
 
-	RzCmdDesc *cmd_fridaM_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaM", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaM_handler, &cmd_fridaM_help);
-	rz_warn_if_fail(cmd_fridaM_cd);
+	RzCmdDesc *cmd_FrM_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrM", RZ_OUTPUT_MODE_JSON, rz_cmd_FrM_handler, &cmd_FrM_help);
+	rz_warn_if_fail(cmd_FrM_cd);
 
-	RzCmdDesc *cmd_fridaE_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaE", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaE_handler, &cmd_fridaE_help);
-	rz_warn_if_fail(cmd_fridaE_cd);
+	RzCmdDesc *cmd_FrE_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrE", RZ_OUTPUT_MODE_JSON, rz_cmd_FrE_handler, &cmd_FrE_help);
+	rz_warn_if_fail(cmd_FrE_cd);
 
-	RzCmdDesc *cmd_fridaI_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaI", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaI_handler, &cmd_fridaI_help);
-	rz_warn_if_fail(cmd_fridaI_cd);
+	RzCmdDesc *cmd_FrI_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrI", RZ_OUTPUT_MODE_JSON, rz_cmd_FrI_handler, &cmd_FrI_help);
+	rz_warn_if_fail(cmd_FrI_cd);
 
-	RzCmdDesc *cmd_fridaS_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaS", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaS_handler, &cmd_fridaS_help);
-	rz_warn_if_fail(cmd_fridaS_cd);
+	RzCmdDesc *cmd_FrS_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrS", RZ_OUTPUT_MODE_JSON, rz_cmd_FrS_handler, &cmd_FrS_help);
+	rz_warn_if_fail(cmd_FrS_cd);
 
-	RzCmdDesc *cmd_fridab_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridab", RZ_OUTPUT_MODE_JSON, rz_cmd_fridab_handler, &cmd_fridab_help);
-	rz_warn_if_fail(cmd_fridab_cd);
+	RzCmdDesc *cmd_Frb_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frb", RZ_OUTPUT_MODE_JSON, rz_cmd_Frb_handler, &cmd_Frb_help);
+	rz_warn_if_fail(cmd_Frb_cd);
 
-	RzCmdDesc *cmd_fridab_minus_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridab-", RZ_OUTPUT_MODE_JSON, rz_cmd_fridab_minus_handler, &cmd_fridab_minus_help);
-	rz_warn_if_fail(cmd_fridab_minus_cd);
+	RzCmdDesc *cmd_Frb_minus_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frb-", RZ_OUTPUT_MODE_JSON, rz_cmd_Frb_minus_handler, &cmd_Frb_minus_help);
+	rz_warn_if_fail(cmd_Frb_minus_cd);
 
-	RzCmdDesc *cmd_fridag_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridag", RZ_OUTPUT_MODE_JSON, rz_cmd_fridag_handler, &cmd_fridag_help);
-	rz_warn_if_fail(cmd_fridag_cd);
+	RzCmdDesc *cmd_Frg_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frg", RZ_OUTPUT_MODE_JSON, rz_cmd_Frg_handler, &cmd_Frg_help);
+	rz_warn_if_fail(cmd_Frg_cd);
 
-	RzCmdDesc *cmd_fridaB_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaB", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaB_handler, &cmd_fridaB_help);
-	rz_warn_if_fail(cmd_fridaB_cd);
+	RzCmdDesc *cmd_FrB_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrB", RZ_OUTPUT_MODE_JSON, rz_cmd_FrB_handler, &cmd_FrB_help);
+	rz_warn_if_fail(cmd_FrB_cd);
 
-	RzCmdDesc *cmd_fridaW_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaW", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaW_handler, &cmd_fridaW_help);
-	rz_warn_if_fail(cmd_fridaW_cd);
+	RzCmdDesc *cmd_FrW_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrW", RZ_OUTPUT_MODE_JSON, rz_cmd_FrW_handler, &cmd_FrW_help);
+	rz_warn_if_fail(cmd_FrW_cd);
 
-	RzCmdDesc *cmd_fridaW_minus_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaW-", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaW_minus_handler, &cmd_fridaW_minus_help);
-	rz_warn_if_fail(cmd_fridaW_minus_cd);
+	RzCmdDesc *cmd_FrW_minus_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrW-", RZ_OUTPUT_MODE_JSON, rz_cmd_FrW_minus_handler, &cmd_FrW_minus_help);
+	rz_warn_if_fail(cmd_FrW_minus_cd);
 
-	RzCmdDesc *cmd_fridaJ_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaJ", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaJ_handler, &cmd_fridaJ_help);
-	rz_warn_if_fail(cmd_fridaJ_cd);
+	RzCmdDesc *cmd_FrJ_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrJ", RZ_OUTPUT_MODE_JSON, rz_cmd_FrJ_handler, &cmd_FrJ_help);
+	rz_warn_if_fail(cmd_FrJ_cd);
 
-	RzCmdDesc *cmd_fridaL_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaL", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaL_handler, &cmd_fridaL_help);
-	rz_warn_if_fail(cmd_fridaL_cd);
+	RzCmdDesc *cmd_FrL_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrL", RZ_OUTPUT_MODE_JSON, rz_cmd_FrL_handler, &cmd_FrL_help);
+	rz_warn_if_fail(cmd_FrL_cd);
 
-	RzCmdDesc *cmd_fridaC_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaC", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaC_handler, &cmd_fridaC_help);
-	rz_warn_if_fail(cmd_fridaC_cd);
+	RzCmdDesc *cmd_FrC_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrC", RZ_OUTPUT_MODE_JSON, rz_cmd_FrC_handler, &cmd_FrC_help);
+	rz_warn_if_fail(cmd_FrC_cd);
 
-	RzCmdDesc *cmd_fridaN_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaN", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaN_handler, &cmd_fridaN_help);
-	rz_warn_if_fail(cmd_fridaN_cd);
+	RzCmdDesc *cmd_FrN_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrN", RZ_OUTPUT_MODE_JSON, rz_cmd_FrN_handler, &cmd_FrN_help);
+	rz_warn_if_fail(cmd_FrN_cd);
 
-	RzCmdDesc *cmd_fridaRN_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaRN", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaRN_handler, &cmd_fridaRN_help);
-	rz_warn_if_fail(cmd_fridaRN_cd);
+	RzCmdDesc *cmd_FrRN_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrRN", RZ_OUTPUT_MODE_JSON, rz_cmd_FrRN_handler, &cmd_FrRN_help);
+	rz_warn_if_fail(cmd_FrRN_cd);
 
-	RzCmdDesc *cmd_fridaf_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaf", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaf_handler, &cmd_fridaf_help);
-	rz_warn_if_fail(cmd_fridaf_cd);
+	RzCmdDesc *cmd_Frf_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "Frf", RZ_OUTPUT_MODE_JSON, rz_cmd_Frf_handler, &cmd_Frf_help);
+	rz_warn_if_fail(cmd_Frf_cd);
 
-	RzCmdDesc *cmd_fridaX_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaX", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaX_handler, &cmd_fridaX_help);
-	rz_warn_if_fail(cmd_fridaX_cd);
+	RzCmdDesc *cmd_FrX_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrX", RZ_OUTPUT_MODE_JSON, rz_cmd_FrX_handler, &cmd_FrX_help);
+	rz_warn_if_fail(cmd_FrX_cd);
 
-	RzCmdDesc *cmd_fridaD_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaD", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaD_handler, &cmd_fridaD_help);
-	rz_warn_if_fail(cmd_fridaD_cd);
+	RzCmdDesc *cmd_FrD_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrD", RZ_OUTPUT_MODE_JSON, rz_cmd_FrD_handler, &cmd_FrD_help);
+	rz_warn_if_fail(cmd_FrD_cd);
 
-	RzCmdDesc *cmd_fridaIm_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_frida_cd, "fridaIm", RZ_OUTPUT_MODE_JSON, rz_cmd_fridaIm_handler, &cmd_fridaIm_help);
-	rz_warn_if_fail(cmd_fridaIm_cd);
+	RzCmdDesc *cmd_FrIm_cd = rz_cmd_desc_argv_state_new(core->rcmd, cmd_Fr_cd, "FrIm", RZ_OUTPUT_MODE_JSON, rz_cmd_FrIm_handler, &cmd_FrIm_help);
+	rz_warn_if_fail(cmd_FrIm_cd);
 	rz_cmd_batch_end(core->rcmd);
 }

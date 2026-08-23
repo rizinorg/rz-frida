@@ -608,13 +608,13 @@ assert.deepStrictEqual(roundtrip({ id: 42, type: 'bpList' }),
 	{ id: 42, ok: true, result: { breakpoints: [{ bp: 1, address: '0x1000' }] } },
 	'bpList reports the breakpoints that are set');
 
-// fire the captured onEnter: it emits the async frida.bp event, then parks on
+// fire the captured onEnter: it emits the async Fr.bp event, then parks on
 // its own per-thread channel until the typed continue from the recv mock frees it.
 const beforeHit = sent.length;
 continueDeliverId = 500;
 interceptors.get('0x1000').onEnter.call({ context: { pc: new FakePtr(0x1000), sp: new FakePtr(0x7000) } });
 const hit = sent[beforeHit].message;
-assert.strictEqual(hit.type, 'frida.bp', 'a hit emits a frida.bp event');
+assert.strictEqual(hit.type, 'Fr.bp', 'a hit emits a Fr.bp event');
 assert.strictEqual(hit.bp, 1, 'the hit event names the breakpoint id under bp, not id');
 assert.strictEqual(hit.id, undefined, 'the hit event has no top-level id so it is never read as a reply');
 assert.strictEqual(hit.address, '0x1000', 'the hit event names the address');
@@ -658,7 +658,7 @@ const beforeReg = sent.length;
 continueDeliverId = 501;
 interceptors.get('0x4000').onEnter.call({ context: { pc: new FakePtr(0x4000), sp: new FakePtr(0x9000) } });
 
-assert.strictEqual(sent[beforeReg].message.type, 'frida.bp', 'the register hit emits a frida.bp event');
+assert.strictEqual(sent[beforeReg].message.type, 'Fr.bp', 'the register hit emits a Fr.bp event');
 assert.deepStrictEqual(sent[beforeReg + 1].message,
 	{ id: 52, ok: true, result: { threadId: 4242, bp: regBp, address: '0x4000' } },
 	'regRead returns the stop identity of the parked thread');
@@ -689,7 +689,7 @@ assert.strictEqual(regNoValue.error, 'thread 4242 is not stopped at a breakpoint
 
 roundtrip({ id: 59, type: 'bpRemove', params: { address: '0x4000' } });
 
-// hardware watchpoints armed on every thread, access reported as frida.wp event.
+// hardware watchpoints armed on every thread, access reported as Fr.wp event.
 assert.deepStrictEqual(roundtrip({ id: 60, type: 'wpSet', params: { address: '0x8000', size: 8, conditions: 'w' } }),
 	{ id: 60, ok: true, result: { slot: 0, address: '0x8000', size: 8, conditions: 'w' } },
 	'wpSet arms a watchpoint and returns its slot');
@@ -705,14 +705,14 @@ assert.deepStrictEqual(roundtrip({ id: 63, type: 'wpList' }),
 	{ id: 63, ok: true, result: { watchpoints: [{ slot: 0, address: '0x8000', size: 8, conditions: 'w' }] } },
 	'wpList reports the watchpoints that are set');
 
-// fire captured exception handler with a watchpoint trap, emits frida.wp and disarms.
+// fire captured exception handler with a watchpoint trap, emits Fr.wp and disarms.
 assert.ok(typeof exceptionHandler === 'function', 'the first watchpoint installs the exception handler');
 const beforeWp = sent.length;
 const handled = exceptionHandler({ type: 'breakpoint', memory: { operation: 'write', address: new FakePtr(0x8000) },
 	context: { pc: new FakePtr(0x4444), sp: new FakePtr(0x9000) } });
 assert.strictEqual(handled, true, 'the watchpoint trap is handled');
 const wpHit = sent[beforeWp].message;
-assert.strictEqual(wpHit.type, 'frida.wp', 'a watchpoint access emits a frida.wp event');
+assert.strictEqual(wpHit.type, 'Fr.wp', 'a watchpoint access emits a Fr.wp event');
 assert.strictEqual(wpHit.id, undefined, 'the wp event has no top-level id so it is never read as a reply');
 assert.strictEqual(wpHit.threadId, 4242, 'the wp event carries the faulting thread id');
 assert.strictEqual(wpHit.operation, 'write', 'the wp event names the access operation');
@@ -962,9 +962,9 @@ assert.strictEqual(rnList2.result.count, 1, 'rnList count matches');
 assert.strictEqual(rnList2.result.invocations[0].className, 'com.example.TestClass', 'entry class name is correct');
 assert.strictEqual(rnList2.result.invocations[0].methods[0].name, 'nativeMethod', 'entry method name is correct');
 const rnHitEvt = sent.slice(beforeRnHit).find(function (s) {
-	return s.message && s.message.type === 'frida.rn';
+	return s.message && s.message.type === 'Fr.rn';
 });
-assert.ok(rnHitEvt, 'rnList flush emits frida.rn');
+assert.ok(rnHitEvt, 'rnList flush emits Fr.rn');
 assert.strictEqual(rnHitEvt.message.className, 'com.example.TestClass', 'rn event carries the class name');
 assert.strictEqual(rnHitEvt.message.methods.length, 2, 'rn event carries the methods array');
 
@@ -989,7 +989,7 @@ assert.strictEqual(sent.length, sentBeforeWarn1, 'oversized nMethods does not se
 const beforeRnWarn1 = sent.length;
 roundtrip({ id: 119, type: 'rnList', params: {} });
 const oversized = sent.slice(beforeRnWarn1).find(function (s) {
-	return s.message && s.message.type === 'frida.rn.warn';
+	return s.message && s.message.type === 'Fr.rn.warn';
 });
 assert.ok(oversized, 'oversized nMethods emits a warning on flush');
 assert.ok(/exceeds cap/.test(oversized.message.message), 'warning names the cap');
@@ -1003,10 +1003,10 @@ assert.strictEqual(sent.length, sentBeforeNull, 'null methodsPtr does not send f
 const beforeNullPtr = sent.length;
 roundtrip({ id: 1201, type: 'rnList', params: {} });
 const nullPtrWarn = sent.slice(beforeNullPtr).find(function (s) {
-	return s.message && s.message.type === 'frida.rn.warn';
+	return s.message && s.message.type === 'Fr.rn.warn';
 });
 assert.ok(nullPtrWarn, 'null methodsPtr emits a warning on flush');
-assert.strictEqual(nullPtrWarn.message.type, 'frida.rn.warn', 'null methodsPtr warning type is correct');
+assert.strictEqual(nullPtrWarn.message.type, 'Fr.rn.warn', 'null methodsPtr warning type is correct');
 
 // rnSet warnings — buffer full
 roundtrip({ id: 121, type: 'rnSet', params: { enable: true } });
@@ -1022,7 +1022,7 @@ assert.strictEqual(sent.length, sentBeforeBufFull, 'buffer-full interceptor does
 const beforeRnBufFull = sent.length;
 roundtrip({ id: 1211, type: 'rnList', params: {} });
 const bufFullWarn = sent.slice(beforeRnBufFull).find(function (s) {
-	return s.message && s.message.type === 'frida.rn.warn';
+	return s.message && s.message.type === 'Fr.rn.warn';
 });
 assert.ok(bufFullWarn, 'buffer full emits a warning');
 assert.ok(/rnBuffer full/.test(bufFullWarn.message.message), 'warning names the buffer limit');
