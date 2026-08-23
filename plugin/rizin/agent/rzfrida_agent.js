@@ -17,12 +17,21 @@ let nextLoaderId = 1;
 let loadClassMonitorEnabled = false;
 const seenLoadedClasses = new Set();
 let rnHookEnabled = false;
-let rnInterceptor = null;
+let rnInterceptors = [];
+let rnDepth = {};
 const rnBuffer = [];
+const rnPending = [];
 const RN_BUFFER_MAX = 512;
-const RN_JNI_TABLE_OFFSET = 218;         // JNI function table entry for RegisterNatives (fcn 215 + 3 reserved slots)
-const RN_JNI_TABLE_OFFSET_FALLBACK = 215; // fallback for older ART where reserved slots arent there
+const RN_JNI_REGISTER_NATIVES = 215; // JNINativeInterface.RegisterNatives
+const RN_JNI_NEW_GLOBAL_REF = 21;
+const RN_JNI_DELETE_GLOBAL_REF = 22;
+const RN_JNI_GET_ENV = 6;
+const RN_JNI_ATTACH_CURRENT_THREAD = 4;
 const RN_MAX_METHODS = 16384;
+let rnNewGlobalRefFn = null;
+let rnNewGlobalRefTable = null;
+let rnDeleteGlobalRefFn = null;
+let rnDeleteGlobalRefTable = null;
 
 function isJavaAvailable() {
   try {
@@ -65,7 +74,8 @@ function classList(params) {
     return { classes: [], total: 0, truncated: false, javaUnavailable: true };
   }
   const prefix = typeof params.prefix === 'string' ? params.prefix : '';
-  const max = (typeof params.max === 'number' && params.max > 0) ? params.max : 512;
+  const hasCap = typeof params.max === 'number' && params.max > 0;
+  const max = hasCap ? params.max : Number.POSITIVE_INFINITY;
   const classes = [];
   Java.performNow(function () {
     const all = Java.enumerateLoadedClassesSync();
@@ -80,7 +90,7 @@ function classList(params) {
       classes.push({ name: s });
     }
   });
-  return { classes: classes, total: classes.length, truncated: classes.length >= max };
+  return { classes: classes, total: classes.length, truncated: hasCap && classes.length >= max };
 }
 
 function mapModifiers(modifiers) {
@@ -236,6 +246,18 @@ function toHex(buffer) {
 }
 
 function fromHex(text) {
+  if (typeof text !== 'string') {
+    throw new Error('hex input must be a string');
+  }
+  let cleaned = '';
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 0x21 || code === 0x7f) {
+      continue;
+    }
+    cleaned += text.charAt(i);
+  }
+  text = cleaned;
   if (/^0x/i.test(text)) {
     text = text.slice(2);
   }
@@ -465,6 +487,22 @@ function stoppedThread(params) {
   return entry;
 }
 
+function sanitizeRegisterName(name) {
+  if (typeof name !== 'string') {
+    return '';
+  }
+  // strip Ctrl-V (U+0016) from pasted names.
+  let out = '';
+  for (let i = 0; i < name.length; i++) {
+    const code = name.charCodeAt(i);
+    if (code < 0x21 || code === 0x7f) {
+      continue;
+    }
+    out += name.charAt(i);
+  }
+  return out;
+}
+
 function regRead(params) {
   const entry = stoppedThread(params);
   return { threadId: params.threadId, bp: entry.bp, address: entry.address };
@@ -472,7 +510,8 @@ function regRead(params) {
 
 function regWrite(params) {
   const entry = stoppedThread(params);
-  if (typeof params.register !== 'string' || params.register.length === 0) {
+  const register = sanitizeRegisterName(params.register);
+  if (!register) {
     throw new Error('a register write requires a register name');
   }
   if (params.value === undefined || params.value === null || params.value === '') {
@@ -480,11 +519,11 @@ function regWrite(params) {
   }
   // own property check only, so inherited names arent written.
   const snapshot = serialize(entry.context);
-  if (!Object.prototype.hasOwnProperty.call(snapshot, params.register)) {
-    throw new Error('no register named ' + params.register);
+  if (!Object.prototype.hasOwnProperty.call(snapshot, register)) {
+    throw new Error('no register named ' + register);
   }
-  entry.context[params.register] = ptr(params.value);
-  return { threadId: params.threadId, register: params.register, value: entry.context[params.register].toString() };
+  entry.context[register] = ptr(params.value);
+  return { threadId: params.threadId, register: register, value: entry.context[register].toString() };
 }
 
 function watchpointConditions(value) {
@@ -686,14 +725,201 @@ function newlyLoadedClassesGet() {
     return { classes: result, count: result.length, monitor: loadClassMonitorEnabled };
 }
 
-function rnSet(params) {
+function rnJavaAvailable() {
     try {
-      if (typeof Java === 'undefined' || !Java.available) {
-        return { enabled: false, javaUnavailable: true };
-      }
+        return typeof Java !== 'undefined' && Java.available;
     } catch (_) {
-      return { enabled: false, javaUnavailable: true };
+        return false;
     }
+}
+
+function rnAddAddr(seen, addr) {
+    if (!addr) {
+        return;
+    }
+    if (typeof addr.isNull === 'function' && addr.isNull()) {
+        return;
+    }
+    seen[addr.toString()] = true;
+}
+
+function rnEnvFromCreatedVms() {
+    if (typeof Module === 'undefined' || typeof NativeFunction !== 'function' || typeof Memory === 'undefined') {
+        return null;
+    }
+    let getCreated = null;
+    try {
+        getCreated = Module.findExportByName('libart.so', 'JNI_GetCreatedJavaVMs') ||
+            Module.findExportByName(null, 'JNI_GetCreatedJavaVMs');
+    } catch (_) {
+        return null;
+    }
+    if (!getCreated) {
+        return null;
+    }
+    try {
+        const JNI_GetCreatedJavaVMs = new NativeFunction(getCreated, 'int', ['pointer', 'int', 'pointer']);
+        const vmBuf = Memory.alloc(Process.pointerSize);
+        const nVms = Memory.alloc(4);
+        if (JNI_GetCreatedJavaVMs(vmBuf, 1, nVms) !== 0) {
+            return null;
+        }
+        let n = 0;
+        if (typeof nVms.readS32 === 'function') {
+            n = nVms.readS32();
+        } else if (typeof nVms.readInt === 'function') {
+            n = nVms.readInt();
+        } else {
+            return null;
+        }
+        if (n < 1) {
+            return null;
+        }
+        const vm = vmBuf.readPointer();
+        if (!vm || vm.isNull()) {
+            return null;
+        }
+        const functions = vm.readPointer();
+        const ps = Process.pointerSize;
+        const GetEnv = new NativeFunction(functions.add(RN_JNI_GET_ENV * ps).readPointer(), 'int', ['pointer', 'pointer', 'int']);
+        const envBuf = Memory.alloc(Process.pointerSize);
+        const JNI_VERSION_1_6 = 0x00010006;
+        let status = GetEnv(vm, envBuf, JNI_VERSION_1_6);
+        if (status === -2) {
+            const Attach = new NativeFunction(functions.add(RN_JNI_ATTACH_CURRENT_THREAD * ps).readPointer(), 'int', ['pointer', 'pointer', 'pointer']);
+            if (Attach(vm, envBuf, ptr(0)) !== 0) {
+                return null;
+            }
+        } else if (status !== 0) {
+            return null;
+        }
+        const env = envBuf.readPointer();
+        if (!env || env.isNull()) {
+            return null;
+        }
+        return env;
+    } catch (_) {
+        return null;
+    }
+}
+
+function rnEnvFromJava() {
+    try {
+        if (rnJavaAvailable()) {
+            return Java.vm.getEnv().handle;
+        }
+    } catch (_) {
+        /* not available */
+    }
+    return null;
+}
+
+function rnRegisterNativesFromTable(envPtr, seen) {
+    if (!envPtr || !envPtr.readPointer) {
+        return;
+    }
+    try {
+        const table = envPtr.readPointer();
+        if (!table || table.isNull()) {
+            return;
+        }
+        rnAddAddr(seen, table.add(RN_JNI_REGISTER_NATIVES * Process.pointerSize).readPointer());
+    } catch (_) {
+        /* not available */
+    }
+}
+
+function rnRegisterNativesFromLibart(seen) {
+    if (typeof Process === 'undefined' || typeof Process.findModuleByName !== 'function') {
+        return;
+    }
+    try {
+        const art = Process.findModuleByName('libart.so');
+        if (!art || typeof art.enumerateSymbols !== 'function') {
+            return;
+        }
+        const symbols = art.enumerateSymbols();
+        for (let i = 0; i < symbols.length; i++) {
+            const name = symbols[i].name;
+            if (name.indexOf('art') >= 0 &&
+                name.indexOf('JNI') >= 0 &&
+                name.indexOf('RegisterNatives') >= 0 &&
+                name.indexOf('CheckJNI') < 0) {
+                rnAddAddr(seen, symbols[i].address);
+            }
+        }
+    } catch (_) {
+        /* not available */
+    }
+}
+
+function rnNewGlobalRef(envPtr, localRef) {
+    if (!envPtr || !localRef) {
+        return localRef;
+    }
+    if (envPtr.isNull && envPtr.isNull()) {
+        return localRef;
+    }
+    if (localRef.isNull && localRef.isNull()) {
+        return localRef;
+    }
+    if (typeof NativeFunction !== 'function' || !envPtr.readPointer) {
+        return localRef;
+    }
+    try {
+        const table = envPtr.readPointer();
+        const key = table.toString();
+        if (!rnNewGlobalRefFn || rnNewGlobalRefTable !== key) {
+            rnNewGlobalRefFn = new NativeFunction(table.add(RN_JNI_NEW_GLOBAL_REF * Process.pointerSize).readPointer(), 'pointer', ['pointer', 'pointer']);
+            rnNewGlobalRefTable = key;
+        }
+        return rnNewGlobalRefFn(envPtr, localRef);
+    } catch (_) {
+        return localRef;
+    }
+}
+
+function rnDeleteGlobalRef(envPtr, globalRef) {
+    if (!envPtr || !globalRef) {
+        return;
+    }
+    if (envPtr.isNull && envPtr.isNull()) {
+        return;
+    }
+    if (globalRef.isNull && globalRef.isNull()) {
+        return;
+    }
+    if (typeof NativeFunction !== 'function' || !envPtr.readPointer) {
+        return;
+    }
+    try {
+        const table = envPtr.readPointer();
+        const key = table.toString();
+        if (!rnDeleteGlobalRefFn || rnDeleteGlobalRefTable !== key) {
+            rnDeleteGlobalRefFn = new NativeFunction(
+                table.add(RN_JNI_DELETE_GLOBAL_REF * Process.pointerSize).readPointer(),
+                'void',
+                ['pointer', 'pointer']
+            );
+            rnDeleteGlobalRefTable = key;
+        }
+        rnDeleteGlobalRefFn(envPtr, globalRef);
+    } catch (_) {
+        /* not available */
+    }
+}
+
+function rnQueuedCount() {
+    let n = rnBuffer.length;
+    for (let i = 0; i < rnPending.length; i++) {
+        if (rnPending[i] && rnPending[i].methods) {
+            n++;
+        }
+    }
+    return n;
+}
+
+function rnSet(params) {
     if (typeof params.enable !== 'boolean') {
         throw new Error('rnSet requires an enable boolean');
     }
@@ -701,103 +927,159 @@ function rnSet(params) {
         if (rnHookEnabled) {
             return { enabled: true, invocations: rnBuffer.length };
         }
-        // libart symbols
-        const env = Java.vm.getEnv();
         const ps = Process.pointerSize;
-        let rnAddr = null;
-        try {
-            const art = Process.findModuleByName('libart.so');
-            if (art) {
-                const symbols = art.enumerateSymbols();
-                for (let i = 0; i < symbols.length; i++) {
-                    const name = symbols[i].name;
-                    if (name.indexOf('art') >= 0 &&
-                        name.indexOf('JNI') >= 0 &&
-                        name.indexOf('RegisterNatives') >= 0 &&
-                        name.indexOf('CheckJNI') < 0) {
-                        rnAddr = symbols[i].address;
-                        break;
-                    }
-                }
-            }
-        } catch (e) {
-            /* not available */
+        const rnSeen = {};
+        // GetCreatedJavaVMs, then libart, then Java.vm.getEnv().
+        rnRegisterNativesFromTable(rnEnvFromCreatedVms(), rnSeen);
+        if (!Object.keys(rnSeen).length) {
+            rnRegisterNativesFromLibart(rnSeen);
         }
-        // fallback: JNI table index 218 (fcn 215 + 3 reserved slots)
-        if (!rnAddr) {
-            const tablePtr = env.handle.readPointer();
-            if (!tablePtr.isNull()) {
-                rnAddr = tablePtr.add(RN_JNI_TABLE_OFFSET * ps).readPointer();
-                if (rnAddr.isNull()) {
-                    rnAddr = tablePtr.add(RN_JNI_TABLE_OFFSET_FALLBACK * ps).readPointer();
-                }
-            }
+        if (!Object.keys(rnSeen).length) {
+            rnRegisterNativesFromTable(rnEnvFromJava(), rnSeen);
         }
-        if (!rnAddr || rnAddr.isNull()) {
+        const rnAddrs = Object.keys(rnSeen).map(function (k) { return ptr(k); });
+        if (!rnAddrs.length) {
+            if (!rnJavaAvailable()) {
+                return { enabled: false, javaUnavailable: true };
+            }
             throw new Error('RegisterNatives entry not found; is this an Android target with libart.so?');
         }
-        rnInterceptor = Interceptor.attach(rnAddr, {
-            onEnter: function (args) {
-                try {
-                    const nMethods = args[3].toInt32();
-                    if (nMethods <= 0 || nMethods > RN_MAX_METHODS) {
-                        if (nMethods > RN_MAX_METHODS) {
-                            send({ type: 'frida.rn.warn', message: 'RegisterNatives called with ' + nMethods + ' methods, exceeds cap ' + RN_MAX_METHODS });
-                        }
-                        return;
-                    }
-                    if (rnBuffer.length >= RN_BUFFER_MAX) {
-                        send({ type: 'frida.rn.warn', message: 'rnBuffer full (' + RN_BUFFER_MAX + ' entries), dropping RegisterNatives invocation' });
-                        return;
-                    }
-                    const methodsPtr = args[2];
-                    if (methodsPtr.isNull()) {
-                        send({ type: 'frida.rn.warn', message: 'RegisterNatives called with null methodsPtr' });
-                        return;
-                    }
-                    const clsName = env.getClassName(args[1]);
-                    const methods = [];
-                    for (let i = 0; i < nMethods; i++) {
-                        const off = i * 3 * ps; // i-th JNINativeMethod: {name, signature, fnPtr} x pointerSize
-                        const namePtr = methodsPtr.add(off).readPointer();
-                        if (namePtr.isNull()) {
-                            continue;
-                        }
-                        const sigPtr = methodsPtr.add(off + ps).readPointer();
-                        const fnPtr = methodsPtr.add(off + 2 * ps).readPointer();
-                        if (fnPtr.isNull()) {
-                            continue;
-                        }
-                        methods.push({
-                            name: namePtr.readUtf8String(),
-                            signature: sigPtr.isNull() ? '' : sigPtr.readUtf8String(),
-                            address: fnPtr.toString()
-                        });
-                    }
-                    if (methods.length) {
-                        const entry = { className: clsName, methods: methods };
-                        rnBuffer.push(entry);
-                        send({ type: 'frida.rn', className: clsName, methods: methods });
-                    }
-                } catch (e) {
-                    /* ignore malformed invocations */
-                }
+        const rnOnEnter = function (args) {
+            // no Java, no class name lookup, no send() on hot path.
+            const tid = Process.getCurrentThreadId();
+            if (rnDepth[tid]) {
+                return;
             }
-        });
+            rnDepth[tid] = 1;
+            this.rnOuter = true;
+            this.rnPending = null;
+            this.rnEnv = args[0];
+            try {
+                const nMethods = args[3].toInt32();
+                if (nMethods <= 0) {
+                    return;
+                }
+                if (nMethods > RN_MAX_METHODS) {
+                    this.rnPending = { warning: 'RegisterNatives called with ' + nMethods + ' methods, exceeds cap ' + RN_MAX_METHODS };
+                    return;
+                }
+                if (rnQueuedCount() >= RN_BUFFER_MAX) {
+                    this.rnPending = { warning: 'rnBuffer full (' + RN_BUFFER_MAX + ' entries), dropping RegisterNatives invocation' };
+                    return;
+                }
+                const methodsPtr = args[2];
+                if (!methodsPtr || methodsPtr.isNull()) {
+                    this.rnPending = { warning: 'RegisterNatives called with null methodsPtr' };
+                    return;
+                }
+                const methods = [];
+                for (let i = 0; i < nMethods; i++) {
+                    const off = i * 3 * ps; // i-th JNINativeMethod: {name, signature, fnPtr} x pointerSize
+                    const namePtr = methodsPtr.add(off).readPointer();
+                    if (namePtr.isNull()) {
+                        continue;
+                    }
+                    const sigPtr = methodsPtr.add(off + ps).readPointer();
+                    const fnPtr = methodsPtr.add(off + 2 * ps).readPointer();
+                    if (fnPtr.isNull()) {
+                        continue;
+                    }
+                    methods.push({
+                        name: namePtr.readUtf8String(),
+                        signature: sigPtr.isNull() ? '' : sigPtr.readUtf8String(),
+                        address: fnPtr.toString()
+                    });
+                }
+                if (methods.length) {
+                    this.rnPending = { classHandle: args[1], methods: methods, envPtr: args[0] };
+                }
+            } catch (e) {
+                /* ignore malformed invocations */
+            }
+        };
+        const rnOnLeave = function () {
+            if (!this.rnOuter) {
+                return;
+            }
+            const tid = Process.getCurrentThreadId();
+            try {
+                if (this.rnPending) {
+                    if (this.rnPending.classHandle) {
+                        this.rnPending.classHandle = rnNewGlobalRef(this.rnEnv, this.rnPending.classHandle);
+                    }
+                    rnPending.push(this.rnPending);
+                    this.rnPending = null;
+                }
+            } catch (e) {
+                /* ignore malformed invocations */
+            } finally {
+                rnDepth[tid] = 0;
+            }
+        };
+        for (let i = 0; i < rnAddrs.length; i++) {
+            try {
+                rnInterceptors.push(Interceptor.attach(rnAddrs[i], { onEnter: rnOnEnter, onLeave: rnOnLeave }));
+            } catch (e) {
+                /* skip entries that cannot be hooked */
+            }
+        }
+        if (!rnInterceptors.length) {
+            throw new Error('RegisterNatives entry not found; is this an Android target with libart.so?');
+        }
         rnHookEnabled = true;
         return { enabled: true, invocations: rnBuffer.length };
     }
     rnHookEnabled = false;
-    if (rnInterceptor) {
-        rnInterceptor.detach();
-        rnInterceptor = null;
+    for (let i = 0; i < rnInterceptors.length; i++) {
+        rnInterceptors[i].detach();
     }
-    const remaining = rnBuffer.length;
+    rnInterceptors = [];
+    rnDepth = {};
+    rnNewGlobalRefFn = null;
+    rnNewGlobalRefTable = null;
+    rnDeleteGlobalRefFn = null;
+    rnDeleteGlobalRefTable = null;
+    const remaining = rnQueuedCount();
+    rnClearPending();
     rnBuffer.length = 0;
     return { enabled: false, cleared: remaining };
 }
 
+function rnFlushPending() {
+    while (rnPending.length) {
+        const pending = rnPending.shift();
+        if (pending.warning) {
+            send({ type: 'frida.rn.warn', message: pending.warning });
+            continue;
+        }
+        let env = null;
+        try {
+            env = Java.vm.getEnv();
+            const className = env.getClassName(pending.classHandle);
+            const entry = { className: className, methods: pending.methods };
+            rnBuffer.push(entry);
+            send({ type: 'frida.rn', className: className, methods: pending.methods });
+        } catch (e) {
+            if (pending.methods) {
+                const entry = { className: '<unknown>', methods: pending.methods };
+                rnBuffer.push(entry);
+                send({ type: 'frida.rn', className: entry.className, methods: pending.methods });
+            }
+        } finally {
+            rnDeleteGlobalRef(pending.envPtr || (env && env.handle), pending.classHandle);
+        }
+    }
+}
+
+function rnClearPending() {
+    while (rnPending.length) {
+        const pending = rnPending.shift();
+        rnDeleteGlobalRef(pending.envPtr, pending.classHandle);
+    }
+}
+
 function rnList() {
+    rnFlushPending();
     const entries = rnBuffer.slice();
     rnBuffer.length = 0;
     return { invocations: entries, count: entries.length };

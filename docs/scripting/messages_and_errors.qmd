@@ -1,0 +1,92 @@
+# Messages and errors
+
+The agent talks back asynchronously with messages. `fridamj` drains them:
+
+```text
+[0x00000000]> fridamj
+{"ok":true,"result":{"messages":[...],"dropped":0}}
+```
+
+## The kinds
+
+| Kind | Meaning | Example |
+|---|---|---|
+| `send` | a payload from `send()` or an agent event | `{"type":"agent.ready","version":1}`, `frida.bp`, `frida.wp`, `frida.rn` |
+| `log` | console output | `console.log`, `console.error` |
+| `error` | an uncaught script error | description + stack |
+| `unknown` | anything the host cannot classify | rare |
+
+**console.log** becomes a `log` message:
+
+```text
+[0x00000000]> fridaej "console.log('from console')"
+{"ok":true,"result":{"value":null,"type":"undefined"}}
+
+[0x00000000]> fridamj
+... {"kind":"log","level":"info","text":"from console"}
+```
+
+**console.error** keeps the level:
+
+```text
+... {"kind":"log","level":"error","text":"to stderr"}
+```
+
+**An exception thrown inside an eval** is not a message: the eval request
+itself fails:
+
+```text
+[0x00000000]> fridaej "throw new Error('boom')"
+{"ok":false,"error":{"code":"internal_error","message":"boom"}}
+```
+
+**An exception in asynchronous code** (a timer, a callback) cannot fail a
+request, so it becomes an `error` message with a stack:
+
+```text
+[0x00000000]> fridaej "setTimeout(function(){throw new Error('async boom')},300)"
+{"ok":true,"result":{"value":1,"type":"number"}}
+
+[0x00000000]> fridamj
+... {"kind":"error","description":"Error: async boom","stack":"Error: async boom\n    at eval (undefined:1:29)\n    at /frida/runtime/core.js:55:14"}
+```
+
+![Message kinds](img/scripting/message-kinds.png)
+
+## Binary payloads
+
+`send()` with a binary second argument arrives base64-encoded with its
+size:
+
+```text
+[0x00000000]> fridaej "send('binary-payload',[1,2,3,255])"
+{"ok":true,"result":{"value":null,"type":"undefined"}}
+
+[0x00000000]> fridamj
+... {"kind":"send","payload":"binary-payload","data":"AQID/w==","dataSize":4}
+```
+
+`AQID/w==` decodes to `01 02 03 ff`.
+
+## The buffer
+
+The buffer holds up to 256 messages on the host side. When it overflows,
+the oldest messages are dropped and the count is reported:
+
+```text
+{"ok":true,"result":{"messages":[...],"dropped":3}}
+```
+
+Drain regularly, as the earlier chapters do, and treat `dropped` as a sign
+that the target is noisier than your last drain.
+
+> **Note:** buffering is host-side: the agent always delivers. The host
+> keeps the newest 256.
+
+::: {.callout-tip}
+### Try
+
+Log with `console.log` and `console.error`, throw inside a `setTimeout`,
+and `send` a binary payload. Drain everything and classify each message.
+:::
+

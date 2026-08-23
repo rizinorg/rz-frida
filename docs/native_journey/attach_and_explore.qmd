@@ -1,0 +1,72 @@
+# Attach and explore
+
+With the demo running, attach and read the symbols:
+
+```text
+[0x00000000]> fridaoj frida://attach/local//native_demo
+{"ok":true,"result":{"action":"attach","pid":46117,"resumed":false,"state":"attached"}}
+
+[0x00000000]> fridaSj native_demo
+{"ok":true,"result":{"module":"native_demo","symbols":[
+  {"name":"g_secret","address":"0x5c95c4681010","size":16},
+  {"name":"g_attempts","address":"0x5c95c468103c","size":4},
+  {"name":"check_key","address":"0x5c95c467e209","size":48},
+  {"name":"bump_counter","address":"0x5c95c467e239","size":31},
+  {"name":"main","address":"0x5c95c467e258","size":407},
+  ...]}}
+```
+
+![Real symbols](img/native_journey/symbols.png)
+
+Everything is named: `check_key` is a 48-byte function, `g_secret` is a
+16-byte object in `.data`, `g_attempts` is 4 bytes in `.bss`.
+
+> **Note:** addresses come from ASLR and change every launch. Read them from
+> your own session.
+
+On Android this chapter had to hook `RegisterNatives` to learn that
+`SecretVault.nativeCheckSecret` lives at some address. Here the symbol table
+gives us the addresses directly:
+
+| Android | Native host |
+|---|---|
+| `fridaRNj` hook + spawn to capture | `fridaSj` symbol listing |
+| static native methods, stripped library | actual `.symtab`, nothing hidden |
+| addresses in the ART heap | addresses in the process memory map |
+
+## Read the secret
+
+```text
+[0x00000000]> fridaxj 0x5c95c4681010 16
+{"ok":true,"result":{"address":"0x5c95c4681010","size":16,"bytes":"4e34543156332d44334d302d4b335900"}}
+```
+
+`4e34543156332d44334d302d4b335900` decodes to `N4T1V3-D3M0-K3Y\0`: the key,
+readable in memory. That is why patching it later will work.
+
+## Read the counter
+
+```text
+[0x00000000]> fridaxj 0x5c95c468103c 4
+{"ok":true,"result":{"address":"0x5c95c468103c","size":4,"bytes":"01000000"}}
+```
+
+The little-endian `01000000` is attempt number 1.
+
+## Explore the ranges
+
+```text
+[0x00000000]> fridaRj
+{"ok":true,"result":{"ranges":[{"base":"0x5c95c467e000","size":4096,"protection":"r-x","file":{...}},{"base":"0x5c95c4681000","size":4096,"protection":"rw-","file":{...}},...],"cached":false}}
+```
+
+The executable text page and the writable data page: the two regions
+these chapters use.
+
+::: {.callout-tip}
+### Try
+
+Attach, list symbols, read `g_secret`, read `g_attempts`, and feed a wrong
+key to watch the counter tick.
+:::
+

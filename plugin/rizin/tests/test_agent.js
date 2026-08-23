@@ -25,6 +25,7 @@ let continueDeliverId = 0;
 const parkedActions = [];
 let exceptionHandler = null;
 const hwWatch = new Map();
+let javaGetEnvCalls = 0;
 
 // fake target memory region, backs a known byte pattern at MEM_BASE, addressed through ptr().
 const MEM_BASE = 0x1000;
@@ -50,6 +51,12 @@ FakePtr.prototype.readPointer = function () {
 };
 FakePtr.prototype.isNull = function () {
 	return this.value === 0;
+};
+FakePtr.prototype.readS32 = function () {
+	return this.value | 0;
+};
+FakePtr.prototype.readInt = function () {
+	return this.readS32();
 };
 FakePtr.prototype.toInt32 = function () {
 	return this.value & 0xffffffff;
@@ -340,18 +347,21 @@ const sandbox = {
 		ClassFactory: { get: function (loader) { return { use: function (name) { return findClass(name); } }; } },
 		vm: {
 			getEnv: function () {
+				javaGetEnvCalls++;
 				const tablePtr = new FakePtr(0xcafe0000);
 				return {
 					handle: {
 						readPointer: function () { return tablePtr; }
 					},
+					newGlobalRef: function (cls) { return cls; },
+					deleteGlobalRef: function () {},
 					getClassName: function (cls) { return 'com.example.TestClass'; }
 				};
 			}
 		}
-},
-// untyped recv stores the handler, typed recv(type, cb) is a parked thread waiter.
+	},
 	recv: function (type, cb) {
+		// untyped recv stores the handler, typed recv(type, cb) is a parked thread waiter.
 		if (typeof type === 'function') {
 			pendingRecv = type;
 			return { wait: function () {} };
@@ -367,11 +377,25 @@ const sandbox = {
 	// drops vm realm prototype, letting deepStrictEqual compare plain objs).
 	send: function (message, data) { sent.push({ message: JSON.parse(JSON.stringify(message)), data: data }); },
 	ptr: function (value) { return new FakePtr(value); },
+	Memory: {
+		alloc: function (n) { return new FakePtr(0x9000); }
+	},
+	NativeFunction: function (addr, ret) {
+		return function () {
+			if (ret === 'int') {
+				return 0;
+			}
+			if (ret === 'pointer') {
+				return arguments[1] || new FakePtr(0);
+			}
+			return undefined;
+		};
+	},
 	Interceptor: {
 		attach: function (addr, callbacks) {
 			const key = addr.toString();
 			const listener = { detach: function () { interceptors.delete(key); } };
-			interceptors.set(key, { onEnter: callbacks.onEnter, listener: listener });
+			interceptors.set(key, { onEnter: callbacks.onEnter, onLeave: callbacks.onLeave, listener: listener });
 			return listener;
 		}
 	},
@@ -394,8 +418,18 @@ function roundtrip(request) {
 	if (sent.length === before) {
 		return null;
 	}
-	assert.strictEqual(sent.length, before + 1, 'agent sends exactly one reply per request');
-	return sent[before].message;
+	const reply = sent.slice(before).find(function (s) {
+		return s.message && s.message.id === request.id;
+	});
+	assert.ok(reply, 'agent sends a reply for the request');
+	return reply.message;
+}
+
+function fireRn(key, args) {
+	const ctx = {};
+	interceptors.get(key).onEnter.call(ctx, args);
+	interceptors.get(key).onLeave.call(ctx);
+	return ctx;
 }
 
 assert.deepStrictEqual(sent[0].message, { type: 'agent.ready', version: 1 },
@@ -461,6 +495,12 @@ assert.strictEqual(readBadSize.error, 'memRead requires a positive integer size'
 assert.deepStrictEqual(roundtrip({ id: 14, type: 'memWrite', params: { address: '0x1018', bytes: '0xcafe' } }),
 	{ id: 14, ok: true, result: { address: '0x1018', size: 2 } },
 	'memWrite strips a 0x prefix from the hex bytes');
+
+const writeNoString = roundtrip({ id: 142, type: 'memWrite', params: { address: '0x1018', bytes: 123 } });
+assert.strictEqual(writeNoString.error, 'memWrite requires a hex byte string', 'a non-string hex payload is rejected');
+
+const fromHexType = roundtrip({ id: 143, type: 'eval', params: { source: "try { fromHex(1); 'no'; } catch (e) { e.message; }" } });
+assert.strictEqual(fromHexType.result.value, 'hex input must be a string', 'fromHex rejects a non-string with a distinct error');
 
 assert.deepStrictEqual(roundtrip({ id: 15, type: 'memWrite', params: { address: '0x1010', bytes: 'deadbeef' } }),
 	{ id: 15, ok: true, result: { address: '0x1010', size: 4 } },
@@ -611,6 +651,7 @@ assert.strictEqual(regReadMiss.error, 'thread 4242 is not stopped at a breakpoin
 
 parkedActions.push({ id: 52, type: 'regRead', params: { threadId: 4242 } });
 parkedActions.push({ id: 53, type: 'regWrite', params: { threadId: 4242, register: 'pc', value: '0xdead' } });
+parkedActions.push({ id: 531, type: 'regWrite', params: { threadId: 4242, register: '\u0016pc', value: '0xbeef' } });
 parkedActions.push({ id: 54, type: 'regWrite', params: { threadId: 4242, register: 'nope', value: '0x1' } });
 parkedActions.push({ id: 55, type: 'regRead', params: { threadId: 4242 } });
 const beforeReg = sent.length;
@@ -620,16 +661,19 @@ interceptors.get('0x4000').onEnter.call({ context: { pc: new FakePtr(0x4000), sp
 assert.strictEqual(sent[beforeReg].message.type, 'frida.bp', 'the register hit emits a frida.bp event');
 assert.deepStrictEqual(sent[beforeReg + 1].message,
 	{ id: 52, ok: true, result: { threadId: 4242, bp: regBp, address: '0x4000' } },
-	'regRead returns the saved register context of the parked thread');
+	'regRead returns the stop identity of the parked thread');
 assert.deepStrictEqual(sent[beforeReg + 2].message,
 	{ id: 53, ok: true, result: { threadId: 4242, register: 'pc', value: '0xdead' } },
 	'regWrite sets a register and echoes the new value');
-assert.strictEqual(sent[beforeReg + 3].message.error, 'no register named nope',
+assert.deepStrictEqual(sent[beforeReg + 3].message,
+	{ id: 531, ok: true, result: { threadId: 4242, register: 'pc', value: '0xbeef' } },
+	'regWrite strips a leading Ctrl-V from the register name');
+assert.strictEqual(sent[beforeReg + 4].message.error, 'no register named nope',
 	'a write to an unknown register is rejected');
-assert.deepStrictEqual(sent[beforeReg + 4].message,
+assert.deepStrictEqual(sent[beforeReg + 5].message,
 	{ id: 55, ok: true, result: { threadId: 4242, bp: regBp, address: '0x4000' } },
 	'a later read returns the parked thread info');
-assert.deepStrictEqual(sent[beforeReg + 5].message, { id: 501, ok: true, result: { resumed: true, threadId: 4242 } },
+assert.deepStrictEqual(sent[beforeReg + 6].message, { id: 501, ok: true, result: { resumed: true, threadId: 4242 } },
 	'the parked thread is freed after the register window');
 
 const regReadGone = roundtrip({ id: 56, type: 'regRead', params: { threadId: 4242 } });
@@ -753,6 +797,23 @@ assert.deepStrictEqual(roundtrip({ id: 85, type: 'classList', params: { max: 2 }
 		total: 2, truncated: true } },
 	'the max cap truncates and marks the result');
 
+const classListAll = { classes: [{ name: 're.frida.minapp.MainActivity' },
+	{ name: 're.frida.minapp.SampleModel' }, { name: 're.frida.minapp.DerivedModel' },
+	{ name: 're.frida.minapp.NativeLib' }, { name: 're.frida.minapp.ReflectionTarget' },
+	{ name: 're.frida.minapp.BaseModel' }, { name: 'java.lang.String' },
+	{ name: 'java.lang.System' }, { name: 'android.app.Activity' },
+	{ name: 'android.os.Bundle' }, { name: 'kotlin.Metadata' }],
+	total: 11, truncated: false };
+assert.deepStrictEqual(roundtrip({ id: 87, type: 'classList', params: {} }),
+	{ id: 87, ok: true, result: classListAll },
+	'classList with max omitted has no cap');
+assert.deepStrictEqual(roundtrip({ id: 88, type: 'classList', params: { max: 0 } }),
+	{ id: 88, ok: true, result: classListAll },
+	'classList with max 0 has no cap');
+assert.deepStrictEqual(roundtrip({ id: 89, type: 'classList', params: { max: 512 } }),
+	{ id: 89, ok: true, result: classListAll },
+	'classList with max 512 returns the full mock set');
+
 // class describe -- basic
 const desc = roundtrip({ id: 90, type: 'classDescribe', params: { className: 're.frida.minapp.SampleModel' } });
 assert.strictEqual(desc.ok, true, 'classDescribe returns ok');
@@ -808,7 +869,7 @@ const monOn = roundtrip({ id: 100, type: 'classLoadMonitor', params: { enable: t
 assert.strictEqual(monOn.ok, true, 'classLoadMonitor enable returns ok');
 assert.strictEqual(monOn.result.enabled, true, 'classLoadMonitor reports enabled');
 
-// class load monitor -- idempotent re-enable
+// class load monitor -- already enabled, no re-snapshot
 const monRe = roundtrip({ id: 101, type: 'classLoadMonitor', params: { enable: true } });
 assert.strictEqual(monRe.ok, true, 'classLoadMonitor re-enable returns ok');
 
@@ -850,6 +911,13 @@ assert.strictEqual(monBad.ok, false, 'classLoadMonitor without enable boolean re
 const rnOn = roundtrip({ id: 110, type: 'rnSet', params: { enable: true } });
 assert.strictEqual(rnOn.ok, true, 'rnSet enable returns ok');
 assert.strictEqual(rnOn.result.enabled, true, 'rnSet reports enabled');
+const rnHookAddrs = Array.from(interceptors.keys());
+assert.strictEqual(rnHookAddrs.length, 1, 'rnSet hooks a single RegisterNatives address');
+const tableBase = 0xcafe0000;
+const rn215 = '0x' + (tableBase + 215 * 8 + 0x100).toString(16);
+const rn218 = '0x' + (tableBase + 218 * 8 + 0x100).toString(16);
+assert.deepStrictEqual(rnHookAddrs, [rn215], 'rnSet hooks JNI table index 215, not MonitorExit at 218');
+assert.ok(rnHookAddrs.indexOf(rn218) < 0, 'rnSet does not hook MonitorExit');
 
 // RegisterNatives -- re-enable
 const rnRe = roundtrip({ id: 111, type: 'rnSet', params: { enable: true } });
@@ -873,27 +941,40 @@ assert.strictEqual(rnBad.ok, false, 'rnSet without enable boolean returns error'
 const rnOn2 = roundtrip({ id: 115, type: 'rnSet', params: { enable: true } });
 assert.strictEqual(rnOn2.ok, true, 'rnSet re-enable for onEnter test');
 const rnIntKey = Array.from(interceptors.keys()).pop();
-const beforeRnHit = sent.length;
-// simulate a RN call: 2 methods, valid ptrs
 const rnMethodsPtr = new FakePtr(0xf000);
-interceptors.get(rnIntKey).onEnter([
-	/* JNIEnv* */ 0,
-	/* jclass */  0,
+const envCallsBeforeHit = javaGetEnvCalls;
+const sentBeforeHit = sent.length;
+// simulate a RN call: 2 methods, valid ptrs
+fireRn(rnIntKey, [
+	/* JNIEnv* */ new FakePtr(0xaaa0),
+	/* jclass */  new FakePtr(0xbbb0),
 	/* methods */ rnMethodsPtr,
 	/* nMethods*/ new FakePtr(2)
 ]);
-const rnHitEvt = sent[beforeRnHit].message;
-assert.strictEqual(rnHitEvt.type, 'frida.rn', 'a RegisterNatives call emits frida.rn');
-assert.strictEqual(rnHitEvt.className, 'com.example.TestClass', 'rn event carries the class name');
-assert.strictEqual(rnHitEvt.methods.length, 2, 'rn event carries the methods array');
-assert.strictEqual(rnHitEvt.methods[0].name, 'nativeMethod', 'rn method name is read from pointer');
+assert.strictEqual(sent.length, sentBeforeHit, 'interceptor callbacks do not send');
+assert.strictEqual(javaGetEnvCalls, envCallsBeforeHit, 'interceptor callbacks do not call Java.vm.getEnv');
 
+const beforeRnHit = sent.length;
 const rnList2 = roundtrip({ id: 116, type: 'rnList', params: {} });
 assert.strictEqual(rnList2.ok, true, 'rnList after invocation returns ok');
 assert.strictEqual(rnList2.result.invocations.length, 1, 'rnList has one entry after invocation');
 assert.strictEqual(rnList2.result.count, 1, 'rnList count matches');
 assert.strictEqual(rnList2.result.invocations[0].className, 'com.example.TestClass', 'entry class name is correct');
 assert.strictEqual(rnList2.result.invocations[0].methods[0].name, 'nativeMethod', 'entry method name is correct');
+const rnHitEvt = sent.slice(beforeRnHit).find(function (s) {
+	return s.message && s.message.type === 'frida.rn';
+});
+assert.ok(rnHitEvt, 'rnList flush emits frida.rn');
+assert.strictEqual(rnHitEvt.message.className, 'com.example.TestClass', 'rn event carries the class name');
+assert.strictEqual(rnHitEvt.message.methods.length, 2, 'rn event carries the methods array');
+
+// depth guard — a nested invocation on the same thread is counted once
+const nestedOuter = {};
+interceptors.get(rnIntKey).onEnter.call(nestedOuter, [new FakePtr(0xaaa0), new FakePtr(0xbbb0), rnMethodsPtr, new FakePtr(2)]);
+interceptors.get(rnIntKey).onEnter.call({}, [new FakePtr(0xaaa0), new FakePtr(0xbbb0), rnMethodsPtr, new FakePtr(2)]);
+interceptors.get(rnIntKey).onLeave.call(nestedOuter);
+const rnListNested = roundtrip({ id: 1160, type: 'rnList', params: {} });
+assert.strictEqual(rnListNested.result.count, 1, 'nested RegisterNatives is recorded once');
 
 // rnList drains the buffer each call
 const rnListDrain = roundtrip({ id: 117, type: 'rnList', params: {} });
@@ -902,38 +983,46 @@ assert.deepStrictEqual(rnListDrain.result.invocations, [], 'rnList drains after 
 // rnSet warnings — oversized nMethods
 roundtrip({ id: 118, type: 'rnSet', params: { enable: true } });
 const rnIntKey2 = Array.from(interceptors.keys()).pop();
+const sentBeforeWarn1 = sent.length;
+fireRn(rnIntKey2, [0, 0, rnMethodsPtr, new FakePtr(99999)]); // exceeds RN_MAX_METHODS
+assert.strictEqual(sent.length, sentBeforeWarn1, 'oversized nMethods does not send from the interceptor');
 const beforeRnWarn1 = sent.length;
-interceptors.get(rnIntKey2).onEnter([
-	0, 0, rnMethodsPtr, new FakePtr(99999) // exceeds RN_MAX_METHODS
-]);
-assert.strictEqual(sent.length, beforeRnWarn1 + 1, 'oversized nMethods emits exactly one send');
-assert.strictEqual(sent[beforeRnWarn1].message.type, 'frida.rn.warn', 'oversized nMethods emits a warning');
-assert.ok(/exceeds cap/.test(sent[beforeRnWarn1].message.message), 'warning names the cap');
+roundtrip({ id: 119, type: 'rnList', params: {} });
+const oversized = sent.slice(beforeRnWarn1).find(function (s) {
+	return s.message && s.message.type === 'frida.rn.warn';
+});
+assert.ok(oversized, 'oversized nMethods emits a warning on flush');
+assert.ok(/exceeds cap/.test(oversized.message.message), 'warning names the cap');
 
 // rnSet warnings — null methodsPtr (test before buffer fills)
 roundtrip({ id: 120, type: 'rnSet', params: { enable: true } });
 const rnIntKey3 = Array.from(interceptors.keys()).pop();
+const sentBeforeNull = sent.length;
+fireRn(rnIntKey3, [0, 0, new FakePtr(0), new FakePtr(1)]);
+assert.strictEqual(sent.length, sentBeforeNull, 'null methodsPtr does not send from the interceptor');
 const beforeNullPtr = sent.length;
-interceptors.get(rnIntKey3).onEnter([0, 0, new FakePtr(0), new FakePtr(1)]);
-assert.strictEqual(sent.length, beforeNullPtr + 1, 'null methodsPtr emits exactly one warning');
-assert.strictEqual(sent[beforeNullPtr].message.type, 'frida.rn.warn', 'null methodsPtr warning type is correct');
+roundtrip({ id: 1201, type: 'rnList', params: {} });
+const nullPtrWarn = sent.slice(beforeNullPtr).find(function (s) {
+	return s.message && s.message.type === 'frida.rn.warn';
+});
+assert.ok(nullPtrWarn, 'null methodsPtr emits a warning on flush');
+assert.strictEqual(nullPtrWarn.message.type, 'frida.rn.warn', 'null methodsPtr warning type is correct');
 
 // rnSet warnings — buffer full
 roundtrip({ id: 121, type: 'rnSet', params: { enable: true } });
 const rnIntKey4 = Array.from(interceptors.keys()).pop();
 // fill the buffer to RN_BUFFER_MAX (512) entries
 for (let i = 0; i < 512; i++) {
-	interceptors.get(rnIntKey4).onEnter([
-		0, 0, new FakePtr(0xf000 + i), new FakePtr(1)
-	]);
+	fireRn(rnIntKey4, [0, 0, new FakePtr(0xf000 + i), new FakePtr(1)]);
 }
 // next invocation should warn
+const sentBeforeBufFull = sent.length;
+fireRn(rnIntKey4, [0, 0, new FakePtr(0xffff), new FakePtr(1)]);
+assert.strictEqual(sent.length, sentBeforeBufFull, 'buffer-full interceptor does not send');
 const beforeRnBufFull = sent.length;
-interceptors.get(rnIntKey4).onEnter([
-	0, 0, new FakePtr(0xffff), new FakePtr(1)
-]);
-const bufFullWarn = sent.find(function (s, idx) {
-	return idx >= beforeRnBufFull && s.message.type === 'frida.rn.warn';
+roundtrip({ id: 1211, type: 'rnList', params: {} });
+const bufFullWarn = sent.slice(beforeRnBufFull).find(function (s) {
+	return s.message && s.message.type === 'frida.rn.warn';
 });
 assert.ok(bufFullWarn, 'buffer full emits a warning');
 assert.ok(/rnBuffer full/.test(bufFullWarn.message.message), 'warning names the buffer limit');
@@ -942,9 +1031,18 @@ assert.ok(/rnBuffer full/.test(bufFullWarn.message.message), 'warning names the 
 const rnLocked = roundtrip({ id: 122, type: 'rnSet', params: { enable: false } });
 assert.strictEqual(rnLocked.ok, true, 'rnSet disable after invocation returns ok');
 assert.strictEqual(rnLocked.result.enabled, false, 'rnSet reports disabled after clearing');
-assert.strictEqual(rnLocked.result.cleared, 512, 'rnSet reports the number of entries cleared');
+assert.strictEqual(rnLocked.result.cleared, 0, 'rnSet reports the number of entries cleared');
 const rnListDrained = roundtrip({ id: 123, type: 'rnList', params: {} });
 assert.deepStrictEqual(rnListDrained.result.invocations, [], 'rnList empty after disable+clear');
+
+// queued entries, cleared on disable without a prior list
+roundtrip({ id: 124, type: 'rnSet', params: { enable: true } });
+const rnIntKey5 = Array.from(interceptors.keys()).pop();
+for (let i = 0; i < 3; i++) {
+	fireRn(rnIntKey5, [0, 0, new FakePtr(0xf000 + i), new FakePtr(1)]);
+}
+const rnClearQueued = roundtrip({ id: 125, type: 'rnSet', params: { enable: false } });
+assert.strictEqual(rnClearQueued.result.cleared, 3, 'disable clears queued startup captures');
 
 // flag modules
 const fm = roundtrip({ id: 130, type: 'flagModules', params: {} });
@@ -995,6 +1093,31 @@ assert.strictEqual(monNoJava.result.javaUnavailable, true, 'javaUnavailable flag
 const rnNoJava = roundtrip({ id: 137, type: 'rnSet', params: { enable: true } });
 assert.strictEqual(rnNoJava.ok, true, 'rnSet without Java returns gracefully');
 assert.strictEqual(rnNoJava.result.javaUnavailable, true, 'javaUnavailable flag is set');
+
+// rnSet — libart scan without Java
+const findModOrig = sandbox.Process.findModuleByName;
+const libartRn = new FakePtr(0x7a110000);
+sandbox.Process.findModuleByName = function (name) {
+	if (name !== 'libart.so') {
+		return null;
+	}
+	return {
+		name: 'libart.so',
+		enumerateSymbols: function () {
+			return [
+				{ name: 'art::CheckJNI::RegisterNatives', address: new FakePtr(0x7a11dead) },
+				{ name: 'art::JNI::RegisterNatives', address: libartRn }
+			];
+		}
+	};
+};
+const rnLibart = roundtrip({ id: 138, type: 'rnSet', params: { enable: true } });
+assert.strictEqual(rnLibart.ok, true, 'rnSet with libart symbols returns ok');
+assert.strictEqual(rnLibart.result.enabled, true, 'libart scan arms RegisterNatives without Java');
+assert.ok(interceptors.has(libartRn.toString()), 'libart RegisterNatives address is hooked');
+assert.ok(!interceptors.has('0x7a11dead'), 'CheckJNI RegisterNatives is not hooked');
+roundtrip({ id: 139, type: 'rnSet', params: { enable: false } });
+sandbox.Process.findModuleByName = findModOrig;
 sandbox.Java.available = javaAvailOrig;
 
 console.log('ok - agent script protocol');

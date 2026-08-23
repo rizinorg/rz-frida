@@ -1,0 +1,19 @@
+# Challenges
+
+Short exercises on minapp and `native_demo`. Each one has a goal and hints.
+Open the hints only after you have tried it.
+
+Rules:
+
+- the lab must be up (emulator, frida-server, minapp running)
+- pids and addresses change: read them from your own sessions
+- one session at a time: close before opening another
+
+| # | Goal | Difficulty |
+|---|---|---|
+| [1](challenge_01.qmd) | find the hidden class | easy |
+| [2](challenge_02.qmd) | extract the secret without calling getSecret | easy |
+| [3](challenge_03.qmd) | unlock premium without the key | medium |
+| [4](challenge_04.qmd) | make the coins negative | medium |
+| [5](challenge_05.qmd) | bypass the native checker | hard |
+| [6](challenge_06.qmd) | find the last dynamically loaded class | medium |

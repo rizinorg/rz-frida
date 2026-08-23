@@ -1,0 +1,124 @@
+# Installing rizin and rz-frida
+
+The plugin is a rizin core plugin: it registers the `frida` command group
+inside rizin. It needs rizin v0.9.0 or later (the per-core plugin context
+from [rizin#6404](https://github.com/rizinorg/rizin/pull/6404)). CI builds
+against v0.9.1. It also needs rizin's development files. With
+`-Dfrida_core=enabled` and no manual paths, meson fetches the frida-core
+devkit for the host (see `frida_version` in `meson_options.txt`). Without
+frida-core the plugin still builds, and device commands answer with a
+`frida_unavailable` error.
+
+The examples below use a prefix of `$PREFIX`. Replace it with wherever you
+install rizin (`/usr/local`, `$HOME/.local`, and so on). `rizin -H` prints
+the paths of the rizin you are running (`RZ_PREFIX`, `RZ_INCDIR`,
+`RZ_LIBDIR`, `RZ_LIB_PLUGINS`) if you are not sure.
+
+## Install via rz-pm (experimental)
+
+If you already have rizin and meson:
+
+```bash
+$ rz-pm install rz-frida
+```
+
+rizin development files (pkg-config or cmake) must be present,
+and on Windows the command must run inside a Visual Studio developer
+prompt.
+
+## 1. Build rizin from source
+
+```bash
+$ cd ~/rizin
+$ meson setup build --prefix=$PREFIX --buildtype=release -Duse_gpl=true
+$ ninja -C build && ninja -C build install
+$ export PATH="$PREFIX/bin:$PATH"
+```
+
+The plugin build finds rizin through pkg-config:
+
+```bash
+$ export PKG_CONFIG_PATH=$PREFIX/lib/$(uname -m)-linux-gnu/pkgconfig
+```
+
+On some layouts the pkg-config directory is `$PREFIX/lib/pkgconfig`. Use
+whichever contains `rz_core.pc`.
+
+## 2. Build the plugin
+
+From the plugin source tree, with rizin on `PKG_CONFIG_PATH`:
+
+```bash
+$ meson setup build-frida --prefix=$PREFIX -Dfrida_core=enabled
+$ ninja -C build-frida && ninja -C build-frida install
+```
+
+Meson tries pkg-config `frida-core-1.0` first, then fetches the matching
+devkit (see `frida_version` in `meson_options.txt`) into
+`$XDG_CACHE_HOME/rz-frida` or `~/.cache/rz-frida` on Linux, and
+`~/Library/Caches/rz-frida` on macOS. To pin a local devkit instead:
+
+```bash
+$ meson setup build-frida --prefix=$PREFIX \
+    -Dfrida_core=enabled \
+    -Dfrida_include_dir=/path/to/frida-core-devkit \
+    -Dfrida_library=/path/to/frida-core-devkit/libfrida-core.a
+```
+
+The gadget and `frida-server` you put on a device should match the
+frida-core version this plugin was built against (`meson configure
+build-frida | grep frida_version`).
+
+## 3. Verify
+
+```bash
+$ rizin -N -q -c 'fridasj' malloc://8
+{"ok":true,"result":{"active":false,"state":"closed"}}
+```
+
+The command group exists, the plugin is loaded:
+
+```bash
+$ rizin -N -q -c 'frida?' malloc://8
+```
+
+![Plugin loaded](img/intro/plugin-loaded.png)
+
+![Command group help](img/intro/frida-help.png)
+
+> **Note:** a session-requiring command without a session answers with
+> `{"ok":false,"error":{"code":"invalid_target","message":"no session is open"}}`.
+> That is expected: the plugin is loaded, the session is not.
+
+## 4. Run the test suite
+
+```bash
+$ meson test -C build-frida -j1 -t 6
+```
+
+The tests cover the URI parser, session lifecycle, protocol helpers, the
+agent message protocol, the null backend, command registration and the
+agent script protocol. They run without any device.
+
+## Platform notes
+
+| Platform | Notes |
+|---|---|
+| Linux | the instructions above |
+| macOS | the devkit links Foundation, CoreFoundation and AppKit |
+| Windows | build inside a Visual Studio developer prompt |
+| musl / bionic | link the static devkit. Android cross builds are in the release workflow |
+
+## Rebuilding after changes
+
+```bash
+$ ninja -C build-frida && meson install -C build-frida
+```
+
+If ninja says there is nothing to do but the sources changed, `touch` the
+changed files first. After an agent script change, the build regenerates
+the embedded agent header.
+
+> **Note:** stale plugin copies shadow a fresh build. If commands
+> disappear after a rebuild, remove extra `librz_frida.so` files under
+> `~/.local/share/rizin/plugins/` and keep the copy under `$PREFIX`.

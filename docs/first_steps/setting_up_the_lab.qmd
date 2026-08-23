@@ -1,0 +1,121 @@
+# Setting up the lab
+
+A rooted Android x86_64 emulator running frida-server, plus the demo app
+minapp. The native chapters use a small C program built later.
+
+## 1. Boot the emulator
+
+Create an AVD with the Android command-line tools (API 34, x86_64, Google
+APIs is a known-good combination). Then:
+
+```bash
+$ export ANDROID_HOME=$HOME/android-sdk
+$ export PATH=$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH
+$ emulator -avd <avd-name> -writable-system -no-snapshot -no-audio -no-boot-anim &
+$ adb wait-for-device
+$ adb root
+```
+
+`adb root` restarts adbd as root on the emulator. Check:
+
+```bash
+$ adb shell id
+uid=0(root) ...
+```
+
+![Emulator](img/first_steps/emulator-home.png)
+
+> **Note:** Linux Yama restricts ptrace attachments by default. A native
+> process started in another terminal is not a descendant of the rizin
+> process, so local attachment fails with `Unable to access /proc/<pid>/mem:
+> Permission denied` while `kernel.yama.ptrace_scope` is `1`. Set it to 0
+> once after each host boot, then verify the value:
+
+```bash
+$ cat /proc/sys/kernel/yama/ptrace_scope
+1
+$ sudo sysctl -w kernel.yama.ptrace_scope=0
+kernel.yama.ptrace_scope = 0
+$ cat /proc/sys/kernel/yama/ptrace_scope
+0
+```
+
+## 2. Install and run frida-server
+
+Download `frida-server` for `android-x86_64` from the Frida releases page,
+matching the plugin's frida-core version. Decompress it, then:
+
+```bash
+$ adb push frida-server /data/local/tmp/frida-server
+$ adb shell 'chmod 755 /data/local/tmp/frida-server'
+$ adb shell '/data/local/tmp/frida-server -D &'
+$ adb shell 'ps -A | grep frida'
+root       2051  1    12723072 147564 do_sys_poll   0 S frida-server
+```
+
+![frida-server running](img/first_steps/frida-server-ps.png)
+
+Verify the host sees the device and its processes:
+
+```bash
+$ frida-ps -U
+ PID  Name
+----  ------------------------------------------------------
+ 854  SIM Toolkit
+ 859  Settings
+ 2100 FridaMin
+ ...
+```
+
+![frida-ps over USB](img/first_steps/frida-ps-usb.png)
+
+`-U` selects the USB device. `FridaMin` is the demo app label, which is
+also the process name we attach to.
+
+> **Note:** this emulator's `su` is not a full toybox `su`: do not write
+> `adb shell su -c '...'`. `adb root` is already root, so run frida-server
+> directly.
+
+## 3. Install the demo app
+
+Download the prebuilt emulator APK (x86_64) from
+<https://t.me/rzfrida/25>. Package `re.frida.minapp`, label `FridaMin`.
+A physical non-rooted phone needs the gadget APK instead. See
+[Non-rooted devices](../remote_access/non_rooted_gadget.qmd).
+
+Uninstall first if a differently signed copy is already present:
+
+```bash
+$ adb uninstall re.frida.minapp
+$ adb install -r minapp.apk
+$ adb shell am start -n re.frida.minapp/.MainActivity
+```
+
+The app opens with a status line, a license key field and five buttons:
+Activate License, Upgrade to Premium, Earn Coins, Load Plugin and
+Run Tests, plus a feedback line under them.
+
+![minapp UI](img/first_steps/minapp-ui.png)
+
+Confirm the native side registered everything:
+
+```bash
+$ adb logcat -d | grep rz-native
+... JNI_OnLoad -- registering native methods via RegisterNatives
+... registered 1 method on SecretVault
+... JNI_OnLoad complete -- 8 methods registered across 4 classes
+```
+
+The native Linux demo used later is built in
+[Building the target](../native_journey/building_the_target.qmd).
+
+## 4. One-command verification
+
+The plugin talks to the emulator through USB, so no forward is needed:
+
+```bash
+$ rizin -N -q -c 'fridaoj frida://attach/usb//FridaMin' malloc://512
+{"ok":true,"result":{"action":"attach","pid":2100,"resumed":false,"state":"attached"}}
+```
+
+If this works, the lab is up.

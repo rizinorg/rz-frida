@@ -1,0 +1,135 @@
+# Importing into analysis
+
+Everything we described with `fridaDj` can become actual rizin analysis
+objects: classes, methods and struct types.
+
+## 1. Import one class
+
+```text
+[0x00000000]> fridaoj frida://attach/usb//FridaMin
+{"ok":true,"result":{"action":"attach","pid":2812,"resumed":false,"state":"attached"}}
+
+[0x00000000]> fridaImj re.frida.minapp.secret.SecretVault
+{"ok":true,"result":{"imported":true,"class":"re.frida.minapp.secret.SecretVault","loader":0,"methods":4,"constructors":1,"fields":1}}
+```
+
+The class, its methods, constructors and fields are now in rizin analysis.
+
+## 2. Verify
+
+```text
+[0x00000000]> acl
+[re_frida_minapp_secret_SecretVault]
+```
+
+```text
+[0x00000000]> ts
+...
+re_frida_minapp_secret_SecretVault
+```
+
+```text
+[0x00000000]> tcd re_frida_minapp_secret_SecretVault
+struct re_frida_minapp_secret_SecretVault { char *SECRET_B64; };
+```
+
+![Import verification](img/android_journey/import-verify.png)
+
+The Java field `String SECRET_B64` became a C struct member `char *SECRET_B64`.
+The mapping:
+
+| Java | C |
+|---|---|
+| `int` | `int` |
+| `long` | `long long` |
+| `boolean` | `bool` |
+| `double` | `double` |
+| `float` | `float` |
+| `byte` | `int8_t` |
+| `short` | `int16_t` |
+| `char` | `uint16_t` |
+| `java.lang.String` | `char *` |
+| anything else | `void *` |
+
+## 3. Synthetic and primitive fields
+
+Inner classes carry a synthetic `this$0` field, and primitive fields map
+to C types. Import a listener:
+
+```text
+[0x00000000]> fridaImj re.frida.minapp.MainActivity$6
+{"ok":true,"result":{"imported":true,"class":"re.frida.minapp.MainActivity$6","loader":0,"methods":1,"constructors":1,"fields":2}}
+
+[0x00000000]> tcd re_frida_minapp_MainActivity_6
+struct re_frida_minapp_MainActivity_6 { void *this_0; long long lastActionAt; };
+```
+
+Dots and `$` become underscores in type names. The synthetic field is
+sanitized to `this_0`, and the Java `long` field became C `long long`.
+
+## 4. Batch import
+
+A class name **without a dot** is a prefix: every loaded class starting with
+it is imported, capped by `frida.java.max`:
+
+```text
+[0x00000000]> fridaImj re
+{"ok":true,"result":{"batch":true,"classes":21,"methods":85,"fields":34,"constructors":25}}
+```
+
+```text
+[0x00000000]> acl
+[re_frida_minapp_Calculator]
+[re_frida_minapp_MainActivity]
+[re_frida_minapp_NativeLib]
+[re_frida_minapp_secret_SecretVault]
+...
+```
+
+A prefix with no matches is an error:
+
+```text
+[0x00000000]> fridaImj com.unknown
+{"ok":false,"error":{"code":"invalid_target","message":"no matching classes found for the given prefix"}}
+```
+
+## 5. Re-importing a class
+
+Re-importing an existing class does not crash and does not duplicate state:
+
+```text
+[0x00000000]> fridaImj re.frida.minapp.secret.SecretVault
+{"ok":true,"result":{"imported":true,"class":"re.frida.minapp.secret.SecretVault","loader":0,"methods":4,"constructors":1,"fields":1}}
+```
+
+## 6. Runtime module flags
+
+`fridafj` imports every loaded module as a flag in the `frida.libs` space,
+named after the module at its base address:
+
+```text
+[0x00000000]> fridafj
+{"ok":true,"result":{"imported":true,"modules":322}}
+
+[0x00000000]> fs frida.libs
+[0x00000000]> fl~libnative
+0x7adfac850000 20480 libnative.so
+```
+
+```{mermaid}
+flowchart LR
+    A[agent: classDescribe] --> B[host: rz_analysis_class_create]
+    B --> C[rz_analysis_class_method_set]
+    B --> D[rz_analysis_class_base_set]
+    B --> E[fields into the type database]
+    E --> F[ts / tcd struct types]
+    C --> G[ac / acl classes]
+```
+
+::: {.callout-tip}
+### Try
+
+Import `GameState`, batch-import `re.frida`, verify with `acl` and `ts`,
+then import the runtime modules with `fridafj` and grep the flags.
+:::
+

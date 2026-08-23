@@ -1,0 +1,13 @@
+# Introduction
+
+This part explains what dynamic instrumentation is, why rz-frida exists, how
+to install it, and what happens under the hood when we open a session.
+
+If you already know Frida and have the plugin installed, continue
+with [First Steps](../first_steps/intro.qmd) to set up the lab.
+
+| Chapter | Contents |
+|---|---|
+| [What is Frida](what_is_frida.qmd) | the vocabulary: agent, frida-server, gadget, instrumentation |
+| [Installing rizin and rz-frida](installing_rizin_and_rzfrida.qmd) | a working plugin, verified with one command |
+| [How it works](how_it_works.qmd) | the architecture: rizin, frida-core, the injected agent, JSON envelopes |

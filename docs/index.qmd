@@ -1,0 +1,59 @@
+# Dynamic Instrumentation with rz-frida
+
+This book is a guide to the **rz-frida** plugin for [Rizin](https://rizin.re):
+dynamic instrumentation of Android apps and native processes from inside
+rizin. Command output in these chapters was captured on live targets.
+
+```{mermaid}
+flowchart LR
+    subgraph Host
+        RZ[rizin]
+        PLG[rz-frida plugin]
+        FC[frida-core]
+    end
+    subgraph Target
+        AG[injected agent]
+        PROC[process under test]
+    end
+    RZ --> PLG --> FC
+    FC <--> AG
+    AG --> PROC
+```
+
+# How to use this book
+
+- Start with the **Introduction** if you are new to Frida or to rz-frida.
+- **First Steps** sets up the lab and opens the first session.
+- The **Android Journey** covers the demo app minapp.
+- The **Native Journey** covers the same ideas on a host-side C program.
+- **Scripting**, **Remote Access**, and **Under the Hood** cover the agent,
+  network and gadget targets, and the protocol.
+- **Reference** is the command card. **Challenges** are short exercises.
+
+## Conventions
+
+```bash
+$ rizin malloc://512
+[0x00000000]> fridasj
+{"ok":true,"result":{"active":false,"state":"closed"}}
+```
+
+Lines starting with `$` run in a shell. Lines starting with
+`[0x00000000]>` are typed inside rizin. Everything after them is captured
+output. Addresses, process ids and counts change between runs: treat them as
+examples and read the values from your own terminal.
+
+Most plugin cmds are JSON-only, so the book uses the `j` forms
+(`fridaoj`, `fridasj`). Only `fridas` and `fridau` also print plain text.
+
+> **Note:** this book documents the rizin plugin only. The Cutter integration
+> is a separate frontend over the same backend and is not covered here.
+
+::: {.callout-tip}
+### Try
+
+Most chapters end with a short task you can run along with the text.
+:::
+
+<!-- SPDX-FileCopyrightText: 2026 Alok Kumar Mishra <alok16022006@gmail.com> -->
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->

@@ -1,0 +1,114 @@
+# Patching and spawning
+
+We found `g_secret` in memory. Now change it.
+
+## 1. Read the key
+
+```text
+[0x00000000]> fridaoj frida://attach/local//native_demo
+{"ok":true,"result":{"action":"attach","pid":46117,"resumed":false,"state":"attached"}}
+
+[0x00000000]> fridaxj 0x5c95c4681010 16
+{"ok":true,"result":{"address":"0x5c95c4681010","size":16,"bytes":"4e34543156332d44334d302d4b335900"}}
+```
+
+## 2. Patch it
+
+Write a new key with a NUL terminator. `PATCHED-KEY\0` is
+`504154434845442d4b455900`:
+
+```text
+[0x00000000]> fridawj 0x5c95c4681010 504154434845442d4b455900
+{"ok":true,"result":{"address":"0x5c95c4681010","size":12}}
+```
+
+Read it back:
+
+```text
+[0x00000000]> fridaxj 0x5c95c4681010 16
+{"ok":true,"result":{"address":"0x5c95c4681010","size":16,"bytes":"504154434845442d4b4559004b335900"}}
+```
+
+`PATCHED-KEY\0` followed by the tail of the old value. The comparison stops
+at the NUL, so the new key is exactly `PATCHED-KEY`.
+
+> **Note:** always include the terminator. Without it, `strcmp` runs into the
+> old tail and the check fails.
+
+## 3. Confirm the patch
+
+Feed the new key in the demo's terminal:
+
+```bash
+Enter license key (q to quit): PATCHED-KEY
+License ACCEPTED
+```
+
+![Patched and accepted](img/native_journey/patch-accepted.png)
+
+And the original key is now rejected: the patch changed the gate itself.
+
+## 4. Spawn
+
+Attach requires a running process. Spawn starts one *suspended*:
+
+```text
+[0x00000000]> fridacj
+{"ok":true,"result":{"pid":46117,"state":"closed"}}
+
+[0x00000000]> fridaoj frida://spawn/local//./native_demo
+{"ok":true,"result":{"action":"spawn","pid":52038,"resumed":false,"rn":false,"state":"attached"}}
+```
+
+The target is frozen at its entry point. Nothing printed yet. Check:
+
+```text
+[0x00000000]> fridasj
+{"ok":true,"result":{"active":true,"state":"attached","pid":52038,"action":"spawn","target":"./native_demo"}}
+```
+
+Resume it:
+
+```text
+[0x00000000]> fridarj
+{"ok":true,"result":{"pid":52038,"resumed":true,"state":"attached"}}
+```
+
+The demo's banner appears as the process starts.
+
+## 5. Launch
+
+Launch is spawn plus automatic resume:
+
+```text
+[0x00000000]> fridaoj frida://launch/local//./native_demo
+{"ok":true,"result":{"action":"launch","pid":52849,"resumed":true,"state":"attached"}}
+```
+
+## 6. Closing semantics
+
+- attach → target keeps running after `fridacj`
+- launch → target keeps running
+- spawn that was never resumed → target is **killed** on close
+
+```text
+[0x00000000]> fridacj
+{"ok":true,"result":{"pid":52849,"state":"closed"}}
+```
+
+```{mermaid}
+flowchart LR
+    S[spawn] -->|suspended at entry| W[set hooks]
+    W -->|fridarj| R[resumed]
+    S -->|close before resume| K[killed]
+    L[launch] -->|spawn + auto resume| R
+    A[attach] -->|running process| R
+```
+
+::: {.callout-tip}
+### Try
+
+Patch the key to something of your own, prove it accepted, then spawn the
+demo, list its modules while it is still suspended, resume, and close.
+:::
+

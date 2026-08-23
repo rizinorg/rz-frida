@@ -1,0 +1,85 @@
+# Runtime versus static
+
+A dex on disk is a snapshot. The running app is what is actually loaded. `fridaXj`
+compares the two.
+
+## 1. Open the dex in rizin
+
+```bash
+$ cd /tmp
+$ unzip -o minapp.apk classes.dex
+$ rizin -N classes.dex
+```
+
+The dex carries the app's classes:
+
+```text
+[0x00000000]> icj
+```
+
+Twenty-three classes: the original model classes, the demo classes
+(`SecretVault`, `GameState`, `LicenseChecker`), the `MainActivity$1..6`
+listeners and the two dynamic classes.
+
+## 2. Compare before the plugin loads
+
+With the app freshly started and attached, ask for the comparison:
+
+```text
+[0x00000000]> fridaoj frida://attach/usb//FridaMin
+{"ok":true,"result":{"action":"attach","pid":4650,"resumed":false,"state":"attached"}}
+
+[0x00000000]> fridaXj
+{"ok":true,"result":{"loaded_bin":true,"only_static":2,"only_runtime":24881,"both":21}}
+```
+
+- `both: 21`: the app's own classes, present in the dex *and* loaded
+- `only_static: 2`: `DynamicClass` and `DynamicTrigger` are in the dex
+  but not yet loaded (the plugin button was not pressed)
+- `only_runtime: 24881`: everything the framework loaded that is not in
+  this dex
+
+![Dex vs runtime](img/android_journey/dex-diff.png)
+
+## 3. Watch a class move
+
+Press Load Plugin, compare again:
+
+```text
+[0x00000000]> fridaXj
+{"ok":true,"result":{"loaded_bin":true,"only_static":0,"only_runtime":24881,"both":23}}
+```
+
+The two classes moved from `only_static` to `both`.
+
+## 4. Prefix filter
+
+```text
+[0x00000000]> fridaXj re.frida.minapp.dynamic
+{"ok":true,"result":{"loaded_bin":true,"only_static":23,"only_runtime":0,"both":0}}
+```
+
+The prefix narrows both sides. Here the plugin was not loaded yet, so
+neither dynamic class matched: all 23 dex classes are reported under
+`only_static`.
+
+## 5. No binary loaded
+
+Run `fridaXj` on a bare file (no dex):
+
+```text
+[0x00000000]> fridaXj
+{"ok":true,"result":{"loaded_bin":false,"only_runtime":24881}}
+```
+
+`frida.dex.max` caps the number of runtime classes used for the comparison
+(0 = no limit). `fridaXj` reads the loaded binary's classes through rizin's
+bin plugin, so any binary format rizin understands works.
+
+::: {.callout-tip}
+### Try
+
+Extract the dex, open it in rizin, compare before and after the Load
+Plugin press. Then compare with a prefix.
+:::
+

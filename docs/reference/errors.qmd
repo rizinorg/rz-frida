@@ -1,0 +1,72 @@
+# Errors reference
+
+Every failure comes in the same envelope:
+
+```json
+{"ok":false,"error":{"code":"...","message":"..."}}
+```
+
+## Codes
+
+| Code | Raised when |
+|---|---|
+| `invalid_uri` | the URI grammar is wrong (see [URI reference](uri_reference.qmd)) |
+| `invalid_target` | a session is missing, or the target/argument is invalid |
+| `timeout` | a request exceeded `frida.timeout` |
+| `cancelled` | the user cancelled the request (Ctrl-C) |
+| `frida_unavailable` | the plugin was built without frida-core |
+| `not_implemented` | a method the backend does not implement |
+| `internal_error` | anything else: agent failures, unmapped memory, bad hex, ... |
+
+## Common messages
+
+| Message | Context |
+|---|---|
+| `no session is open` | any session-requiring command before `fridaoj` |
+| `invalid Frida URI` | grammar violation in `fridau`/`fridao` |
+| `the request timed out` | `frida.timeout` exceeded |
+| `the request was cancelled` | Ctrl-C during a request |
+| `frida-core support is not enabled` | null backend |
+| `Process not found` | attach by a name frida does not know (`invalid_target`) |
+| `URI action does not match the command` | `fridap`/`fridaa` given the wrong action |
+| `URI action cannot open a session` | `fridaoj` with `list`/`apps` |
+| `the session is not attached` | resume or agent work after the target detached |
+| `read size exceeds the frida.mem.max limit` | `fridax`/`fridaw` above the cap |
+| `expected an even-length hex byte string` | `fridawj` with an odd hex length |
+| `invalid hex byte string` | `fridawj` with non-hex input |
+| `address 0x... is not mapped in the target` | read/write outside mapped ranges |
+| `a breakpoint already exists at ...` | duplicate `fridabj` |
+| `no breakpoint at ...` | removing a breakpoint that is not set |
+| `thread ... is not stopped at a breakpoint` | `fridaBj`/`fridagj` for a running thread |
+| `no register named ...` | register write with an unknown name |
+| `a register write needs a value` | `fridaBj <tid> <reg>` without a value |
+| `no free hardware watchpoint slot` | all slots in use |
+| `no thread accepted the hardware watchpoint` | every thread refused the slot |
+| `a session is already open` | `fridaoj` while one session is active |
+| `session was attached and has nothing to resume` | `fridarj` on a non-spawn |
+| `no matching classes found for the given prefix` | batch import with no hits |
+| `fridaNj expects start, stop, or no arguments to list` | bad monitor argument |
+| `fridaRNj expects on, off, import, or no arguments to list` | bad hook argument |
+
+## Frida-side failures
+
+Unknown process and executable names arrive as `invalid_target` with
+frida's own message, for example:
+
+```json
+{"ok":false,"error":{"code":"invalid_target","message":"Process not found"}}
+```
+
+Other device-level failures arrive as `timeout` or `internal_error` with
+frida's own message.
+
+Agent-side exceptions (including `throw` inside `fridaej`) surface the same
+way, with the exception message.
+
+## Null backend
+
+Without frida-core, every device command answers:
+
+```json
+{"ok":false,"error":{"code":"frida_unavailable","message":"frida-core support is not enabled"}}
+```

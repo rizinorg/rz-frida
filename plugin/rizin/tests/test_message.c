@@ -16,6 +16,39 @@ static bool test_parse_send_message(void) {
 	mu_end;
 }
 
+static bool test_parse_send_string_payload(void) {
+	RzFridaAgentMessage msg = { 0 };
+	mu_assert_true(rz_frida_agent_message_parse(
+			       "{\"type\":\"send\",\"payload\":\"binary-payload\"}", &msg),
+		"send with a string payload parses");
+	mu_assert_eq(msg.kind, RZ_FRIDA_AGENT_MESSAGE_SEND, "kind is send");
+	mu_assert_streq(msg.payload, "\"binary-payload\"", "string payload is stored as quoted JSON text");
+	rz_frida_agent_message_fini(&msg);
+
+	mu_assert_true(rz_frida_agent_message_parse(
+			       "{\"type\":\"send\",\"payload\":\"\"}", &msg),
+		"send with an empty string payload parses");
+	mu_assert_streq(msg.payload, "\"\"", "empty string payload is stored as quoted JSON text");
+	rz_frida_agent_message_fini(&msg);
+
+	mu_assert_true(rz_frida_agent_message_parse(
+			       "{\"type\":\"send\",\"payload\":\"quote\\\"and\\\\slash\"}", &msg),
+		"send with an escaped string payload parses");
+	mu_assert_streq(msg.payload, "\"quote\\\"and\\\\slash\"", "escapes survive as JSON text");
+	rz_frida_agent_message_fini(&msg);
+
+	mu_assert_true(rz_frida_agent_message_parse("{\"type\":\"send\",\"payload\":42}", &msg),
+		"send with a number payload parses");
+	mu_assert_streq(msg.payload, "42", "number payload stays unquoted JSON");
+	rz_frida_agent_message_fini(&msg);
+
+	mu_assert_true(rz_frida_agent_message_parse("{\"type\":\"send\",\"payload\":[1,2,3,255]}", &msg),
+		"send with an array payload parses");
+	mu_assert_streq(msg.payload, "[1,2,3,255]", "array payload stays JSON text");
+	rz_frida_agent_message_fini(&msg);
+	mu_end;
+}
+
 static bool test_parse_error_message(void) {
 	RzFridaAgentMessage msg = { 0 };
 	mu_assert_true(rz_frida_agent_message_parse(
@@ -169,6 +202,25 @@ static bool test_message_to_json_error(void) {
 	mu_end;
 }
 
+static bool test_message_to_json_send_string(void) {
+	RzFridaAgentMessage msg = { 0 };
+	mu_assert_true(rz_frida_agent_message_parse(
+			       "{\"type\":\"send\",\"payload\":\"binary-payload\"}", &msg),
+		"parse a string payload");
+	const ut8 raw[] = { 1, 2, 3, 255 };
+	msg.data = rz_buf_new_with_bytes(raw, sizeof(raw));
+	mu_assert_notnull(msg.data, "allocate the data blob");
+	PJ *pj = pj_new();
+	mu_assert_notnull(pj, "allocate json builder");
+	rz_frida_agent_message_to_json(&msg, pj);
+	mu_assert_streq(pj_string(pj),
+		"{\"kind\":\"send\",\"payload\":\"binary-payload\",\"data\":\"AQID/w==\",\"dataSize\":4}",
+		"string send payload is quoted JSON, with base64 data");
+	pj_free(pj);
+	rz_frida_agent_message_fini(&msg);
+	mu_end;
+}
+
 static bool test_message_to_json_binary(void) {
 	RzFridaAgentMessage msg = { 0 };
 	msg.kind = RZ_FRIDA_AGENT_MESSAGE_SEND;
@@ -243,6 +295,7 @@ static bool test_msgbuf_capacity(void) {
 
 int all_tests(void) {
 	mu_run_test(test_parse_send_message);
+	mu_run_test(test_parse_send_string_payload);
 	mu_run_test(test_parse_error_message);
 	mu_run_test(test_parse_log_message);
 	mu_run_test(test_parse_unknown_type);
@@ -253,6 +306,7 @@ int all_tests(void) {
 	mu_run_test(test_response_rejects_non_reply);
 	mu_run_test(test_pending_lifecycle);
 	mu_run_test(test_message_to_json_send);
+	mu_run_test(test_message_to_json_send_string);
 	mu_run_test(test_message_to_json_log);
 	mu_run_test(test_message_to_json_error);
 	mu_run_test(test_message_to_json_binary);

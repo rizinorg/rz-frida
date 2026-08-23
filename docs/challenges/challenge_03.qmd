@@ -1,0 +1,21 @@
+# Challenge 3: unlock premium without the key
+
+Make the app believe `premium` is true. The Upgrade to Premium button is
+forbidden.
+
+**Hints**:
+
+<details>
+<summary>Hint 1</summary>
+
+`GameState.premium` is a public static boolean.
+</details>
+
+<details>
+<summary>Hint 2</summary>
+
+Static fields are read and written with `.value`.
+</details>
+
+See [Unlocking premium](../android_journey/unlocking_premium.qmd) for the
+field and the status line.

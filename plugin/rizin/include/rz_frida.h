@@ -21,7 +21,7 @@ typedef enum rz_frida_action_t {
 	RZ_FRIDA_ACTION_LIST, ///< List devices for a transport.
 	RZ_FRIDA_ACTION_APPS, ///< List applications of a target device.
 	RZ_FRIDA_ACTION_ATTACH, ///< Attach to an existing process.
-	RZ_FRIDA_ACTION_SPAWN, ///< Spawn a new process without resuming it yet.
+	RZ_FRIDA_ACTION_SPAWN, ///< Spawn a process (local stays suspended, USB/remote resume).
 	RZ_FRIDA_ACTION_LAUNCH, ///< Launch a process and prepare a session.
 } RzFridaAction;
 

@@ -1,0 +1,128 @@
+# Counting coins
+
+Earn Coins credits ten coins per tap, and the status line tracks the
+balance:
+
+![The coin balance](img/android_journey/coins.png)
+
+The balance lives in `GameState.coins`, an `int`. The cell allocated below
+is a watchpoint-mechanism demo, not that field. The real balance is watched
+later with the Java hook.
+
+## 1. Allocate a dummy cell
+
+Hardware watchpoints need a concrete address. Allocate a cell in the app
+and keep it alive:
+
+```text
+[0x00000000]> fridaoj frida://attach/usb//FridaMin
+{"ok":true,"result":{"action":"attach","pid":3718,"resumed":false,"state":"attached"}}
+
+[0x00000000]> fridaej "(globalThis.coinsCell=Memory.alloc(8)).toString()"
+{"ok":true,"result":{"value":"0x7ae269978400","type":"string"}}
+```
+
+`globalThis.coinsCell` survives across `fridaej` calls.
+
+## 2. Arm the watchpoint
+
+```text
+[0x00000000]> fridaWj 0x7ae269978400 8 w
+{"ok":true,"result":{"slot":0,"address":"0x7ae269978400","size":8,"conditions":"w"}}
+```
+
+`size` defaults to the pointer size. `conditions` are `r`, `w` or `rw`
+(default `rw`). The reply names the hardware slot.
+
+## 3. List
+
+```text
+[0x00000000]> fridaWj
+{"ok":true,"result":{"watchpoints":[{"slot":0,"address":"0x7ae269978400","size":8,"conditions":"w"}]}}
+```
+
+![Watchpoint armed](img/android_journey/watchpoint-list.png)
+
+## 4. Trigger
+
+Write to the cell:
+
+```text
+[0x00000000]> fridaej "globalThis.coinsCell.writeU64(0x41414141);\"written\""
+{"ok":true,"result":{"value":"written","type":"string"}}
+```
+
+On hardware that delivers the trap, `fridamj` reports a `frida.wp` event:
+
+```json
+{"kind":"send","payload":{"type":"frida.wp","threadId":2213,"pc":"0x...","operation":"write","address":"0x7ae269978400","watched":[{"slot":0,"address":"0x7ae269978400","size":8,"conditions":"w"}],"context":{...}}}
+```
+
+The event carries the faulting thread, the program counter, the operation
+and the full register context. The watchpoint **disarms itself on the hit**,
+arm it again to keep watching.
+
+## 5. Remove
+
+```text
+[0x00000000]> fridaW-j 0x7ae269978400
+{"ok":true,"result":{"address":"0x7ae269978400","removed":1}}
+
+[0x00000000]> fridaW-j *
+{"ok":true,"result":{"removed":0}}
+```
+
+## Why the trap may not fire
+
+Hardware watchpoints use the CPU's debug registers. Arm, list and remove
+work everywhere, but trap delivery depends on the platform:
+
+- on the Android emulator (QEMU/KVM), delivery is unreliable: the write
+  completes without an event, and arming can occasionally destabilize the
+  app: restart it with `adb shell am force-stop re.frida.minapp` if it
+  stops responding
+- some OEM ROMs restrict debug registers for non-system apps
+- on a physical device that supports them, the flow above produces the
+  event
+
+This is a frida platform behavior, not a plugin limitation. The reliable,
+portable way to observe and change `GameState.coins` is the Java hook:
+
+```js
+Java.perform(function () {
+  var GameState = Java.use('re.frida.minapp.game.GameState');
+  GameState.addCoins.implementation = function (n) {
+    var before = GameState.coins.value;
+    this.addCoins(n);
+    console.log('addCoins(' + n + ') coins ' + before + ' -> ' + GameState.coins.value);
+    Java.scheduleOnMainThread(function () {
+      Java.choose('re.frida.minapp.MainActivity', {
+        onMatch: function (activity) { activity.refreshStatus(); },
+        onComplete: function () {}
+      });
+    });
+  };
+  console.log('coins monitor installed');
+});
+```
+
+```text
+[0x00000000]> fridalj docs/examples/hooks/watch_coins.js
+[0x00000000]> fridamj
+... "text":"coins monitor installed"
+[0x00000000]> fridaej "Java.perform(function(){Java.use('re.frida.minapp.game.GameState').addCoins(10)})"
+[0x00000000]> fridamj
+... "text":"addCoins(10) coins 0 -> 10"
+```
+
+`frida.hw.watchpoints` (default 4) caps how many slots `fridaWj` may use.
+The example also refreshes the app's cached status line after a direct
+scripted coin mutation.
+
+::: {.callout-tip}
+### Try
+
+Arm a watchpoint on a dummy cell, then use `watch_coins.js` for
+`GameState.coins`.
+:::
+

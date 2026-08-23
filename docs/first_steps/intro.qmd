@@ -1,0 +1,11 @@
+# First Steps
+
+This part builds the lab (emulator, frida-server, demo app), then opens a
+session and explores a live target.
+
+| Chapter | Contents |
+|---|---|
+| [Setting up the lab](setting_up_the_lab.qmd) | emulator, frida-server, minapp |
+| [The frida:// URI grammar](uri_grammar.qmd) | URI rules and `fridauj` |
+| [Our first session](first_session_native.qmd) | attach, ping, close |
+| [Exploring targets](exploring_targets.qmd) | devices, processes, modules, exports |

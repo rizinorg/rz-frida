@@ -8,3 +8,21 @@ path = [".github/workflows/**.yml", ".gitignore", "README.md", "meson.build", "m
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Alok Kumar Mishra <alok16022006@gmail.com>"
 SPDX-License-Identifier = "LGPL-3.0-only"
+
+[[annotations]]
+path = ["docs/_quarto.yml", "docs/index.qmd", "docs/README.md", "docs/**/*.md", "docs/**/*.qmd", "docs/.gitignore", "docs/img/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Alok Kumar Mishra <alok16022006@gmail.com>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = ["docs/examples/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Alok Kumar Mishra <alok16022006@gmail.com>"
+SPDX-License-Identifier = "LGPL-3.0-only"
+
+[[annotations]]
+path = ["scripts/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Alok Kumar Mishra <alok16022006@gmail.com>"
+SPDX-License-Identifier = "LGPL-3.0-only"

@@ -1,0 +1,21 @@
+# Challenge 1: find the hidden class
+
+The app has a class that is not mentioned anywhere in its UI. Find it, and
+name all of its methods.
+
+**Hints**:
+
+<details>
+<summary>Hint 1</summary>
+
+`fridaCj re.frida` lists everything in the app's package.
+</details>
+
+<details>
+<summary>Hint 2</summary>
+
+The interesting classes live under `secret`, `game` and `license`.
+</details>
+
+Work through [Discovering classes](../android_journey/discovering_classes.qmd)
+if you need the commands.

@@ -1,0 +1,163 @@
+# Evaluating and hooking
+
+Attach to the app:
+
+```text
+[0x00000000]> fridaoj frida://attach/usb//FridaMin
+{"ok":true,"result":{"action":"attach","pid":2812,"resumed":false,"state":"attached"}}
+```
+
+## Values and types
+
+`fridaej <source>` evaluates the expression in the target and returns
+`{value, type}`:
+
+```text
+[0x00000000]> fridaej "1 + 1"
+{"ok":true,"result":{"value":2,"type":"number"}}
+
+[0x00000000]> fridaej "'hello'"
+{"ok":true,"result":{"value":"hello","type":"string"}}
+
+[0x00000000]> fridaej "undefined"
+{"ok":true,"result":{"value":null,"type":"undefined"}}
+
+[0x00000000]> fridaej "null"
+{"ok":true,"result":{"value":null,"type":"object"}}
+
+[0x00000000]> fridaej "Process.platform + ' ' + Process.arch"
+{"ok":true,"result":{"value":"linux x64","type":"string"}}
+```
+
+![Eval value and type](img/scripting/eval-types.png)
+
+JS objects come back as plain values:
+
+```text
+[0x00000000]> fridaej "({a: 1})"
+{"ok":true,"result":{"value":{"a":1},"type":"object"}}
+```
+
+> **Note:** `{a: 1}` without parentheses parses as a block with a label and
+> evaluates to `1`. Parenthesize object literals.
+
+Every evaluation invalidates the agent's range and module caches, so the
+next `fridaMj`/`fridaRj` re-enumerates.
+
+## Quoting
+
+The expression is a command argument, so the shell and rizin both get a
+chance to mangle it. Quoting rules:
+
+- one expression, no quotes inside: `fridaej Process.arch`
+- quotes inside: single quotes in JS, double quotes outside:
+
+```text
+[0x00000000]> fridaej "Java.perform(function(){Java.use('re.frida.minapp.game.GameState').coins.value})"
+{"ok":true,"result":{"value":null,"type":"undefined"}}
+```
+
+Java values do not travel back through the eval reply: field reads and
+method calls stay inside the Java VM. Report them with `console.log` and
+drain `fridamj` (the Android chapters do exactly that). `Java.use` must run
+inside `Java.perform`, otherwise the agent fails with a
+`ClassNotFoundException`.
+
+- anything longer, or anything with nested quotes: put it in a file and
+  load it with `fridalj`. This is the reliable path and the one the
+  Android chapters use.
+
+```text
+[0x00000000]> fridalj docs/examples/hooks/watch_coins.js
+{"ok":true,"result":{"value":null,"type":"undefined"}}
+```
+
+## The hook recipes
+
+**Replace a method body** (extract the secret):
+
+```js
+Java.perform(function () {
+  var Vault = Java.use('re.frida.minapp.secret.SecretVault');
+  Vault.getSecret.implementation = function () {
+    var real = this.getSecret();
+    console.log('getSecret() -> ' + real);
+    return real;
+  };
+});
+```
+
+`this.method()` inside an override calls the original implementation.
+
+**Read and write static fields** (unlock premium):
+
+```js
+Java.perform(function () {
+  var GameState = Java.use('re.frida.minapp.game.GameState');
+  GameState.premium.value = true;
+});
+```
+
+**Wrap a method to observe it** (watch coins):
+
+```js
+Java.perform(function () {
+  var GameState = Java.use('re.frida.minapp.game.GameState');
+  GameState.addCoins.implementation = function (n) {
+    var before = GameState.coins.value;
+    this.addCoins(n);
+    console.log('addCoins(' + n + ') coins ' + before + ' -> ' + GameState.coins.value);
+    Java.scheduleOnMainThread(function () {
+      Java.choose('re.frida.minapp.MainActivity', {
+        onMatch: function (activity) { activity.refreshStatus(); },
+        onComplete: function () {}
+      });
+    });
+  };
+});
+```
+
+**Force a native-backed method** (break the native check):
+
+```js
+Java.perform(function () {
+  var Vault = Java.use('re.frida.minapp.secret.SecretVault');
+  Vault.nativeCheckSecret.implementation = function (input) {
+    return true;
+  };
+});
+```
+
+Replacing the implementation of a native method short-circuits the C code
+entirely: the native side never runs.
+
+**Call a native function directly** (the native journey's trigger):
+
+```js
+var ck = DebugSymbol.findFunctionsNamed('check_key')[0];
+new NativeFunction(ck, 'int', ['pointer'])(Memory.allocUtf8String('wrong'));
+```
+
+**Scan memory for a pattern** (find the secret):
+
+```js
+var m = Process.enumerateModules().filter(function (x) { return x.name === 'libnative.so'; })[0];
+var hits = Memory.scanSync(m.base, m.size, '72 7a 66 72 69 64 61 7b');
+hits.forEach(function (h) { console.log(h.address.toString()); });
+```
+
+## Async vs blocking
+
+Evaluations are synchronous request-reply round trips. Asynchronous work
+(timers, callbacks, events) belongs in the agent and reports through
+`fridamj`, not through the eval reply. A callback that fires *after* the
+eval reply (like the `setTimeout` examples in the message chapter) is
+drained with `fridamj`.
+
+::: {.callout-tip}
+### Try
+
+Evaluate a number, a string, an object and `undefined`. Then load
+`watch_coins.js` and trigger a coin credit from the app.
+:::
+

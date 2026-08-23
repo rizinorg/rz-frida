@@ -1,0 +1,121 @@
+# Commands reference
+
+Every command in the `frida` group. All commands answer in JSON (the `j`
+suffix) except `fridas`/`fridau`, which also print plain text. Commands that
+need a session return `{"ok":false,"error":{"code":"invalid_target","message":"no session is open"}}`
+without one.
+
+## Status and URI
+
+| Command | Args | Purpose |
+|---|---|---|
+| `fridas` / `fridasj` | | plugin/session status: `active`, `state`, `pid`, `action`, `target` |
+| `fridau` / `fridauj` | `<uri>` | validate a `frida://` URI without contacting a device |
+
+JSON-only commands are the `…j` forms below. The non-`j` name is registered
+but does not print a useful reply. Type `fridadj`, not `fridad`.
+
+## Devices, processes, applications
+
+| Command | Args | Purpose |
+|---|---|---|
+| `fridadj` | | enumerate frida devices (local, usb, remote) |
+| `fridapj` | `[uri]` | list processes (default local, `frida://list/usb|remote/...` for others) |
+| `fridaaj` | `[uri]` | list applications (default local, usb/remote URIs work) |
+
+## Session control
+
+| Command | Args | Purpose |
+|---|---|---|
+| `fridaoj` | `<uri>` | open a session: attach, spawn or launch. USB/remote spawn resumes (`rn` true when RN armed) |
+| `fridarj` | | resume a spawned suspended target (safe if already resumed) |
+| `fridacj` | | close the session (detach). Kills spawns that were never resumed |
+
+## Agent
+
+| Command | Args | Purpose |
+|---|---|---|
+| `fridaej` | `<source>` | evaluate a JavaScript expression, returns `{value, type}` |
+| `fridalj` | `<file>` | load and evaluate a JavaScript file |
+| `fridaij` | | ping the agent: version, platform, arch, pointerSize |
+| `fridamj` | | drain buffered agent messages `{messages, dropped}` |
+
+## Memory
+
+| Command | Args | Purpose |
+|---|---|---|
+| `fridaxj` | `<address> <size>` | read memory (addresses accept rizin expressions) |
+| `fridawj` | `<address> <bytes>` | write hex bytes |
+
+Bounded by `frida.mem.max` (1 MiB default, 0 = unlimited).
+
+## Runtime info
+
+| Command | Args | Purpose |
+|---|---|---|
+| `fridaRj` | `[refresh]` | memory ranges `{base, size, protection, file?}` |
+| `fridatj` | | threads with serialized register contexts |
+| `fridaMj` | `[refresh]` | modules `{name, base, size, path}` |
+| `fridaEj` | `<module>` | module exports |
+| `fridaIj` | `<module>` | module imports |
+| `fridaSj` | `<module>` | module symbols (empty for stripped modules) |
+
+Ranges and modules are cached. Any argument or an `eval` invalidates.
+
+## Debugging
+
+| Command | Args | Purpose |
+|---|---|---|
+| `fridabj` | `[address]` | set a breakpoint, or list `{breakpoints: [{bp, address}]}` |
+| `fridab-j` | `<address\|*>` | remove breakpoint(s) |
+| `fridagj` | `[thread]` | continue a parked thread (specific tid, or most recent) |
+| `fridaBj` | `<tid> [reg value]` | stop identity `{threadId, bp, address}`. Write mutates live Interceptor context |
+| `fridaWj` | `[address [size [r\|w\|rw]]]` | hardware watchpoint (default size = pointer size, default conditions `rw`) |
+| `fridaW-j` | `<address\|*>` | remove watchpoint(s) |
+
+Notes:
+
+- breakpoints use `Interceptor.attach`: no plugin-side patching or slot cap.
+  Frida may rewrite the prologue. They fire on any thread
+- a hit parks the thread and reports a `frida.bp` event through `fridam`
+- `fridaBj <tid>` reports the stop identity only, **not** the register
+  values. A write (`<tid> <reg> <value>`) mutates the live context
+- watchpoints arm on every thread, are capped by `frida.hw.watchpoints`,
+  and disarm on a hit (`frida.wp` event)
+
+## Java
+
+| Command | Args | Purpose |
+|---|---|---|
+| `fridaJj` | | is the Java VM available |
+| `fridaLj` | | enumerate classloaders with stable ids |
+| `fridaCj` | `[prefix]` | enumerate loaded classes (canonical prefix or simple name), capped by `frida.java.max` |
+| `fridaNj` | `[start\|stop]` | class load monitor (snapshot diff, stop does not clear the seen set) |
+| `fridaRNj` | `[on\|off\|import]` | RegisterNatives hook. USB/remote spawn already arms it, `on` also resumes a still-suspended spawn |
+| `fridafj` | | import runtime modules as flags in `frida.libs` |
+| `fridaXj` | `[prefix]` | compare static binary classes with runtime classes |
+| `fridaDj` | `<class> [loader]` | describe a class (Tab completes names) |
+| `fridaImj` | `<class> [loader]` | import a class into rizin analysis (dotless = batch prefix import) |
+
+Java commands answer `javaUnavailable: true` (ok) when the Java bridge is
+absent, for example on a native target.
+
+## fridae error replies
+
+Requests that fail inside the agent come back as `ok:false` envelopes with
+`internal_error` and a message such as:
+
+```text
+read size exceeds the frida.mem.max limit
+expected an even-length hex byte string
+invalid hex byte string
+address 0x1000 is not mapped in the target
+a breakpoint already exists at 0x1000
+thread 1234 is not stopped at a breakpoint
+no register named rax
+a register write needs a value
+no free hardware watchpoint slot
+no thread accepted the hardware watchpoint
+```
+
+See [errors](errors.qmd) for the full code table.

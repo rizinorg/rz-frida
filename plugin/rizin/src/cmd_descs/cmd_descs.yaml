@@ -109,7 +109,7 @@ commands:
             comment: "Continue a thread parked at a breakpoint"
           - text: "fridaBj "
             arg_str: "4242"
-            comment: "Read the registers of the thread stopped at a breakpoint"
+            comment: "Report the stop identity of the thread parked at a breakpoint"
           - text: "fridaBj "
             arg_str: "4242 pc 0x401000"
             comment: "Set a register on the stopped thread before continuing"
@@ -127,8 +127,8 @@ commands:
         summary: "Print Frida session status"
         description: >
           Reports whether a session is active and prints the current session
-          state (new, resolved, connecting, attached, detaching, closed, or
-          error).
+          state (new, resolved, attached, detaching, closed, or error).
+          connecting is declared but not published.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
           - RZ_OUTPUT_MODE_STANDARD
@@ -176,7 +176,7 @@ commands:
                 comment: "Spawn an Android package on a USB device"
               - text: "fridau "
                 arg_str: "frida://launch/local///bin/ls"
-                comment: "Launch /bin/ls locally (note the leading slash in the path)"
+                comment: "Launch /bin/ls locally (absolute path, three slashes)"
               - text: "fridauj "
                 arg_str: "frida://attach/remote/127.0.0.1:27042/4321"
                 comment: "Validate remote-attach URI and emit JSON"
@@ -243,9 +243,10 @@ commands:
         summary: "Open a Frida session"
         description: >
           Opens a session for a frida:// URI on a local, USB, or remote device:
-          attach to a pid or process name, spawn a target suspended, or launch
-          and resume it. Stores the live session and emits a structured JSON
-          reply.
+          attach to a pid or process name, spawn a target, or launch and resume
+          it. USB/remote spawns resume before the command returns (`rn` true
+          when RegisterNatives armed). A local spawn stays suspended. Stores
+          the live session and emits a structured JSON reply.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
           - RZ_OUTPUT_MODE_JSON
@@ -263,7 +264,7 @@ commands:
                 comment: "Attach by process name on the single USB device"
               - text: "fridaoj "
                 arg_str: "frida://spawn/usb//com.example.app"
-                comment: "Spawn an Android package suspended over USB, resume with fridarj"
+                comment: "Spawn a USB package (resumed, rn true when the hook armed)"
               - text: "fridaoj "
                 arg_str: "frida://launch/local///bin/ls"
                 comment: "Launch /bin/ls and resume it immediately"
@@ -274,8 +275,10 @@ commands:
         cname: cmd_fridar
         summary: "Resume the open Frida session"
         description: >
-          Resumes a target that was spawned suspended by the open command. Emits
-          a structured JSON reply.
+          Resumes a target that was spawned suspended by the open command.
+          Safe to repeat: a spawned target that is already running, including
+          one resumed by open on a USB/remote spawn or by 'fridaRNj on',
+          returns ok rather than an error. Emits a structured JSON reply.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
           - RZ_OUTPUT_MODE_JSON
@@ -523,8 +526,9 @@ commands:
           Sets a breakpoint at an address in the target process through the
           rz-frida agent, or lists the breakpoints that are set when called with
           no argument. A hit is reported asynchronously through fridam with the
-          thread id and register context, and the thread stays parked until
-          fridag continues it. Loads the agent into the open session on first use.
+          breakpoint id and thread id (the event context is empty), and the thread
+          stays parked until fridag continues it. Loads the agent into the open
+          session on first use.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
           - RZ_OUTPUT_MODE_JSON
@@ -588,12 +592,12 @@ commands:
                 comment: "Continue the thread with id 4242"
       - name: fridaB
         cname: cmd_fridaB
-        summary: "Read or write registers at a breakpoint stop"
+        summary: "Report stop identity or write a register at a breakpoint stop"
         description: >
-          Reads the saved register context of a thread parked at a breakpoint in
+          Reports the stop identity of a thread parked at a breakpoint in
           the target process through the rz-frida agent, or sets one register when
           a register name and value follow the thread id. A write lands on the
-          saved context and takes effect when the thread is continued with fridag.
+          live context and takes effect when the thread is continued with fridag.
           Loads the agent into the open session on first use.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
@@ -612,7 +616,7 @@ commands:
             entries:
               - text: "fridaBj "
                 arg_str: "4242"
-                comment: "Read the registers of the thread with id 4242"
+                comment: "Report the stop identity of thread 4242"
               - text: "fridaBj "
                 arg_str: "4242 pc 0x401000"
                 comment: "Set pc on thread 4242 before continuing it with fridagj"
@@ -702,9 +706,10 @@ commands:
         summary: "Enumerate loaded Java classes in the target"
         description: >
           Enumerates the loaded Java classes in the target process through the
-          rz-frida agent. An optional prefix narrows the list to classes whose
-          canonical name starts with that string. The frida.java.max config
-          (default 512) caps the batch; zero means unlimited.
+          rz-frida agent. An optional prefix matches classes whose canonical
+          name starts with that string, or whose simple name after the last
+          dot equals it. The frida.java.max config (default 512) caps the
+          batch. Zero means unlimited.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
           - RZ_OUTPUT_MODE_JSON
@@ -716,10 +721,12 @@ commands:
         cname: cmd_fridaN
         summary: "Monitor newly loaded Java classes in the target"
         description: >
-          When called without arguments, lists classes loaded since the monitor was
-          last started. Call 'fridaNj start' to enable classload hooks on all
-          active classloaders and intercept new classloader creation. Call
-          'fridaNj stop' to detach the hooks and clear the tracking buffer.
+          When called without arguments, lists classes loaded since the last
+          snapshot. Call 'fridaNj start' to snapshot currently loaded classes.
+          If the monitor is already enabled, start does not re-snapshot.
+          Later listings are the difference against that set.
+          Call 'fridaNj stop' to disable the monitor. The seen set is kept, so
+          a later listing can still report new names with monitor false.
           Requires an Android target with the Java VM available.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
@@ -736,7 +743,8 @@ commands:
           invocations with className, method names, signatures and native
           function addresses. Call 'fridaRNj on' to arm the low-level JNI
           hook on the ART runtime (JNI function table offset 215).
-          'fridaRNj off' disarms and clears the buffer.
+          A USB/remote spawn already arms it. On a still-suspended spawn, arming
+          also resumes. 'fridaRNj off' disarms and clears the buffer.
           'fridaRNj import' imports the captured native method addresses
           into the rizin analysis class database.
           Requires an Android target with the Java VM available.

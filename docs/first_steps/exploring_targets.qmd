@@ -1,0 +1,146 @@
+# Exploring targets
+
+Keep the native demo running and attach to it:
+
+```text
+[0x00000000]> fridaoj frida://attach/local//native_demo
+{"ok":true,"result":{"action":"attach","pid":46117,"resumed":false,"state":"attached"}}
+```
+
+## Devices
+
+```text
+[0x00000000]> fridadj
+{"ok":true,"result":{"devices":[{"id":"local","name":"Local System","type":"local","lost":false},{"id":"socket","name":"Local Socket","type":"remote","lost":false},{"id":"barebone","name":"GDB Remote Stub","type":"remote","lost":false},{"id":"emulator-5554","name":"Android Emulator 5554","type":"usb","lost":false}]}}
+```
+
+`fridadj` lists every device frida knows: the local system, remote stubs and
+the USB emulator. `lost` reports whether a device disappeared.
+
+## Processes and applications
+
+```text
+[0x00000000]> fridapj frida://list/usb//
+{"ok":true,"result":{"processes":[{"pid":1,"name":"init"},...]}}
+```
+
+The URI selects the device. `list/usb//` means "the single USB device". The
+demo app appears as `FridaMin`: the process name is the app label:
+
+```text
+{"pid":2812,"name":"FridaMin"}
+```
+
+Applications are enumerated with `fridaaj`, giving identifiers and display
+names:
+
+```text
+[0x00000000]> fridaaj frida://apps/usb//
+{"ok":true,"result":{"apps":[{"identifier":"com.android.calendar","name":"Calendar","pid":0},...,{"identifier":"re.frida.minapp","name":"FridaMin","pid":2812}]}}
+```
+
+`pid` is nonzero only when the app is running.
+
+## Modules
+
+```text
+[0x00000000]> fridaMj
+{"ok":true,"result":{"modules":[{"name":"native_demo","base":"0x5c95c4680000","size":16448,"path":".../native_demo"},...],"cached":false}}
+```
+
+The agent caches the module list. `cached` reports whether the reply came
+from the cache. Pass any argument to force a fresh enumeration:
+
+```text
+[0x00000000]> fridaMj refresh
+```
+
+## Exports, imports and symbols
+
+```text
+[0x00000000]> fridaEj native_demo
+{"ok":true,"result":{"module":"native_demo","exports":[{"type":"variable","name":"stdout","address":"0x5c95c4681020","size":8},{"type":"variable","name":"stdin","address":"0x5c95c4681030","size":8}]}}
+```
+
+Only a few exports on a small program. Imports point into libc:
+
+```text
+[0x00000000]> fridaIj native_demo
+{"ok":true,"result":{"module":"native_demo","imports":[{"type":"function","name":"puts","module":"/lib/x86_64-linux-gnu/libc.so.6","address":"0x795091c87cc0","slot":"0x5c95c4680fa0"},...]}}
+```
+
+Symbols are what the native chapters rely on: actual names and addresses.
+
+```text
+[0x00000000]> fridaSj native_demo
+{"ok":true,"result":{"module":"native_demo","symbols":[...,{"name":"g_secret","address":"0x5c95c4681010","size":16},...,{"name":"check_key","address":"0x5c95c467e209","size":48},...]}}
+```
+
+`check_key`, `bump_counter`, `g_secret`, `g_attempts`: everything is there
+because the demo was built with `-g` and not stripped.
+
+### Filtering module output
+
+Module names are platform-specific: the Android C library is `libc.so`,
+while the native Linux demo uses `libc.so.6`.
+
+On the Android target:
+
+```text
+[0x00000000]> fridaEj libnative.so~JNI
+{"ok":true,"result":{"module":"libnative.so","exports":[{"type":"function","name":"JNI_OnLoad","address":"0x7adf675eed30","size":427}]}}
+```
+
+The rizin `~` operator filters rendered **lines**. Because `fridaEj` emits
+one complete JSON envelope on one line, `fridaEj libc.so.6~open` keeps or
+discards the entire envelope. It does not select individual array entries.
+Use the shell pipe operator and `jq` for a readable, JSON-aware filter:
+
+```text
+[0x00000000]> fridaEj libc.so.6 | jq -r '.result.exports[] | select(.name | contains("open")) | [.name, .address] | @tsv'
+_IO_popen	0x73e276887990
+sem_open	0x73e2768a44c0
+fts64_open	0x73e276918720
+__open_nocancel	0x73e27691c9a0
+opendir	0x73e2768ed680
+fts_open	0x73e276918720
+```
+
+The exact addresses and duplicate symbol entries depend on the libc build.
+On Android, replace `libc.so.6` with `libc.so` after checking the module
+name with `fridaMj`.
+
+![Grep on exports](img/first_steps/exports-grep.png)
+
+## Memory ranges
+
+```text
+[0x00000000]> fridaRj
+{"ok":true,"result":{"ranges":[{"base":"0x5c95c4680000","size":16448,"protection":"r-x","file":{"path":".../native_demo","offset":0,"size":16448}},...],"cached":false}}
+```
+
+Ranges carry `base`, `size`, `protection` and the backing `file` when there
+is one. Like modules, ranges are cached and refreshed on demand:
+
+```text
+[0x00000000]> fridaRj refresh
+```
+
+## Threads
+
+```text
+[0x00000000]> fridatj
+{"ok":true,"result":{"threads":[{"id":46117,"state":"waiting","context":{"rip":"0x7ffc580d0f9a",...}}]}}
+```
+
+Each thread reports its `id`, `state` and a serialized register `context`
+with the full CPU state (`rip`, `rax`, ... `sp`, `pc`). On Android, threads
+created by the framework also carry an `entrypoint`.
+
+::: {.callout-tip}
+### Try
+
+On the emulator target, list modules and find `libnative.so`, then grep its
+exports for `JNI`. List its ranges and its threads.
+:::
+

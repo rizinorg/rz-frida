@@ -1,0 +1,54 @@
+# Building the target
+
+The target is `docs/examples/native_demo.c`: a license gate with a writable
+in-memory secret, an attempt counter, and two functions: `check_key`
+and `bump_counter`.
+
+## Build
+
+```bash
+$ gcc -O0 -g -o native_demo docs/examples/native_demo.c
+```
+
+Two flags matter:
+
+- `-O0` keeps the code unoptimized
+- `-g` keeps the symbol table, which the exploration chapters use
+
+## Run
+
+```bash
+$ ./native_demo
+Native Demo -- license gate
+Find the key, or patch the gate
+attempts: 1
+Enter license key (q to quit):
+```
+
+![native demo prompt](img/first_steps/native-demo-prompt.png)
+
+Feed a wrong key, then the right one:
+
+```bash
+Enter license key (q to quit): wrong
+License DENIED
+Enter license key (q to quit): N4T1V3-D3M0-K3Y
+License ACCEPTED
+```
+
+![Accept and deny](img/native_journey/accept-deny.png)
+
+The counter (`attempts`) is the `g_attempts` global bumped by
+`bump_counter`. The secret is the `g_secret` string compared by
+`check_key`.
+
+> **Note:** keep the process running in its terminal for the next chapters.
+> `q` quits.
+
+::: {.callout-tip}
+### Try
+
+Build the demo, run it, confirm both verdicts, then leave it waiting for
+input.
+:::
+

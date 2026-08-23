@@ -52,6 +52,8 @@ static const char *device_type_string(FridaDeviceType type) {
 
 static RzFridaError backend_error_code(GCancellable *cancellable, GError *error);
 
+static bool backend_probe_remote(const char *host_port, gint timeout_ms, GCancellable *cancellable, GError **error);
+
 static FridaDevice *backend_resolve_device(FridaDeviceManager *manager, const RzFridaUri *uri, gint timeout, GCancellable *cancellable, GError **error) {
 	rz_return_val_if_fail(manager, NULL);
 
@@ -63,6 +65,13 @@ static FridaDevice *backend_resolve_device(FridaDeviceManager *manager, const Rz
 		}
 		return frida_device_manager_get_device_by_type_sync(manager, FRIDA_DEVICE_TYPE_USB, timeout, cancellable, error);
 	case RZ_FRIDA_TRANSPORT_REMOTE: {
+		// frida's remote connect has no socket timeout, so probe first to keep an
+		// unreachable host from blocking on os tcp timeout. shares the
+		// cancellable so a breakTask cancels the probe as well as frida after it.
+		if (uri && RZ_STR_ISNOTEMPTY(uri->device) &&
+			!backend_probe_remote(uri->device, timeout, cancellable, error)) {
+			return NULL;
+		}
 		FridaRemoteDeviceOptions *options = frida_remote_device_options_new();
 		if (!options) {
 			return NULL;
@@ -106,15 +115,21 @@ static bool backend_probe_remote(const char *host_port, gint timeout_ms, GCancel
 		return false;
 	}
 
-	char host[256];
 	size_t hlen = (size_t)(colon - host_port);
-	if (hlen >= sizeof(host)) {
-		hlen = sizeof(host) - 1;
+	if (hlen > (size_t)ST32_MAX) {
+		g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+			"remote device must be host:port");
+		return false;
 	}
-	memcpy(host, host_port, hlen);
-	host[hlen] = '\0';
+	char *host = rz_str_ndup(host_port, (int)hlen);
+	if (!host) {
+		g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_FAILED,
+			"cannot create the reachability probe");
+		return false;
+	}
 	guint16 port = (guint16)g_ascii_strtoull(colon + 1, NULL, 10);
 	if (port == 0) {
+		free(host);
 		g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
 			"remote device port is not a number");
 		return false;
@@ -127,6 +142,7 @@ static bool backend_probe_remote(const char *host_port, gint timeout_ms, GCancel
 
 	GSocketClient *client = g_socket_client_new();
 	if (!client) {
+		free(host);
 		g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_FAILED,
 			"cannot create the reachability probe");
 		return false;
@@ -134,6 +150,7 @@ static bool backend_probe_remote(const char *host_port, gint timeout_ms, GCancel
 	g_socket_client_set_timeout(client, timeout_s);
 
 	GSocketConnection *conn = g_socket_client_connect_to_host(client, host, port, cancellable, error);
+	free(host);
 	bool reachable = conn != NULL;
 	if (conn) {
 		g_object_unref(conn);
@@ -493,14 +510,17 @@ static bool backend_resolve_pid(FridaDevice *device, const RzFridaUri *uri, GCan
 	return true;
 }
 
+static bool backend_spawn_arm_and_resume(RzFridaBackendSession *backend, RzFridaSession *session, PJ *pj, bool *rn_enabled);
+
 /**
  * \brief Open a session for the target described by the session URI.
  *
  * Resolves the local device, then attaches to a pid, or spawns or launches the
- * target before attaching. On success the live Frida handles are stored on the
- * session and an ok:true envelope carrying the action, pid, and state is
- * written, and on failure an ok:false envelope is written. When the plugin is built
- * without frida-core, a self contained implementation reports
+ * target before attaching. USB/remote spawns arm RegisterNatives and resume
+ * (`rn` true if the hook armed). A local spawn stays suspended. On success the live Frida
+ * handles are stored on the session and an ok:true envelope carrying the action,
+ * pid, and state is written, and on failure an ok:false envelope is written. When
+ * the plugin is built without frida-core, a self contained implementation reports
  * \ref RZ_FRIDA_ERROR_FRIDA_UNAVAILABLE instead.
  *
  * \param session Session that owns the resolved URI and receives the backend handles.
@@ -551,17 +571,6 @@ RZ_IPI bool rz_frida_backend_open(RzFridaSession *session, PJ *pj) {
 	manager = frida_device_manager_new();
 	if (!manager) {
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot create Frida device manager");
-		goto cleanup;
-	}
-
-	// frida's remote connect has no socket timeout, so probe first to keep an
-	// unreachable host from blocking on os tcp timeout. shares the
-	// cancellable so a breakTask cancels the probe as well as frida after it.
-	if (uri->transport_type == RZ_FRIDA_TRANSPORT_REMOTE &&
-		RZ_STR_ISNOTEMPTY(uri->device) &&
-		!backend_probe_remote(uri->device, (gint)rz_frida_session_timeout(session), cancellable, &error)) {
-		rz_frida_json_error(pj, backend_error_code(cancellable, error),
-			error ? error->message : "remote host is unreachable");
 		goto cleanup;
 	}
 
@@ -635,18 +644,32 @@ RZ_IPI bool rz_frida_backend_open(RzFridaSession *session, PJ *pj) {
 	rz_frida_session_set_target_pid(session, (ut32)pid);
 	rz_frida_session_set_state(session, RZ_FRIDA_SESSION_STATE_ATTACHED);
 
-	rz_frida_json_ok_begin(pj);
-	pj_ks(pj, "action", uri->action);
-	pj_kn(pj, "pid", pid);
-	pj_kb(pj, "resumed", resumed);
-	pj_ks(pj, "state", rz_frida_session_state_string(rz_frida_session_state(session)));
-	rz_frida_json_ok_end(pj);
-
-	// the session owns these now, so the cleanup path shouldnt touch them.
+	// the session owns these, so the cleanup path shouldnt touch them.
 	manager = NULL;
 	device = NULL;
 	frida_session = NULL;
 	cancellable = NULL;
+
+	bool rn_enabled = false;
+	if (uri->action_type == RZ_FRIDA_ACTION_SPAWN &&
+		(uri->transport_type == RZ_FRIDA_TRANSPORT_USB ||
+			uri->transport_type == RZ_FRIDA_TRANSPORT_REMOTE)) {
+		if (!backend_spawn_arm_and_resume(backend, session, pj, &rn_enabled)) {
+			goto cleanup;
+		}
+		resumed = backend->resumed;
+	}
+
+	rz_frida_json_ok_begin(pj);
+	pj_ks(pj, "action", uri->action);
+	pj_kn(pj, "pid", pid);
+	pj_kb(pj, "resumed", resumed);
+	if (uri->action_type == RZ_FRIDA_ACTION_SPAWN) {
+		pj_kb(pj, "rn", rn_enabled);
+	}
+	pj_ks(pj, "state", rz_frida_session_state_string(rz_frida_session_state(session)));
+	rz_frida_json_ok_end(pj);
+
 	ok = true;
 
 cleanup:
@@ -678,11 +701,34 @@ cleanup:
 	return ok;
 }
 
+static bool backend_resume_target(RzFridaBackendSession *backend, GError **error) {
+	rz_return_val_if_fail(backend && backend->device, false);
+
+	if (backend->cancellable) {
+		g_cancellable_reset(backend->cancellable);
+	}
+	frida_device_resume_sync(backend->device, backend->pid, backend->cancellable, error);
+	if (error && *error) {
+		return false;
+	}
+	backend->resumed = true;
+	return true;
+}
+
+static void backend_emit_resume_ok(RzFridaSession *session, RzFridaBackendSession *backend, PJ *pj) {
+	rz_frida_json_ok_begin(pj);
+	pj_kn(pj, "pid", backend->pid);
+	pj_kb(pj, "resumed", true);
+	pj_ks(pj, "state", rz_frida_session_state_string(rz_frida_session_state(session)));
+	rz_frida_json_ok_end(pj);
+}
+
 /**
  * \brief Resume a target that was spawned suspended by \ref rz_frida_backend_open.
  *
- * Writes an ok:true envelope on success, or an ok:false envelope when the
- * session has nothing to resume or the backend is unavailable.
+ * Writes an ok:true envelope on success, including when the spawn was already
+ * resumed, or an ok:false envelope when the session has nothing to resume or
+ * the backend is unavailable.
  *
  * \param session Session holding the backend handles to resume.
  * \param pj JSON builder that receives the reply envelope.
@@ -700,29 +746,26 @@ RZ_IPI bool rz_frida_backend_resume(RzFridaSession *session, PJ *pj) {
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "session was attached and has nothing to resume");
 		return false;
 	}
+	if (!backend->session || frida_session_is_detached(backend->session)) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "the session is not attached");
+		return false;
+	}
 	if (backend->resumed) {
-		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "session has already been resumed");
-		return false;
+		backend_emit_resume_ok(session, backend, pj);
+		return true;
 	}
 
-	if (backend->cancellable) {
-		g_cancellable_reset(backend->cancellable);
-	}
 	GError *error = NULL;
-	frida_device_resume_sync(backend->device, backend->pid, backend->cancellable, &error);
-	if (error) {
+	if (!backend_resume_target(backend, &error)) {
 		rz_frida_json_error(pj, backend_error_code(backend->cancellable, error),
-			error->message ? error->message : "cannot resume the target");
-		g_error_free(error);
+			error && error->message ? error->message : "cannot resume the target");
+		if (error) {
+			g_error_free(error);
+		}
 		return false;
 	}
-	backend->resumed = true;
 
-	rz_frida_json_ok_begin(pj);
-	pj_kn(pj, "pid", backend->pid);
-	pj_kb(pj, "resumed", true);
-	pj_ks(pj, "state", rz_frida_session_state_string(rz_frida_session_state(session)));
-	rz_frida_json_ok_end(pj);
+	backend_emit_resume_ok(session, backend, pj);
 	return true;
 }
 
@@ -1214,17 +1257,12 @@ RZ_IPI bool rz_frida_backend_mem_write(RZ_NONNULL RzFridaSession *session, ut64 
 		return false;
 	}
 
-	if (len > (SIZE_MAX - 1) / 2) {
+	if (len > (size_t)ST32_MAX) {
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "write size exceeds the addressable range");
 		return false;
 	}
-	char *hex = RZ_NEWS(char, len * 2 + 1);
+	char *hex = rz_hex_bin2strdup(bytes, (int)len);
 	if (!hex) {
-		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
-		return false;
-	}
-	if (rz_hex_bin2str(bytes, (int)len, hex) < 1) {
-		free(hex);
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot encode the bytes to write");
 		return false;
 	}
@@ -1751,19 +1789,19 @@ RZ_IPI bool rz_frida_backend_continue(RZ_NONNULL RzFridaSession *session, RZ_NUL
 }
 
 /**
- * \brief Read the register context of a thread parked at a breakpoint through the agent.
+ * \brief Report the stop identity of a thread parked at a breakpoint through the agent.
  *
- * Loads the agent on first use and asks for the saved register context of the
- * thread stopped at a breakpoint. Writes an ok:true envelope carrying the thread
- * id, the breakpoint it stopped at, and the registers, or an ok:false envelope
- * when the thread is not parked, on timeout, cancel, or an agent error. When the
- * plugin is built without frida-core, a self-contained implementation reports
+ * Loads the agent on first use and asks for the parked thread's stop identity.
+ * Writes an ok:true envelope carrying threadId, bp, and address, or an ok:false
+ * envelope when the thread is not parked, on timeout, cancel, or an agent error.
+ * The reply does not include register values. When the plugin is built without
+ * frida-core, a self-contained implementation reports
  * \ref RZ_FRIDA_ERROR_FRIDA_UNAVAILABLE instead.
  *
  * \param session Session holding the attached backend handles.
- * \param thread_id Id of the parked thread whose registers are read.
+ * \param thread_id Id of the parked thread whose stop is reported.
  * \param pj JSON builder that receives the reply envelope.
- * \return true when the agent replied with the registers, false on any error.
+ * \return true when the agent replied with the stop identity, false on any error.
  */
 RZ_IPI bool rz_frida_backend_reg_read(RZ_NONNULL RzFridaSession *session, ut64 thread_id, RZ_NONNULL PJ *pj) {
 	rz_return_val_if_fail(session && pj, false);
@@ -1805,11 +1843,31 @@ RZ_IPI bool rz_frida_backend_reg_read(RZ_NONNULL RzFridaSession *session, ut64 t
 	return ok;
 }
 
+// drop control chars from a register name.
+static bool backend_sanitize_register_name(const char *reg, char *out, size_t outsz) {
+	if (!reg || !out || outsz < 2) {
+		return false;
+	}
+	size_t n = 0;
+	for (; *reg; reg++) {
+		ut8 ch = (ut8)*reg;
+		if (ch < 0x21 || ch == 0x7f) {
+			continue;
+		}
+		if (n + 1 >= outsz) {
+			return false;
+		}
+		out[n++] = (char)ch;
+	}
+	out[n] = '\0';
+	return n > 0;
+}
+
 /**
  * \brief Write a register of a thread parked at a breakpoint through the agent.
  *
  * Loads the agent on first use and sets \p reg to \p value on the thread stopped
- * at a breakpoint. The write lands on the saved register context and takes effect
+ * at a breakpoint. The write lands on the live Interceptor context and takes effect
  * when the thread is continued. Writes an ok:true envelope carrying the thread id,
  * register, and new value, or an ok:false envelope when the thread is not parked,
  * the register is unknown, on timeout, cancel, or an agent error. When the plugin
@@ -1835,6 +1893,12 @@ RZ_IPI bool rz_frida_backend_reg_write(RZ_NONNULL RzFridaSession *session, ut64 
 		return false;
 	}
 
+	char reg_name[32];
+	if (!backend_sanitize_register_name(reg, reg_name, sizeof(reg_name))) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "a register write requires a register name");
+		return false;
+	}
+
 	PJ *params = pj_new();
 	if (!params) {
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
@@ -1842,7 +1906,7 @@ RZ_IPI bool rz_frida_backend_reg_write(RZ_NONNULL RzFridaSession *session, ut64 
 	}
 	pj_o(params);
 	pj_kn(params, "threadId", thread_id);
-	pj_ks(params, "register", reg);
+	pj_ks(params, "register", reg_name);
 	pj_ks(params, "value", value);
 	pj_end(params);
 	char *params_json = pj_drain(params);
@@ -2236,6 +2300,89 @@ RZ_IPI bool rz_frida_backend_newly_loaded_classes(RZ_NONNULL RzFridaSession *ses
 	return ok;
 }
 
+// arm RegisterNatives and resume a USB/remote spawn.
+static bool backend_spawn_arm_and_resume(RzFridaBackendSession *backend, RzFridaSession *session, PJ *pj, bool *rn_enabled) {
+	rz_return_val_if_fail(backend && session && pj && rn_enabled, false);
+	*rn_enabled = false;
+
+	if (!backend_ensure_script(backend, session, pj)) {
+		return false;
+	}
+
+	PJ *params = pj_new();
+	if (!params) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
+	pj_o(params);
+	pj_kb(params, "enable", true);
+	pj_end(params);
+	char *params_json = pj_drain(params);
+	if (!params_json) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot build the request");
+		return false;
+	}
+
+	RzFridaResponse response = { 0 };
+	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
+	const char *fail_msg = NULL;
+	bool got = backend_request(backend, session, "rnSet", params_json,
+		&response, &fail_code, &fail_msg);
+	free(params_json);
+	if (!got) {
+		rz_frida_json_error(pj, fail_code, fail_msg);
+		return false;
+	}
+
+	bool enabled = false;
+	bool java_unavailable = false;
+	char *result_copy = response.result ? rz_str_dup(response.result) : NULL;
+	RzJson *parsed = result_copy ? rz_json_parse(result_copy) : NULL;
+	if (parsed) {
+		const RzJson *en = rz_json_get(parsed, "enabled");
+		const RzJson *ju = rz_json_get(parsed, "javaUnavailable");
+		enabled = en && en->type == RZ_JSON_BOOLEAN && en->num.u_value;
+		java_unavailable = ju && ju->type == RZ_JSON_BOOLEAN && ju->num.u_value;
+	}
+
+	bool ok = true;
+	if (!response.ok) {
+		ok = backend_emit_response(pj, &response);
+	} else if (enabled) {
+		GError *error = NULL;
+		if (!backend_resume_target(backend, &error)) {
+			rz_frida_json_error(pj, backend_error_code(backend->cancellable, error),
+				error && error->message ? error->message : "cannot resume the target");
+			ok = false;
+		} else {
+			*rn_enabled = true;
+		}
+		if (error) {
+			g_error_free(error);
+		}
+	} else if (java_unavailable) {
+		GError *error = NULL;
+		if (!backend_resume_target(backend, &error)) {
+			rz_frida_json_error(pj, backend_error_code(backend->cancellable, error),
+				error && error->message ? error->message : "cannot resume the target");
+			ok = false;
+		}
+		if (error) {
+			g_error_free(error);
+		}
+	} else {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot arm RegisterNatives");
+		ok = false;
+	}
+
+	if (parsed) {
+		rz_json_free(parsed);
+	}
+	free(result_copy);
+	rz_frida_response_fini(&response);
+	return ok;
+}
+
 RZ_IPI bool rz_frida_backend_rn_set(RZ_NONNULL RzFridaSession *session, bool enable, RZ_NONNULL PJ *pj) {
 	rz_return_val_if_fail(session && pj, false);
 
@@ -2272,7 +2419,55 @@ RZ_IPI bool rz_frida_backend_rn_set(RZ_NONNULL RzFridaSession *session, bool ena
 		rz_frida_json_error(pj, fail_code, fail_msg);
 		return false;
 	}
-	bool ok = backend_emit_response(pj, &response);
+
+	bool enabled = false;
+	const RzJson *en = NULL;
+	const RzJson *inv = NULL;
+	char *result_copy = response.result ? rz_str_dup(response.result) : NULL;
+	RzJson *parsed = result_copy ? rz_json_parse(result_copy) : NULL;
+	if (parsed) {
+		en = rz_json_get(parsed, "enabled");
+		inv = rz_json_get(parsed, "invocations");
+		enabled = en && en->type == RZ_JSON_BOOLEAN && en->num.u_value;
+	}
+
+	bool resumed_now = false;
+	if (enable && enabled && backend->spawned && !backend->resumed) {
+		GError *error = NULL;
+		if (!backend_resume_target(backend, &error)) {
+			if (parsed) {
+				rz_json_free(parsed);
+			}
+			free(result_copy);
+			rz_frida_response_fini(&response);
+			rz_frida_json_error(pj, backend_error_code(backend->cancellable, error),
+				error && error->message ? error->message : "cannot resume the target");
+			if (error) {
+				g_error_free(error);
+			}
+			return false;
+		}
+		resumed_now = true;
+	}
+
+	bool ok;
+	if (!resumed_now || !response.ok) {
+		ok = backend_emit_response(pj, &response);
+	} else {
+		rz_frida_json_ok_begin(pj);
+		pj_kb(pj, "enabled", enabled);
+		if (inv && inv->type == RZ_JSON_INTEGER) {
+			pj_kn(pj, "invocations", inv->num.u_value);
+		}
+		pj_kb(pj, "resumed", true);
+		pj_kn(pj, "pid", backend->pid);
+		rz_frida_json_ok_end(pj);
+		ok = true;
+	}
+	if (parsed) {
+		rz_json_free(parsed);
+	}
+	free(result_copy);
 	rz_frida_response_fini(&response);
 	return ok;
 }
@@ -2837,16 +3032,15 @@ static size_t import_class_fields(RZ_NONNULL RzCore *core, RZ_NONNULL const RzJs
 	rz_return_val_if_fail(core && root && name, 0);
 	size_t field_count = 0;
 	const RzJson *fields_node = rz_json_get(root, "fields");
-	size_t slen = strlen(name);
-	if (!fields_node || fields_node->type != RZ_JSON_ARRAY || !fields_node->children.count || slen >= 512) {
+	if (!fields_node || fields_node->type != RZ_JSON_ARRAY || !fields_node->children.count) {
 		return 0;
 	}
-	char struct_name[512];
-	for (size_t j = 0; j < slen; j++) {
-		char c = name[j];
-		struct_name[j] = (c == '.' || c == '$') ? '_' : c;
+	char *struct_name = rz_str_dup(name);
+	if (!struct_name) {
+		return 0;
 	}
-	struct_name[slen] = '\0';
+	rz_str_replace_char(struct_name, '.', '_');
+	rz_str_replace_char(struct_name, '$', '_');
 
 	bool struct_exists = rz_type_db_get_base_type(
 		rz_analysis_get_type_db(core->analysis), struct_name) != NULL;
@@ -2862,21 +3056,23 @@ static size_t import_class_fields(RZ_NONNULL RzCore *core, RZ_NONNULL const RzJs
 		if (fn && ft && fn->type == RZ_JSON_STRING && fn->str_value &&
 			ft->type == RZ_JSON_STRING && ft->str_value) {
 			const char *ctype = java_type_to_c(ft->str_value);
-			char fname[256];
-			size_t flen = strlen(fn->str_value);
-			for (size_t k = 0; k < flen && k < sizeof(fname) - 1; k++) {
-				char c = fn->str_value[k];
-				fname[k] = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-					(c >= '0' && c <= '9') || c == '_' ? c : '_';
-				fname[k + 1] = '\0';
-			}
 			if (decl) {
-				rz_strbuf_appendf(decl, "%s %s; ", ctype, fname);
+				char *fname = rz_str_dup(fn->str_value);
+				if (fname) {
+					for (char *p = fname; *p; p++) {
+						if (!IS_ALPHANUM((ut8)*p) && *p != '_') {
+							*p = '_';
+						}
+					}
+					rz_strbuf_appendf(decl, "%s %s; ", ctype, fname);
+					free(fname);
+				}
 			}
 			field_count++;
 		}
 		f = f->next;
 	}
+	free(struct_name);
 
 	if (decl && field_count > 0) {
 		rz_strbuf_append(decl, "};");

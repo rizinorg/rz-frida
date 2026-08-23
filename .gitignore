@@ -9,9 +9,14 @@ install-*/
 *.obj
 *.o
 *.exe
+native_demo
 *.user
 .DS_Store
 compile_commands.json
 frida-devkit/
 frida-artifacts/
 node_modules/
+__pycache__/
+*.pyc
+docs/_book/
+docs/.quarto/

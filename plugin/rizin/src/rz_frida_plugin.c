@@ -407,6 +407,32 @@ RZ_IPI RzCmdStatus rz_cmd_fridax_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 	return RZ_CMD_STATUS_OK;
 }
 
+static char *frida_sanitize_hex_bytes(const char *hex) {
+	if (!hex) {
+		return NULL;
+	}
+	while (*hex && (ut8)*hex <= 0x20) {
+		hex++;
+	}
+	if (!rz_str_ncasecmp(hex, "0x", 2)) {
+		hex += 2;
+	}
+	char *out = rz_str_dup(hex);
+	if (!out) {
+		return NULL;
+	}
+	char *w = out;
+	for (const char *r = out; *r; r++) {
+		ut8 ch = (ut8)*r;
+		if (ch <= 0x20 || ch == 0x7f) {
+			continue;
+		}
+		*w++ = *r;
+	}
+	*w = '\0';
+	return out;
+}
+
 RZ_IPI RzCmdStatus rz_cmd_fridaw_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int argc, RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
 	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
 	if (state->mode != RZ_OUTPUT_MODE_JSON) {
@@ -414,29 +440,38 @@ RZ_IPI RzCmdStatus rz_cmd_fridaw_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 	}
 
 	PJ *pj = state->d.pj;
-	const char *hex = argv[2];
+	char *hex = frida_sanitize_hex_bytes(argv[2]);
+	if (!hex) {
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the write buffer");
+		return RZ_CMD_STATUS_OK;
+	}
 	int hexlen = strlen(hex);
 	if (hexlen == 0 || (hexlen % 2)) {
+		free(hex);
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "expected an even-length hex byte string");
 		return RZ_CMD_STATUS_OK;
 	}
 	ut64 maxbytes = rz_config_get_integer(core->config, "frida.mem.max");
 	if (maxbytes && (ut64)(hexlen / 2) > maxbytes) {
+		free(hex);
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "write size exceeds the frida.mem.max limit");
 		return RZ_CMD_STATUS_OK;
 	}
 	RzFridaCoreContext *ctx = frida_context(core);
 	if (!ctx || !ctx->session) {
+		free(hex);
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
 		return RZ_CMD_STATUS_OK;
 	}
 
 	ut8 *bytes = RZ_NEWS(ut8, hexlen / 2);
 	if (!bytes) {
+		free(hex);
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INTERNAL, "cannot allocate the write buffer");
 		return RZ_CMD_STATUS_OK;
 	}
 	int len = rz_hex_str2bin(hex, bytes);
+	free(hex);
 	if (len < 1) {
 		free(bytes);
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "invalid hex byte string");
@@ -996,20 +1031,25 @@ RZ_IPI RzCmdStatus rz_cmd_fridaIm_handler(RZ_NONNULL RzCore *core, int argc,
 }
 
 static const char *extract_prefix(const char *line) {
-	if (!line) {
+	if (RZ_STR_ISEMPTY(line)) {
 		return NULL;
 	}
-	int len = (int)strlen(line);
-	while (len > 0 && line[len - 1] == ' ') len--;
-	int start = len;
-	while (start > 0 && line[start - 1] != ' ') start--;
-	if (start == 0) {
+	const char *end = line + strlen(line);
+	while (end > line && end[-1] == ' ') {
+		end--;
+	}
+	if (end == line) {
 		return NULL;
 	}
-	if (start >= len) {
+	const char *space = rz_str_rchr(line, end - 1, ' ');
+	if (!space) {
 		return NULL;
 	}
-	return line + start;
+	const char *prefix = space + 1;
+	if (prefix >= end) {
+		return NULL;
+	}
+	return prefix;
 }
 
 /**

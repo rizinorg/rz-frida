@@ -241,6 +241,12 @@ static bool test_mem_write_without_session(RzCore *core) {
 		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
 		"memory write without an open session reports the precondition failure");
 	RZ_FREE(write);
+	write = rz_core_cmd_str(core, "fridawj 0x1000 " "\x16" "deadbeef");
+	mu_assert_notnull(write, "memory write with Ctrl-V in hex returns output");
+	mu_assert_streq(write,
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"no session is open\"}}\n",
+		"Ctrl-V in a hex string is stripped before the even-length check");
+	RZ_FREE(write);
 	mu_end;
 }
 
@@ -545,7 +551,7 @@ static bool test_invalid_open_uri(RzCore *core) {
 }
 
 static bool test_open_command(RzCore *core) {
-	char *open = rz_core_cmd_str(core, "fridaoj frida://attach/local//1234");
+	char *open = rz_core_cmd_str(core, "fridaoj frida://attach/local//2147483647"); // random number, can't be a PID 
 	mu_assert_notnull(open, "open command returns output");
 	mu_assert_true(rz_str_startswith(open, "{\"ok\":false,\"error\":{\"code\":\"") ||
 			rz_str_startswith(open, "{\"ok\":true,\"result\":{\"action\":"),
