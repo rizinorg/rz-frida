@@ -1,6 +1,6 @@
 # Installing rizin and rz-frida
 
-The plugin is a rizin core plugin: it registers the `frida` command group
+The plugin is a rizin core plugin: it registers the `Fr` command group
 inside rizin. It needs rizin v0.9.0 or later (the per-core plugin context
 from [rizin#6404](https://github.com/rizinorg/rizin/pull/6404)). CI builds
 against v0.9.1. It also needs rizin's development files. With
@@ -72,14 +72,14 @@ build-frida | grep frida_version`).
 ## 3. Verify
 
 ```bash
-$ rizin -N -q -c 'fridasj' malloc://8
+$ rizin -N -q -c 'Frsj' malloc://8
 {"ok":true,"result":{"active":false,"state":"closed"}}
 ```
 
 The command group exists, the plugin is loaded:
 
 ```bash
-$ rizin -N -q -c 'frida?' malloc://8
+$ rizin -N -q -c 'Fr?' malloc://8
 ```
 
 ![Plugin loaded](img/intro/plugin-loaded.png)

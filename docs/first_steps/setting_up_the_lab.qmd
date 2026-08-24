@@ -114,7 +114,7 @@ The native Linux demo used later is built in
 The plugin talks to the emulator through USB, so no forward is needed:
 
 ```bash
-$ rizin -N -q -c 'fridaoj frida://attach/usb//FridaMin' malloc://512
+$ rizin -N -q -c 'Froj frida://attach/usb//FridaMin' malloc://512
 {"ok":true,"result":{"action":"attach","pid":2100,"resumed":false,"state":"attached"}}
 ```
 

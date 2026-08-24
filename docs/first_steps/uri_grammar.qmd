@@ -63,27 +63,27 @@ slashes: after the empty device field, the target itself begins with `/`.
 
 ## Validate without touching a device
 
-`fridau` parses and validates a URI without contacting anything. This is
+`Fru` parses and validates a URI without contacting anything. This is
 useful for scripts and CI:
 
 ```text
-[0x00000000]> fridauj frida://attach/local//1234
+[0x00000000]> Fruj frida://attach/local//1234
 {"ok":true,"result":{"action":"attach","transport":"local","device":"","target":"1234"}}
 
-[0x00000000]> fridauj frida://attach/usb//Gadget
+[0x00000000]> Fruj frida://attach/usb//Gadget
 {"ok":true,"result":{"action":"attach","transport":"usb","device":"","target":"Gadget"}}
 
-[0x00000000]> fridauj frida://spawn/local///bin/ls
+[0x00000000]> Fruj frida://spawn/local///bin/ls
 {"ok":true,"result":{"action":"spawn","transport":"local","device":"","target":"/bin/ls"}}
 ```
 
 Invalid combinations are rejected with `invalid_uri`:
 
 ```text
-[0x00000000]> fridauj frida://launch/remote//bad
+[0x00000000]> Fruj frida://launch/remote//bad
 {"ok":false,"error":{"code":"invalid_uri","message":"invalid Frida URI"}}
 
-[0x00000000]> fridauj frida://attach/local//
+[0x00000000]> Fruj frida://attach/local//
 {"ok":false,"error":{"code":"invalid_uri","message":"invalid Frida URI"}}
 ```
 
@@ -100,6 +100,6 @@ Invalid combinations are rejected with `invalid_uri`:
   `launch/local///bin/ls`. A relative path does not,
   `spawn/local//./native_demo`
 
-> **Note:** `fridaoj` accepts a bare URI without the `frida://` prefix and
-> adds it. `fridau`, `fridap`, and `fridaa` require the full form.
+> **Note:** `Froj` accepts a bare URI without the `frida://` prefix and
+> adds it. `Fru`, `Frp`, and `Fra` require the full form.
 

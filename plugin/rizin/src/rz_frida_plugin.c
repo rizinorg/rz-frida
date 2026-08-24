@@ -837,7 +837,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaN_handler(RZ_NONNULL RzCore *core, int argc,
 			enable = false;
 		} else {
 			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET,
-				"fridaNj expects start, stop, or no arguments to list");
+				"FrNj expects start, stop, or no arguments to list");
 			rz_cons_break_pop();
 			return RZ_CMD_STATUS_OK;
 		}
@@ -871,7 +871,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaRN_handler(RZ_NONNULL RzCore *core, int argc,
 			rz_frida_backend_rn_import(ctx->session, core, pj);
 		} else {
 			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET,
-				"fridaRNj expects on, off, import, or no arguments to list");
+				"FrRNj expects on, off, import, or no arguments to list");
 			rz_cons_break_pop();
 			return RZ_CMD_STATUS_OK;
 		}
@@ -1053,7 +1053,7 @@ static const char *extract_prefix(const char *line) {
 }
 
 /**
- * \brief Returns loaded Java class names for fridaDj Tab-completion.
+ * \brief Returns loaded Java class names for FrDj Tab-completion.
  *
  * Reads the current line buffer to extract the partially typed class name,
  * guards against no-session and too-few-characters via the frida.ac.min config,
@@ -1125,10 +1125,10 @@ static bool rz_frida_plugin_init(RzCore *core, void **user) {
 
 	// The cmd tree is there in src/cmd_descs/cmd_descs.yaml and emitted by
 	// Rizin's cmd_descs_generate.py into cmd_descs.c. rzshell_cmddescs_init registers
-	// the frida group and its subcmds under the cmd root, and we keep the group
+	// the Fr group and its subcmds under the cmd root, and we keep the group
 	// descriptor so fini can detach the whole subtree.
 	rzshell_cmddescs_init(core);
-	ctx->cmd_desc = rz_cmd_get_desc(core->rcmd, "frida");
+	ctx->cmd_desc = rz_cmd_get_desc(core->rcmd, "Fr");
 	if (!ctx->cmd_desc) {
 		frida_context_free(ctx);
 		rz_warn_if_reached();
@@ -1138,9 +1138,9 @@ static bool rz_frida_plugin_init(RzCore *core, void **user) {
 	// register the configurable limits the cmds read.
 	rz_config_add_integer(core->config, "frida.mem.max", "Maximum bytes per frida memory read or write, 0 for no limit", RZ_FRIDA_MEM_MAX_DEFAULT);
 	rz_config_add_integer(core->config, "frida.timeout", "Frida session and agent request timeout in milliseconds", RZ_FRIDA_DEFAULT_TIMEOUT_MS);
-	rz_config_add_integer(core->config, "frida.hw.watchpoints", "Maximum hardware watchpoint slots fridaW may use, capped by the CPU", RZ_FRIDA_HW_WATCHPOINTS_DEFAULT);
-	rz_config_add_integer(core->config, "frida.java.max", "Maximum loaded classes fridaC returns per request, 0 for unlimited", RZ_FRIDA_JAVA_MAX_DEFAULT);
-	rz_config_add_integer(core->config, "frida.dex.max", "Maximum classes fridaX uses for comparison, 0 for no limit", 0);
+	rz_config_add_integer(core->config, "frida.hw.watchpoints", "Maximum hardware watchpoint slots FrW may use, capped by the CPU", RZ_FRIDA_HW_WATCHPOINTS_DEFAULT);
+	rz_config_add_integer(core->config, "frida.java.max", "Maximum loaded classes FrC returns per request, 0 for unlimited", RZ_FRIDA_JAVA_MAX_DEFAULT);
+	rz_config_add_integer(core->config, "frida.dex.max", "Maximum classes FrX uses for comparison, 0 for no limit", 0);
 	rz_config_add_integer(core->config, "frida.ac.min", "Minimum characters typed before class autocomplete triggers", 2);
 	rz_config_add_integer(core->config, "frida.ac.max", "Maximum class autocomplete suggestions shown", 12);
 

@@ -139,7 +139,7 @@ jobs:
           sudo sysctl -w kernel.yama.ptrace_scope=0 || true
           sleep 30 &
           target=$!
-          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
+          out=$(rizin -N -q -c "Froj attach/local//${target}" -c "Frsj" -c "FrRj" -c "Frcj" malloc://512 2>&1)
           kill $target 2>/dev/null || true
           echo "$out"
           echo "$out" | grep -q '"ok":true' || exit 1
@@ -191,7 +191,7 @@ jobs:
           sudo sysctl -w kernel.yama.ptrace_scope=0 || true
           sleep 30 &
           target=$!
-          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
+          out=$(rizin -N -q -c "Froj attach/local//${target}" -c "Frsj" -c "FrRj" -c "Frcj" malloc://512 2>&1)
           kill $target 2>/dev/null || true
           echo "$out"
           echo "$out" | grep -q '"ok":true' || exit 1
@@ -241,7 +241,7 @@ jobs:
           # hosted runners deny task_for_pid for non-root, attach as root instead
           python3 -c "import time; time.sleep(30)" &
           target=$!
-          out=$(sudo rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
+          out=$(sudo rizin -N -q -c "Froj attach/local//${target}" -c "Frsj" -c "FrRj" -c "Frcj" malloc://512 2>&1)
           kill $target 2>/dev/null || true
           echo "$out"
           echo "$out" | grep -q '"action":"attach"' || exit 1
@@ -253,7 +253,7 @@ jobs:
           # non-root attach should work on a normal mac, on a hosted runner it fails cleanly
           python3 -c "import time; time.sleep(30)" &
           target=$!
-          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" malloc://512 2>&1)
+          out=$(rizin -N -q -c "Froj attach/local//${target}" -c "Frsj" -c "FrRj" malloc://512 2>&1)
           kill $target 2>/dev/null || true
           echo "$out"
           if echo "$out" | grep -q '"action":"attach"'; then
@@ -309,7 +309,7 @@ jobs:
           # hosted runners deny task_for_pid for non-root, attach as root instead
           python3 -c "import time; time.sleep(30)" &
           target=$!
-          out=$(sudo rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1)
+          out=$(sudo rizin -N -q -c "Froj attach/local//${target}" -c "Frsj" -c "FrRj" -c "Frcj" malloc://512 2>&1)
           kill $target 2>/dev/null || true
           echo "$out"
           echo "$out" | grep -q '"action":"attach"' || exit 1
@@ -321,7 +321,7 @@ jobs:
           # non-root attach should work on a normal mac, on a hosted runner it fails cleanly
           python3 -c "import time; time.sleep(30)" &
           target=$!
-          out=$(rizin -N -q -c "fridaoj attach/local//${target}" -c "fridasj" -c "fridaRj" malloc://512 2>&1)
+          out=$(rizin -N -q -c "Froj attach/local//${target}" -c "Frsj" -c "FrRj" malloc://512 2>&1)
           kill $target 2>/dev/null || true
           echo "$out"
           if echo "$out" | grep -q '"action":"attach"'; then
@@ -416,7 +416,7 @@ jobs:
           Copy-Item "build\plugin\rizin\rz_frida.dll" "$env:RIZIN_SDK\lib\rizin\plugins\"
           $helper = Start-Process -FilePath "cmd.exe" -ArgumentList "/c ping -t 127.0.0.1" -PassThru
           try {
-            $out = & "$env:RIZIN_SDK\bin\rizin.exe" -N -q -c "fridaoj attach/local//$($helper.Id)" -c "fridasj" -c "fridaRj" -c "fridacj" malloc://512 2>&1 | Out-String
+            $out = & "$env:RIZIN_SDK\bin\rizin.exe" -N -q -c "Froj attach/local//$($helper.Id)" -c "Frsj" -c "FrRj" -c "Frcj" malloc://512 2>&1 | Out-String
             Write-Host $out
             if ($out -notmatch '"ok":true' -or $out -notmatch '"ranges"') { exit 1 }
           } finally {

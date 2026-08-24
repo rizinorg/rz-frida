@@ -22,31 +22,31 @@ Every failure comes in the same envelope:
 
 | Message | Context |
 |---|---|
-| `no session is open` | any session-requiring command before `fridaoj` |
-| `invalid Frida URI` | grammar violation in `fridau`/`fridao` |
+| `no session is open` | any session-requiring command before `Froj` |
+| `invalid Frida URI` | grammar violation in `Fru`/`Fro` |
 | `the request timed out` | `frida.timeout` exceeded |
 | `the request was cancelled` | Ctrl-C during a request |
 | `frida-core support is not enabled` | null backend |
 | `Process not found` | attach by a name frida does not know (`invalid_target`) |
-| `URI action does not match the command` | `fridap`/`fridaa` given the wrong action |
-| `URI action cannot open a session` | `fridaoj` with `list`/`apps` |
+| `URI action does not match the command` | `Frp`/`Fra` given the wrong action |
+| `URI action cannot open a session` | `Froj` with `list`/`apps` |
 | `the session is not attached` | resume or agent work after the target detached |
-| `read size exceeds the frida.mem.max limit` | `fridax`/`fridaw` above the cap |
-| `expected an even-length hex byte string` | `fridawj` with an odd hex length |
-| `invalid hex byte string` | `fridawj` with non-hex input |
+| `read size exceeds the frida.mem.max limit` | `Frx`/`Frw` above the cap |
+| `expected an even-length hex byte string` | `Frwj` with an odd hex length |
+| `invalid hex byte string` | `Frwj` with non-hex input |
 | `address 0x... is not mapped in the target` | read/write outside mapped ranges |
-| `a breakpoint already exists at ...` | duplicate `fridabj` |
+| `a breakpoint already exists at ...` | duplicate `Frbj` |
 | `no breakpoint at ...` | removing a breakpoint that is not set |
-| `thread ... is not stopped at a breakpoint` | `fridaBj`/`fridagj` for a running thread |
+| `thread ... is not stopped at a breakpoint` | `FrBj`/`Frgj` for a running thread |
 | `no register named ...` | register write with an unknown name |
-| `a register write needs a value` | `fridaBj <tid> <reg>` without a value |
+| `a register write needs a value` | `FrBj <tid> <reg>` without a value |
 | `no free hardware watchpoint slot` | all slots in use |
 | `no thread accepted the hardware watchpoint` | every thread refused the slot |
-| `a session is already open` | `fridaoj` while one session is active |
-| `session was attached and has nothing to resume` | `fridarj` on a non-spawn |
+| `a session is already open` | `Froj` while one session is active |
+| `session was attached and has nothing to resume` | `Frrj` on a non-spawn |
 | `no matching classes found for the given prefix` | batch import with no hits |
-| `fridaNj expects start, stop, or no arguments to list` | bad monitor argument |
-| `fridaRNj expects on, off, import, or no arguments to list` | bad hook argument |
+| `FrNj expects start, stop, or no arguments to list` | bad monitor argument |
+| `FrRNj expects on, off, import, or no arguments to list` | bad hook argument |
 
 ## Frida-side failures
 
@@ -60,7 +60,7 @@ frida's own message, for example:
 Other device-level failures arrive as `timeout` or `internal_error` with
 frida's own message.
 
-Agent-side exceptions (including `throw` inside `fridaej`) surface the same
+Agent-side exceptions (including `throw` inside `Frej`) surface the same
 way, with the exception message.
 
 ## Null backend

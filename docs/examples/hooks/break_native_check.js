@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 // break_native_check.js -- make the native license check always pass.
-// Load with: fridalj docs/examples/hooks/break_native_check.js
+// Load with: Frlj docs/examples/hooks/break_native_check.js
 
 Java.perform(function () {
   var Vault = Java.use('re.frida.minapp.secret.SecretVault');

@@ -41,7 +41,7 @@ the parked thread's channel name.
 | `frida.rn` | `className`, `methods` (name, signature, address) |
 | `frida.rn.warn` | buffer full, oversized batch, null methods pointer |
 
-Events queue in the host buffer. `fridamj` drains them.
+Events queue in the host buffer. `Frmj` drains them.
 
 ## Breakpoint parking
 
@@ -64,7 +64,7 @@ sequenceDiagram
     A->>T: continue
 ```
 
-`fridagj` with no thread first asks the agent which thread parked most
+`Frgj` with no thread first asks the agent which thread parked most
 recently (`bpParked`).
 
 ## The RegisterNatives hook
@@ -83,10 +83,10 @@ A per-thread depth guard records wrapper re-entry once. The interceptor
 copies the native method table in `onEnter` and promotes the class
 reference with the caller's `JNIEnv` in `onLeave`. It does not call Java,
 look up class names, or `send()` while `RegisterNatives` is running.
-`fridaRNj` flushes pending entries, resolves class names and emits
-`frida.rn` events. `fridaoj` for a USB/remote spawn arms this hook and
+`FrRNj` flushes pending entries, resolves class names and emits
+`frida.rn` events. `Froj` for a USB/remote spawn arms this hook and
 resumes before returning (`rn` true if it armed). USB/remote still resume
-if Java is unavailable (`rn` false). `fridaRNj on` on a still-suspended
+if Java is unavailable (`rn` false). `FrRNj on` on a still-suspended
 spawn also resumes.
 
 ```{mermaid}
@@ -114,7 +114,7 @@ either return `cached: true` from the cache. `eval` invalidates both, and a
 
 `memRead`/`memWrite` use `NativePointer.readByteArray`/`writeByteArray`
 (after checking the address against the range cache). Hex encoding is
-lowercase. `fridawj` wants an even-length hex string.
+lowercase. `Frwj` wants an even-length hex string.
 
 ## The tests
 

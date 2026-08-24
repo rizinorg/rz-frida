@@ -19,18 +19,18 @@ The goal is `Status: Premium` *without* purchasing.
 Attach and read the field through the agent:
 
 ```text
-[0x00000000]> fridaoj frida://attach/usb//FridaMin
+[0x00000000]> Froj frida://attach/usb//FridaMin
 {"ok":true,"result":{"action":"attach","pid":3718,"resumed":false,"state":"attached"}}
 
-[0x00000000]> fridaej "Java.perform(function(){console.log('before premium='+Java.use('re.frida.minapp.game.GameState').premium.value)})"
+[0x00000000]> Frej "Java.perform(function(){console.log('before premium='+Java.use('re.frida.minapp.game.GameState').premium.value)})"
 {"ok":true,"result":{"value":null,"type":"undefined"}}
 
-[0x00000000]> fridamj
+[0x00000000]> Frmj
 ... "text":"before premium=false"
 ```
 
 `Java.use(...).premium.value` reads the static field: `false`. Note the
-value is reported through `console.log` and drained with `fridamj`: Java
+value is reported through `console.log` and drained with `Frmj`: Java
 values do not travel back through the eval reply, so the hook files in this
 book use the log-and-drain pattern.
 
@@ -47,10 +47,10 @@ Java.perform(function () {
 ```
 
 ```text
-[0x00000000]> fridalj docs/examples/hooks/unlock_premium.js
+[0x00000000]> Frlj docs/examples/hooks/unlock_premium.js
 {"ok":true,"result":{"value":null,"type":"undefined"}}
 
-[0x00000000]> fridamj
+[0x00000000]> Frmj
 ... "text":"premium is now true"
 ... "text":"premium status refreshed"
 ```
@@ -74,12 +74,12 @@ was already set.
 The same change without a file, as a one-liner:
 
 ```text
-[0x00000000]> fridaej "Java.perform(function(){Java.use('re.frida.minapp.game.GameState').premium.value = true})"
+[0x00000000]> Frej "Java.perform(function(){Java.use('re.frida.minapp.game.GameState').premium.value = true})"
 {"ok":true,"result":{"value":null,"type":"undefined"}}
 ```
 
 Quote the expression carefully: spaces and quotes inside a single command
-are easy to get wrong. For anything longer than a line, use `fridalj`.
+are easy to get wrong. For anything longer than a line, use `Frlj`.
 
 ::: {.callout-tip}
 ### Try

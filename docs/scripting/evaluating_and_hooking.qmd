@@ -3,29 +3,29 @@
 Attach to the app:
 
 ```text
-[0x00000000]> fridaoj frida://attach/usb//FridaMin
+[0x00000000]> Froj frida://attach/usb//FridaMin
 {"ok":true,"result":{"action":"attach","pid":2812,"resumed":false,"state":"attached"}}
 ```
 
 ## Values and types
 
-`fridaej <source>` evaluates the expression in the target and returns
+`Frej <source>` evaluates the expression in the target and returns
 `{value, type}`:
 
 ```text
-[0x00000000]> fridaej "1 + 1"
+[0x00000000]> Frej "1 + 1"
 {"ok":true,"result":{"value":2,"type":"number"}}
 
-[0x00000000]> fridaej "'hello'"
+[0x00000000]> Frej "'hello'"
 {"ok":true,"result":{"value":"hello","type":"string"}}
 
-[0x00000000]> fridaej "undefined"
+[0x00000000]> Frej "undefined"
 {"ok":true,"result":{"value":null,"type":"undefined"}}
 
-[0x00000000]> fridaej "null"
+[0x00000000]> Frej "null"
 {"ok":true,"result":{"value":null,"type":"object"}}
 
-[0x00000000]> fridaej "Process.platform + ' ' + Process.arch"
+[0x00000000]> Frej "Process.platform + ' ' + Process.arch"
 {"ok":true,"result":{"value":"linux x64","type":"string"}}
 ```
 
@@ -34,7 +34,7 @@ Attach to the app:
 JS objects come back as plain values:
 
 ```text
-[0x00000000]> fridaej "({a: 1})"
+[0x00000000]> Frej "({a: 1})"
 {"ok":true,"result":{"value":{"a":1},"type":"object"}}
 ```
 
@@ -42,33 +42,33 @@ JS objects come back as plain values:
 > evaluates to `1`. Parenthesize object literals.
 
 Every evaluation invalidates the agent's range and module caches, so the
-next `fridaMj`/`fridaRj` re-enumerates.
+next `FrMj`/`FrRj` re-enumerates.
 
 ## Quoting
 
 The expression is a command argument, so the shell and rizin both get a
 chance to mangle it. Quoting rules:
 
-- one expression, no quotes inside: `fridaej Process.arch`
+- one expression, no quotes inside: `Frej Process.arch`
 - quotes inside: single quotes in JS, double quotes outside:
 
 ```text
-[0x00000000]> fridaej "Java.perform(function(){Java.use('re.frida.minapp.game.GameState').coins.value})"
+[0x00000000]> Frej "Java.perform(function(){Java.use('re.frida.minapp.game.GameState').coins.value})"
 {"ok":true,"result":{"value":null,"type":"undefined"}}
 ```
 
 Java values do not travel back through the eval reply: field reads and
 method calls stay inside the Java VM. Report them with `console.log` and
-drain `fridamj` (the Android chapters do exactly that). `Java.use` must run
+drain `Frmj` (the Android chapters do exactly that). `Java.use` must run
 inside `Java.perform`, otherwise the agent fails with a
 `ClassNotFoundException`.
 
 - anything longer, or anything with nested quotes: put it in a file and
-  load it with `fridalj`. This is the reliable path and the one the
+  load it with `Frlj`. This is the reliable path and the one the
   Android chapters use.
 
 ```text
-[0x00000000]> fridalj docs/examples/hooks/watch_coins.js
+[0x00000000]> Frlj docs/examples/hooks/watch_coins.js
 {"ok":true,"result":{"value":null,"type":"undefined"}}
 ```
 
@@ -150,9 +150,9 @@ hits.forEach(function (h) { console.log(h.address.toString()); });
 
 Evaluations are synchronous request-reply round trips. Asynchronous work
 (timers, callbacks, events) belongs in the agent and reports through
-`fridamj`, not through the eval reply. A callback that fires *after* the
+`Frmj`, not through the eval reply. A callback that fires *after* the
 eval reply (like the `setTimeout` examples in the message chapter) is
-drained with `fridamj`.
+drained with `Frmj`.
 
 ::: {.callout-tip}
 ### Try

@@ -3,14 +3,14 @@
 Attach to the running app first:
 
 ```text
-[0x00000000]> fridaoj frida://attach/usb//FridaMin
+[0x00000000]> Froj frida://attach/usb//FridaMin
 {"ok":true,"result":{"action":"attach","pid":2812,"resumed":false,"state":"attached"}}
 ```
 
 ## Classloaders
 
 ```text
-[0x00000000]> fridaLj
+[0x00000000]> FrLj
 {"ok":true,"result":{"loaders":[{"id":1,"type":"dalvik.system.PathClassLoader","toString":"dalvik.system.PathClassLoader[DexPathList[[directory \".\"],...]]"},{"id":2,"type":"java.lang.BootClassLoader","toString":"java.lang.BootClassLoader@1984a97"},{"id":3,"type":"dalvik.system.PathClassLoader","toString":"dalvik.system.PathClassLoader[DexPathList[[zip file \"/data/app/.../base.apk\"],...]]"}]}}
 ```
 
@@ -25,14 +25,14 @@ Three loaders, each with an integer `id` for the session:
 ## Loaded classes
 
 ```text
-[0x00000000]> fridaCj re.frida
+[0x00000000]> FrCj re.frida
 {"ok":true,"result":{"classes":[{"name":"re.frida.minapp.StringUtils"},{"name":"re.frida.minapp.NativeLib"},{"name":"re.frida.minapp.secret.SecretVault"},...,{"name":"re.frida.minapp.game.GameState"},{"name":"re.frida.minapp.MainActivity$6"}],"total":21,"truncated":false}}
 ```
 
-`fridaCj` lists loaded classes, optionally filtered by a prefix. The
+`FrCj` lists loaded classes, optionally filtered by a prefix. The
 filter matches a canonical name that starts with the prefix, or a simple
-name after the last dot that equals it, so `fridaCj SecretVault` and
-`fridaCj re.frida.minapp.secret.SecretVault` both hit. `total` is the
+name after the last dot that equals it, so `FrCj SecretVault` and
+`FrCj re.frida.minapp.secret.SecretVault` both hit. `total` is the
 count, `truncated` reports whether `frida.java.max` cut the list
 (default 512 classes per request, 0 means unlimited). Pressing Load Plugin
 adds the two dynamic classes, raising the total to 23.
@@ -45,7 +45,7 @@ The demo classes are all here: `secret.SecretVault`, `game.GameState`,
 A miss shows how the filter behaves:
 
 ```text
-[0x00000000]> fridaCj kotlin.
+[0x00000000]> FrCj kotlin.
 {"ok":true,"result":{"classes":[],"total":0,"truncated":false}}
 ```
 
@@ -54,11 +54,11 @@ minapp is smali-built, so it carries no Kotlin metadata.
 ## Describe a class
 
 ```text
-[0x00000000]> fridaDj re.frida.minapp.secret.SecretVault
+[0x00000000]> FrDj re.frida.minapp.secret.SecretVault
 {"ok":true,"result":{"name":"re.frida.minapp.secret.SecretVault","modifiers":1,"flags":["public"],"super":"java.lang.Object","interfaces":[],"fields":[{"name":"SECRET_B64","type":"java.lang.String","modifiers":26,"flags":["private","static","final"]}],"methods":[{"name":"getSecret","returnType":"java.lang.String","parameterTypes":[],"modifiers":9,"flags":["public","static"],"isNative":false},{"name":"checkSecret","returnType":"boolean","parameterTypes":["java.lang.String"],"modifiers":9,"flags":["public","static"],"isNative":false},{"name":"nativeCheckSecret","returnType":"boolean","parameterTypes":["java.lang.String"],"modifiers":265,"flags":["public","static","native"],"isNative":true},{"name":"encode","returnType":"java.lang.String","parameterTypes":["java.lang.String"],"modifiers":9,"flags":["public","static"],"isNative":false}],"constructors":[{"parameterTypes":[],"modifiers":1,"flags":["public"]}],"loader":0}}
 ```
 
-`fridaDj` returns the superclass, interfaces, fields, methods with
+`FrDj` returns the superclass, interfaces, fields, methods with
 `isNative`, constructors and the loader id. Note `nativeCheckSecret`:
 `isNative:true`: a method implemented in C, not Java.
 
@@ -70,12 +70,12 @@ Smali-built minapp has none of that.
 
 ## Autocomplete
 
-`fridaDj` and `fridaImj` complete class names with Tab. Completion starts
+`FrDj` and `FrImj` complete class names with Tab. Completion starts
 after `frida.ac.min` characters (default 2) and suggests at most
 `frida.ac.max` names (default 12):
 
 ```text
-[0x00000000]> fridaDj re.frida.minapp.s<TAB>
+[0x00000000]> FrDj re.frida.minapp.s<TAB>
 secret.SecretVault   StringUtils   ...
 ```
 

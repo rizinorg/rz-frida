@@ -8,7 +8,7 @@ name all of its methods.
 <details>
 <summary>Hint 1</summary>
 
-`fridaCj re.frida` lists everything in the app's package.
+`FrCj re.frida` lists everything in the app's package.
 </details>
 
 <details>

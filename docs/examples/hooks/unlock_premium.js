@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 // unlock_premium.js -- flip the premium flag without paying.
-// Load with: fridalj docs/examples/hooks/unlock_premium.js
+// Load with: Frlj docs/examples/hooks/unlock_premium.js
 
 Java.perform(function () {
   var GameState = Java.use('re.frida.minapp.game.GameState');

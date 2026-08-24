@@ -4,23 +4,23 @@
 It runs inside the target, answers requests, and emits asynchronous events.
 Version 1 protocol, V8 runtime, named `rzfrida`.
 
-**ART**: Android Runtime, the Java VM of modern Android. All the `fridaJ`,
-`fridaL`, `fridaC`, `fridaD`, `fridaN` and `fridaRN` commands talk to it.
+**ART**: Android Runtime, the Java VM of modern Android. All the `FrJ`,
+`FrL`, `FrC`, `FrD`, `FrN` and `FrRN` commands talk to it.
 
 **attach**: open a session on an already-running process without stopping
 it. Closing the session leaves the process running.
 
 **breakpoint parking**: when a breakpoint hits, the agent saves the
 thread's context and blocks the thread on a per-thread receive channel
-(`frida.cont.<tid>`) until the host continues it with `fridagj`.
+(`frida.cont.<tid>`) until the host continues it with `Frgj`.
 
 **classloader**: the ART object that loads classes from dex files. minapp
-has three: system, boot and the app loader. `fridaLj` assigns stable ids.
+has three: system, boot and the app loader. `FrLj` assigns stable ids.
 
 **envelope**: the JSON reply shape `{"ok":true,"result":...}` or
 `{"ok":false,"error":{"code":...,"message":...}}`.
 
-**flag space**: rizin's named flag collection. `fridafj` imports modules
+**flag space**: rizin's named flag collection. `Frfj` imports modules
 into the `frida.libs` space.
 
 **frida-core**: the host library that talks to devices, injects agents and
@@ -35,7 +35,7 @@ other app, embed the library in that app.
 serves frida-core over USB or TCP.
 
 **hardware watchpoint**: a CPU debug-register trap on a memory address
-range. `fridaW` arms them on every thread. A hit disarms the watchpoint and
+range. `FrW` arms them on every thread. A hit disarms the watchpoint and
 emits a `frida.wp` event. Trap delivery depends on the platform.
 
 **Interceptor**: frida's hooking engine. rz-frida breakpoints use
@@ -49,11 +49,11 @@ names.
 **launch**: spawn plus immediate resume. Closing keeps the process
 running.
 
-**monitor (class load)**: the `fridaN` feature: a polling snapshot diff of
+**monitor (class load)**: the `FrN` feature: a polling snapshot diff of
 `Java.enumerateLoadedClassesSync()`, reporting classes seen since the last
 drain.
 
-**RegisterNatives hook**: the `fridaRN` feature: it intercepts ART's
+**RegisterNatives hook**: the `FrRN` feature: it intercepts ART's
 `RegisterNatives` calls and records class, method names, signatures and the
 actual native addresses.
 
@@ -61,13 +61,13 @@ actual native addresses.
 single session per rizin instance. States run NEW → RESOLVED → ATTACHED →
 DETACHING → CLOSED (or ERROR).
 
-**spawn**: start a target. Local spawn stays suspended until `fridarj`.
-USB/remote spawn resumes inside `fridaoj` (`rn` true when RegisterNatives
+**spawn**: start a target. Local spawn stays suspended until `Frrj`.
+USB/remote spawn resumes inside `Froj` (`rn` true when RegisterNatives
 armed). Closing a never-resumed spawn kills the process.
 
 **static analysis**: reading the binary from disk, as opposed to
 dynamic instrumentation.
 
-**stripped module**: a library without a symbol table. `fridaSj` returns an
+**stripped module**: a library without a symbol table. `FrSj` returns an
 empty list for it, which is why the Android journey uses the
 RegisterNatives hook instead.

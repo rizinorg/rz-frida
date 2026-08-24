@@ -13,18 +13,18 @@ All variables live in rizin's config, so `e` works as usual:
 
 | Variable | Default | Meaning | Zero means |
 |---|---|---|---|
-| `frida.mem.max` | `0x100000` (1 MiB) | max bytes per `fridax`/`fridaw` | no limit |
+| `frida.mem.max` | `0x100000` (1 MiB) | max bytes per `Frx`/`Frw` | no limit |
 | `frida.timeout` | `5000` ms | session and agent request timeout | falls back to 5000 |
-| `frida.hw.watchpoints` | `4` | max hardware watchpoint slots for `fridaW` | agent default 4 |
-| `frida.java.max` | `512` | max classes per `fridaC` request | unlimited |
-| `frida.dex.max` | `0` | max runtime classes for `fridaX` | unlimited |
+| `frida.hw.watchpoints` | `4` | max hardware watchpoint slots for `FrW` | agent default 4 |
+| `frida.java.max` | `512` | max classes per `FrC` request | unlimited |
+| `frida.dex.max` | `0` | max runtime classes for `FrX` | unlimited |
 | `frida.ac.min` | `2` | characters before class autocomplete | always triggers |
 | `frida.ac.max` | `12` | max autocomplete suggestions | falls back to 12 |
 
 ## Timeouts and cancellation
 
-`frida.timeout` bounds `fridaoj` and agent requests that registered the
-break hook. `fridarj` and `fridacj` do not use that hook:
+`frida.timeout` bounds `Froj` and agent requests that registered the
+break hook. `Frrj` and `Frcj` do not use that hook:
 
 ```text
 [0x00000000]> e frida.timeout=1000

@@ -1,15 +1,15 @@
 # Importing into analysis
 
-Everything we described with `fridaDj` can become actual rizin analysis
+Everything we described with `FrDj` can become actual rizin analysis
 objects: classes, methods and struct types.
 
 ## 1. Import one class
 
 ```text
-[0x00000000]> fridaoj frida://attach/usb//FridaMin
+[0x00000000]> Froj frida://attach/usb//FridaMin
 {"ok":true,"result":{"action":"attach","pid":2812,"resumed":false,"state":"attached"}}
 
-[0x00000000]> fridaImj re.frida.minapp.secret.SecretVault
+[0x00000000]> FrImj re.frida.minapp.secret.SecretVault
 {"ok":true,"result":{"imported":true,"class":"re.frida.minapp.secret.SecretVault","loader":0,"methods":4,"constructors":1,"fields":1}}
 ```
 
@@ -57,7 +57,7 @@ Inner classes carry a synthetic `this$0` field, and primitive fields map
 to C types. Import a listener:
 
 ```text
-[0x00000000]> fridaImj re.frida.minapp.MainActivity$6
+[0x00000000]> FrImj re.frida.minapp.MainActivity$6
 {"ok":true,"result":{"imported":true,"class":"re.frida.minapp.MainActivity$6","loader":0,"methods":1,"constructors":1,"fields":2}}
 
 [0x00000000]> tcd re_frida_minapp_MainActivity_6
@@ -73,7 +73,7 @@ A class name **without a dot** is a prefix: every loaded class starting with
 it is imported, capped by `frida.java.max`:
 
 ```text
-[0x00000000]> fridaImj re
+[0x00000000]> FrImj re
 {"ok":true,"result":{"batch":true,"classes":21,"methods":85,"fields":34,"constructors":25}}
 ```
 
@@ -89,7 +89,7 @@ it is imported, capped by `frida.java.max`:
 A prefix with no matches is an error:
 
 ```text
-[0x00000000]> fridaImj com.unknown
+[0x00000000]> FrImj com.unknown
 {"ok":false,"error":{"code":"invalid_target","message":"no matching classes found for the given prefix"}}
 ```
 
@@ -98,17 +98,17 @@ A prefix with no matches is an error:
 Re-importing an existing class does not crash and does not duplicate state:
 
 ```text
-[0x00000000]> fridaImj re.frida.minapp.secret.SecretVault
+[0x00000000]> FrImj re.frida.minapp.secret.SecretVault
 {"ok":true,"result":{"imported":true,"class":"re.frida.minapp.secret.SecretVault","loader":0,"methods":4,"constructors":1,"fields":1}}
 ```
 
 ## 6. Runtime module flags
 
-`fridafj` imports every loaded module as a flag in the `frida.libs` space,
+`Frfj` imports every loaded module as a flag in the `frida.libs` space,
 named after the module at its base address:
 
 ```text
-[0x00000000]> fridafj
+[0x00000000]> Frfj
 {"ok":true,"result":{"imported":true,"modules":322}}
 
 [0x00000000]> fs frida.libs
@@ -130,6 +130,6 @@ flowchart LR
 ### Try
 
 Import `GameState`, batch-import `re.frida`, verify with `acl` and `ts`,
-then import the runtime modules with `fridafj` and grep the flags.
+then import the runtime modules with `Frfj` and grep the flags.
 :::
 

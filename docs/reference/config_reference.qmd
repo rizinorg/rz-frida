@@ -4,11 +4,11 @@ All variables are registered with `rz_config_add_integer` on plugin load.
 
 | Variable | Default | Meaning | Zero means |
 |---|---|---|---|
-| `frida.mem.max` | `0x100000` (1048576) | max bytes per `fridax`/`fridaw` | no limit |
+| `frida.mem.max` | `0x100000` (1048576) | max bytes per `Frx`/`Frw` | no limit |
 | `frida.timeout` | `5000` | session and agent request timeout in ms, also the remote probe bound | falls back to 5000 |
-| `frida.hw.watchpoints` | `4` | max hardware watchpoint slots `fridaW` may request | agent default 4 |
-| `frida.java.max` | `512` | max loaded classes per `fridaC` request, also caps batch imports | unlimited |
-| `frida.dex.max` | `0` | max runtime classes used by `fridaX` | unlimited (default) |
+| `frida.hw.watchpoints` | `4` | max hardware watchpoint slots `FrW` may request | agent default 4 |
+| `frida.java.max` | `512` | max loaded classes per `FrC` request, also caps batch imports | unlimited |
+| `frida.dex.max` | `0` | max runtime classes used by `FrX` | unlimited (default) |
 | `frida.ac.min` | `2` | minimum characters before class autocomplete triggers | always triggers |
 | `frida.ac.max` | `12` | max autocomplete suggestions shown | falls back to 12 |
 
