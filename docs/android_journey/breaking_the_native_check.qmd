@@ -85,10 +85,10 @@ breakpoint and parks the thread:
 
 ```text
 [0x00000000]> Frmj
-{"ok":true,"result":{"messages":[...,{"kind":"send","payload":{"type":"Fr.bp","bp":1,"address":"0x76322f7e22f0","threadId":4573,"context":{}}}],"dropped":0}}
+{"ok":true,"result":{"messages":[...,{"kind":"send","payload":{"type":"frida.bp","bp":1,"address":"0x76322f7e22f0","threadId":4573,"context":{}}}],"dropped":0}}
 ```
 
-The `Fr.bp` event carries the breakpoint id, the address and the parked
+The `frida.bp` event carries the breakpoint id, the address and the parked
 thread. `context` is intentionally empty (a full serialized context can
 exceed the transport limit on arm64).
 

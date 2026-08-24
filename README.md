@@ -318,7 +318,7 @@ byte length.
 `Frxj` reads a block of target memory and returns the bytes as a hex string. `Frwj`
 writes a hex byte string into target memory and returns the number of bytes written. Both
 load the agent on first use, take an addr that rizin evals (so expressions and symbols
-work), and are bounded by the `Fr.mem.max` config.
+work), and are bounded by the `frida.mem.max` config.
 
 ```
 Frxj 0x1000 64           # read 64 bytes at 0x1000
@@ -377,7 +377,7 @@ FrW-j *                  # remove all watchpoints
 fires on whichever thread reaches the addr and there is no plugin-side slot cap.
 The plugin does not patch the target, Frida may rewrite the prologue.
 
-A hit isn't a reply, it arrives asynchronously and `Frmj` drains it as a `Fr.bp`
+A hit isn't a reply, it arrives asynchronously and `Frmj` drains it as a `frida.bp`
 msg carrying the breakpoint id (under `bp`) and the thread id. The event context
 is empty. The thread that hit stays parked until you continue it. `Frgj <tid>` continues
 that exact thread, `Frgj` with no arg continues the most recently parked one, and it
@@ -394,11 +394,11 @@ then `Frgj` to resume with it.
 ones that are set, and `FrW-j` removes one addr or `*` for all. The watchpoint is there on
 **every** target thread (the hardware debug registers are per-thread, so covering all of them
 catches the access wherever it comes from), size defaults to the ptr size, and the
-conditions default to `rw`. An access arrives through `Frmj` as a `Fr.wp` msg with
+conditions default to `rw`. An access arrives through `Frmj` as a `frida.wp` msg with
 the faulting thread, the program counter, the access operation and addr, and the full
 register context. A watchpoint disarms itself on the hit so the faulting
 instruction does not re-trap, re-arm it to catch the next access. The slot count is bounded by
-`Fr.hw.watchpoints` (default 4) and by the CPU, so a set fails when they're full.
+`frida.hw.watchpoints` (default 4) and by the CPU, so a set fails when they're full.
 
 Execution breakpoints (`Frb`) use `Interceptor`, which fires on every thread with no
 plugin-side slot limit (Frida may rewrite the prologue), and data watchpoints (`FrW`)
@@ -428,7 +428,7 @@ FrImj sg.vantagepoint.uncrackable1.MainActivity   # describe + import into rizin
 with stable session-scoped int ids, each reporting its runtime type and `toString`
 representation. `FrCj` lists loaded classes. Pass a prefix to match a
 canonical name start or the simple name after the last dot, otherwise the
-full list is returned. The `Fr.java.max` config (default 512)
+full list is returned. The `frida.java.max` config (default 512)
 caps the batch and a `truncated` flag in the reply says whether more classes exist beyond
 the cap.
 
@@ -447,12 +447,12 @@ UT64_MAX sentinel address (runtime addresses are unknown without native method r
 
 Both `FrDj` and `FrImj` support Tab-completion for class names. Pressing Tab reads
 the partially typed prefix from the line buffer, queries the agent for matching loaded
-classes, and shows suggestions. `Fr.ac.min` (default 2) sets the minimum characters
-before autocomplete fires, and `Fr.ac.max` (default 12) caps the number of suggestions.
+classes, and shows suggestions. `frida.ac.min` (default 2) sets the minimum characters
+before autocomplete fires, and `frida.ac.max` (default 12) caps the number of suggestions.
 
 `FrXj [prefix]` compares the runtime class list against the statically-loaded binary
 classes (when a binary is open in rizin) and returns counts: `only_static`, `only_runtime`,
-and `both`. An optional prefix filters both sides. The `Fr.dex.max` config (default 0,
+and `both`. An optional prefix filters both sides. The `frida.dex.max` config (default 0,
 unlimited) caps how many runtime classes are fetched during comparison.
 
 `FrNj start` snapshots currently loaded classes into a seen set. Calling
@@ -470,7 +470,7 @@ and clears the buffer. `FrRNj` lists captured invocations with class name,
 method names, signatures, and native function addresses. `FrRNj import`
 imports the captured native method entries into rizin's analysis class database.
 
-`Frfj` imports the target's loaded runtime modules as rizin flags in the `Fr.libs`
+`Frfj` imports the target's loaded runtime modules as rizin flags in the `frida.libs`
 flag space so they're visible with commands like `f` (list flags) and `s <name>` (seek
 to a module's base).
 
@@ -479,24 +479,24 @@ to a module's base).
 Seven `e` config variables tune the runtime behaviour:
 
 ```
-e Fr.mem.max=0x100000   # max bytes per Frxj/Frwj transfer, 0 for no limit
-e Fr.timeout=5000       # session and agent request timeout in milliseconds
-e Fr.hw.watchpoints=4   # max hardware watchpoint slots FrW may use, capped by the CPU
-e Fr.java.max=512       # max loaded classes FrC returns per request, 0 for unlimited
-e Fr.dex.max=0          # max runtime classes FrX compares, 0 for unlimited
-e Fr.ac.min=2           # min chars before class autocomplete triggers
-e Fr.ac.max=12          # max class autocomplete suggestions shown
+e frida.mem.max=0x100000   # max bytes per Frxj/Frwj transfer, 0 for no limit
+e frida.timeout=5000       # session and agent request timeout in milliseconds
+e frida.hw.watchpoints=4   # max hardware watchpoint slots FrW may use, capped by the CPU
+e frida.java.max=512       # max loaded classes FrC returns per request, 0 for unlimited
+e frida.dex.max=0          # max runtime classes FrX compares, 0 for unlimited
+e frida.ac.min=2           # min chars before class autocomplete triggers
+e frida.ac.max=12          # max class autocomplete suggestions shown
 ```
 
-`Fr.timeout` is applied when a session is opened with `Froj`. It also applies to
+`frida.timeout` is applied when a session is opened with `Froj`. It also applies to
 the `backend_probe_remote` TCP pre-flight that tests reachability before frida-core's
 own connect, so unreachable remote hosts fail in bounded time instead of waiting for OS
-TCP retries. `Fr.hw.watchpoints` defaults to 4 (the common arm64 and x86_64 count),
-raise it on a CPU with more slots. `Fr.java.max` defaults to 512 to avoid
+TCP retries. `frida.hw.watchpoints` defaults to 4 (the common arm64 and x86_64 count),
+raise it on a CPU with more slots. `frida.java.max` defaults to 512 to avoid
 dumping tens of thousands of classes at once, set it to 0 on a fast device when you need
-the complete list. `Fr.dex.max` caps the runtime class list during `FrXj` comparison,
-defaulting to 0 (unlimited). `Fr.ac.min` and `Fr.ac.max` control class-name
-Tab-completion for `FrDj` and `FrImj`. `Fr.mem.max` guards mem r/w
+the complete list. `frida.dex.max` caps the runtime class list during `FrXj` comparison,
+defaulting to 0 (unlimited). `frida.ac.min` and `frida.ac.max` control class-name
+Tab-completion for `FrDj` and `FrImj`. `frida.mem.max` guards mem r/w
 transfers against large allocs.
 
 ## Install
@@ -569,7 +569,7 @@ The dock widget provides 9 tabs, behind a Frida session
 - **DEX Diff** — runtime-vs-static class comparison (`FrXj`) with counts for
   only-in-static, only-in-runtime, and both
 - **RegNat** — RegisterNatives hook enable/disable/refresh/import (`FrRNj`)
-- **Flags** — runtime module import into `Fr.libs` flag space (`Frfj`)
+- **Flags** — runtime module import into `frida.libs` flag space (`Frfj`)
 - **Debug** — native breakpoints (`Frbj` set/list, `Frb-j` remove/all),
   breakpoint continue (`Frgj` with optional TID), hardware watchpoints
   (`FrWj` set/list with address/size/conditions, `FrW-j` remove/all),
@@ -630,7 +630,7 @@ with `lrelease` and installs the `.qm` next to Cutter's own translation files.
 |---------|---------------|
 | `Unable to find process with pid <pid>` | The attach target does not exist. List processes with `Frpj` and use a live pid or a process name. |
 | `Device not found` | `frida-server` is not running on the device or the USB link is gone. Check with `frida-ps -U` and restart `frida-server`. |
-| `Timeout was reached` | The target is unreachable, the transport is wrong, or the operation exceeded `Fr.timeout`. Check the `host:port` on the remote transport and the USB connection. |
+| `Timeout was reached` | The target is unreachable, the transport is wrong, or the operation exceeded `frida.timeout`. Check the `host:port` on the remote transport and the USB connection. |
 | `No active Frida session` | A session is required first. Open one with `Froj`. |
 | `A session is already open` | Only one session at a time. Close it with `Frcj` first. |
 | `frida_unavailable` | The plugin was built without `frida-core`. Rebuild with `-Dfrida_core=enabled` and the devkit paths. |

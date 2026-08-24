@@ -173,7 +173,7 @@ QJsonObject FridaApiBridge::openSession(const QString &action, const QString &tr
 		throw QCoreApplication::translate("FridaApiBridge", "Cannot allocate session");
 	}
 
-	ut64 timeout = rz_config_get_integer(core->config, "Fr.timeout");
+	ut64 timeout = rz_config_get_integer(core->config, "frida.timeout");
 	if (!timeout) {
 		timeout = RZ_FRIDA_DEFAULT_TIMEOUT_MS;
 	}
@@ -385,7 +385,7 @@ QJsonObject FridaApiBridge::classes(const QString &prefix)
 
 	RzCoreLocked coreLocked = Core()->lock();
 	RzCore *core = (RzCore *)coreLocked.operator->();
-	ut64 max = rz_config_get_integer(core->config, "Fr.java.max");
+	ut64 max = rz_config_get_integer(core->config, "frida.java.max");
 
 	return callBackend([=](RzFridaSession *s, void *pjPtr) {
 		return rz_frida_backend_classes(s, prefixPtr, max, (PJ *)pjPtr);
@@ -495,7 +495,7 @@ QJsonObject FridaApiBridge::wpSet(quint64 address, quint64 size, const QString &
 
 	RzCoreLocked coreLocked = Core()->lock();
 	RzCore *core = (RzCore *)coreLocked.operator->();
-	ut64 wpSlots = rz_config_get_integer(core->config, "Fr.hw.watchpoints");
+	ut64 wpSlots = rz_config_get_integer(core->config, "frida.hw.watchpoints");
 
 	return callBackend([=](RzFridaSession *s, void *pjPtr) {
 		return rz_frida_backend_wp_set(s, address, size, condPtr, wpSlots, (PJ *)pjPtr);

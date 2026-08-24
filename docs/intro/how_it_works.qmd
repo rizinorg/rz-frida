@@ -88,7 +88,7 @@ sequenceDiagram
     A-->>H: {id: 1, ok: true, result: {...}}
     H->>A: {id: 2, type: "eval", params: {...}}
     A-->>H: {id: 2, ok: false, error: "..."}
-    A-->>H: {type: "Fr.bp", ...}  (async event)
+    A-->>H: {type: "frida.bp", ...}  (async event)
 ```
 
 Requests carry an integer id and the agent replies with the same id, which
@@ -96,7 +96,7 @@ keeps asynchronous events from being mistaken for replies. The backend has a
 single in-flight reply slot, so requests are serialized under a recursive
 lock.
 
-Every agent request respects `Fr.timeout` (5000 ms by default). On timeout
+Every agent request respects `frida.timeout` (5000 ms by default). On timeout
 the host replies with `{"ok":false,"error":{"code":"timeout",...}}`. Ctrl-C
 cancels a running request that registered the break hook with
 `{"code":"cancelled",...}`. `Frrj` and `Frcj` do not use that

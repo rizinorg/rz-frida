@@ -52,10 +52,10 @@ Write to the cell:
 {"ok":true,"result":{"value":"written","type":"string"}}
 ```
 
-On hardware that delivers the trap, `Frmj` reports a `Fr.wp` event:
+On hardware that delivers the trap, `Frmj` reports a `frida.wp` event:
 
 ```json
-{"kind":"send","payload":{"type":"Fr.wp","threadId":2213,"pc":"0x...","operation":"write","address":"0x7ae269978400","watched":[{"slot":0,"address":"0x7ae269978400","size":8,"conditions":"w"}],"context":{...}}}
+{"kind":"send","payload":{"type":"frida.wp","threadId":2213,"pc":"0x...","operation":"write","address":"0x7ae269978400","watched":[{"slot":0,"address":"0x7ae269978400","size":8,"conditions":"w"}],"context":{...}}}
 ```
 
 The event carries the faulting thread, the program counter, the operation
@@ -115,7 +115,7 @@ Java.perform(function () {
 ... "text":"addCoins(10) coins 0 -> 10"
 ```
 
-`Fr.hw.watchpoints` (default 4) caps how many slots `FrWj` may use.
+`frida.hw.watchpoints` (default 4) caps how many slots `FrWj` may use.
 The example also refreshes the app's cached status line after a direct
 scripted coin mutation.
 

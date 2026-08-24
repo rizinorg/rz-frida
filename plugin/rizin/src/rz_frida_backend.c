@@ -1551,7 +1551,7 @@ RZ_IPI bool rz_frida_backend_symbols(RZ_NONNULL RzFridaSession *session, RZ_NONN
  * \brief Set a native breakpoint at an address through the agent.
  *
  * Loads the agent on first use and attaches a breakpoint. A hit later arrives as
- * an asynchronous Fr.bp message in the buffer drained by \ref rz_frida_backend_messages,
+ * an asynchronous frida.bp message in the buffer drained by \ref rz_frida_backend_messages,
  * carrying the thread id and register context, and the thread stays parked until
  * \ref rz_frida_backend_continue. Writes an ok:true envelope with the address and
  * breakpoint id, or an ok:false envelope on timeout, cancel, or an agent error. When
@@ -1724,7 +1724,7 @@ static bool backend_recent_parked(const char *result_json, char *out, size_t out
 // post a targeted continue to one parked thread's channel and fwd the reply.
 static bool backend_continue_thread(RzFridaBackendSession *backend, RzFridaSession *session, const char *thread_id, PJ *pj) {
 	char type[64];
-	rz_strf(type, "Fr.cont.%s", thread_id);
+	rz_strf(type, "frida.cont.%s", thread_id);
 	RzFridaResponse response = { 0 };
 	RzFridaError fail_code = RZ_FRIDA_ERROR_INTERNAL;
 	const char *fail_msg = NULL;
@@ -1934,7 +1934,7 @@ RZ_IPI bool rz_frida_backend_reg_write(RZ_NONNULL RzFridaSession *session, ut64 
  *
  * Loads the agent on first use and arms a hardware watchpoint on every target
  * thread, covering the access in \p conditions ("r", "w", or "rw"). An access
- * later arrives as an asynchronous Fr.wp message in the buffer drained by
+ * later arrives as an asynchronous frida.wp message in the buffer drained by
  * \ref rz_frida_backend_messages, carrying the faulting thread, program counter,
  * and register context, and the watchpoint disarms itself on that hit. Writes an
  * ok:true envelope with the slot, address, size, and conditions, or an ok:false
@@ -2175,7 +2175,7 @@ RZ_IPI bool rz_frida_backend_loaders(RZ_NONNULL RzFridaSession *session, RZ_NONN
  * \brief Enumerate loaded Java classes in the target through the agent.
  *
  * Loads the agent on first use, sends a classList request with an optional
- * prefix filter and a max cap from the Fr.java.max config, and writes an
+ * prefix filter and a max cap from the frida.java.max config, and writes an
  * ok:true envelope carrying the matching class names together with the count
  * and a truncated flag, or an ok:false envelope on timeout, cancel, or an
  * agent error. When the plugin is built without frida-core, a self-contained
@@ -2632,10 +2632,10 @@ static int strptr_cmp(const void *a, const void *b) {
 
 /**
  * \brief Enumerate the target modules through the agent and import their base
- * addresses into the Fr.libs flag space.
+ * addresses into the frida.libs flag space.
  *
  * Lists the loaded modules via \ref rz_frida_backend_flag_modules, then
- * creates a rizin flag for each module in the Fr.libs space. The reply
+ * creates a rizin flag for each module in the frida.libs space. The reply
  * carries the number of imported modules.
  *
  * \param session Active session.
@@ -2674,7 +2674,7 @@ RZ_IPI bool rz_frida_backend_flag_import(RZ_NONNULL RzFridaSession *session, RZ_
 	const RzJson *mods = rz_json_get(res, "modules");
 	size_t count = 0;
 	if (mods && mods->type == RZ_JSON_ARRAY) {
-		rz_flag_space_push(core->flags, "Fr.libs");
+		rz_flag_space_push(core->flags, "frida.libs");
 		const RzJson *m = mods->children.first;
 		while (m) {
 			const RzJson *mn = rz_json_get(m, "name");
@@ -2740,7 +2740,7 @@ static RZ_OWN char **collect_static_class_names(RZ_NULLABLE RzBinObject *o, RZ_N
 RZ_IPI bool rz_frida_backend_dex_diff(RZ_NONNULL RzFridaSession *session, RZ_NONNULL RzCore *core, RZ_NULLABLE const char *prefix, RZ_NONNULL PJ *pj) {
 	rz_return_val_if_fail(session && core && pj, false);
 
-	ut64 dex_max = rz_config_get_integer(core->config, "Fr.dex.max");
+	ut64 dex_max = rz_config_get_integer(core->config, "frida.dex.max");
 	if (!dex_max) {
 		dex_max = (ut64)UINT32_MAX;
 	}

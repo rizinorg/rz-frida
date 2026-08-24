@@ -72,7 +72,7 @@ Run `FrXj` on a bare file (no dex):
 {"ok":true,"result":{"loaded_bin":false,"only_runtime":24881}}
 ```
 
-`Fr.dex.max` caps the number of runtime classes used for the comparison
+`frida.dex.max` caps the number of runtime classes used for the comparison
 (0 = no limit). `FrXj` reads the loaded binary's classes through rizin's
 bin plugin, so any binary format rizin understands works.
 

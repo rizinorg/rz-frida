@@ -23,11 +23,11 @@ Request types:
 
 `ping`, `eval`, `memRead`, `memWrite`, `ranges`, `threads`, `modules`,
 `exports`, `imports`, `symbols`, `bpSet`, `bpList`, `bpRemove`, `bpParked`,
-`Fr.cont.<tid>`, `regRead`, `regWrite`, `wpSet`, `wpList`, `wpRemove`,
+`frida.cont.<tid>`, `regRead`, `regWrite`, `wpSet`, `wpList`, `wpRemove`,
 `isJavaAvailable`, `loaderList`, `classList`, `classLoadMonitor`,
 `newlyLoadedClasses`, `rnSet`, `rnList`, `flagModules`, `classDescribe`.
 
-The `Fr.cont.<tid>` type is how continuing works: a request whose type is
+The `frida.cont.<tid>` type is how continuing works: a request whose type is
 the parked thread's channel name.
 
 ## Asynchronous events
@@ -35,19 +35,19 @@ the parked thread's channel name.
 | Event | Payload |
 |---|---|
 | `agent.ready` | the agent booted (`version: 1`) |
-| `Fr.bp` | `bp`, `address`, `threadId`, `context: {}` (intentionally empty) |
-| `Fr.bp.err` | a breakpoint callback failed |
-| `Fr.wp` | `threadId`, `pc`, `operation`, `address`, `watched`, full `context` |
-| `Fr.rn` | `className`, `methods` (name, signature, address) |
-| `Fr.rn.warn` | buffer full, oversized batch, null methods pointer |
+| `frida.bp` | `bp`, `address`, `threadId`, `context: {}` (intentionally empty) |
+| `frida.bp.err` | a breakpoint callback failed |
+| `frida.wp` | `threadId`, `pc`, `operation`, `address`, `watched`, full `context` |
+| `frida.rn` | `className`, `methods` (name, signature, address) |
+| `frida.rn.warn` | buffer full, oversized batch, null methods pointer |
 
 Events queue in the host buffer. `Frmj` drains them.
 
 ## Breakpoint parking
 
 `bpSet` attaches an `Interceptor.attach` whose `onEnter` sends the
-`Fr.bp` event, saves `this.context` into a `stopped` map keyed by
-thread id, and then blocks in `recv('Fr.cont.<tid>').wait()` until the
+`frida.bp` event, saves `this.context` into a `stopped` map keyed by
+thread id, and then blocks in `recv('frida.cont.<tid>').wait()` until the
 host posts that request. This makes per-thread continue deterministic and
 keeps register writes targeting the right context.
 
@@ -57,10 +57,10 @@ sequenceDiagram
     participant A as agent
     participant T as target thread
     T->>A: onEnter at breakpoint
-    A->>H: Fr.bp {bp, address, threadId}
+    A->>H: frida.bp {bp, address, threadId}
     A->>A: stopped[tid] = this.context
-    A->>A: recv('Fr.cont.<tid>').wait()
-    H->>A: Fr.cont.<tid> (or bpParked for the most recent)
+    A->>A: recv('frida.cont.<tid>').wait()
+    H->>A: frida.cont.<tid> (or bpParked for the most recent)
     A->>T: continue
 ```
 
@@ -84,7 +84,7 @@ copies the native method table in `onEnter` and promotes the class
 reference with the caller's `JNIEnv` in `onLeave`. It does not call Java,
 look up class names, or `send()` while `RegisterNatives` is running.
 `FrRNj` flushes pending entries, resolves class names and emits
-`Fr.rn` events. `Froj` for a USB/remote spawn arms this hook and
+`frida.rn` events. `Froj` for a USB/remote spawn arms this hook and
 resumes before returning (`rn` true if it armed). USB/remote still resume
 if Java is unavailable (`rn` false). `FrRNj on` on a still-suspended
 spawn also resumes.
@@ -93,7 +93,7 @@ spawn also resumes.
 flowchart LR
     A[env table index 215] --> B[CheckJNI or JNI RegisterNatives]
     B -->|onEnter copies methods| C[rnPending]
-    C -->|rnList flush| D[rnBuffer + Fr.rn event]
+    C -->|rnList flush| D[rnBuffer + frida.rn event]
 ```
 
 ## Class monitor

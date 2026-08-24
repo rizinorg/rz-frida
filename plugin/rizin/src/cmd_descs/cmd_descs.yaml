@@ -301,7 +301,7 @@ commands:
           Loads the rz-frida agent into the open session on first use, then
           evaluates a JavaScript expression inside the target process and
           returns its value and type. Quote the expression when it contains
-          spaces, or use Frl for a script that lives in a file.
+          spaces, or use Frlj for a script that lives in a file.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
           - RZ_OUTPUT_MODE_JSON
@@ -629,7 +629,7 @@ commands:
           with no argument. The optional size defaults to the pointer size and the
           optional conditions are r, w, or rw (default rw). The watchpoint is armed
           on every target thread, an access is reported asynchronously through
-          Frm as a Fr.wp event with the faulting thread, program counter, and
+          Frm as a frida.wp event with the faulting thread, program counter, and
           register context, and the watchpoint disarms itself on that hit. The CPU
           has a small fixed number of watchpoint slots. Loads the agent into the
           open session on first use.
@@ -708,7 +708,7 @@ commands:
           Enumerates the loaded Java classes in the target process through the
           rz-frida agent. An optional prefix matches classes whose canonical
           name starts with that string, or whose simple name after the last
-          dot equals it. The Fr.java.max config (default 512) caps the
+          dot equals it. The frida.java.max config (default 512) caps the
           batch. Zero means unlimited.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:
@@ -760,7 +760,7 @@ commands:
         summary: "Import runtime modules as rizin flags"
         description: >
           Enumerates the target process modules via the rz-frida agent and
-          imports their base addresses into the Fr.libs flag space as
+          imports their base addresses into the frida.libs flag space as
           rizin flags. Returns the count of modules imported.
         type: RZ_CMD_DESC_TYPE_ARGV_STATE
         modes:

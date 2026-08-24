@@ -33,7 +33,7 @@ Three loaders, each with an integer `id` for the session:
 filter matches a canonical name that starts with the prefix, or a simple
 name after the last dot that equals it, so `FrCj SecretVault` and
 `FrCj re.frida.minapp.secret.SecretVault` both hit. `total` is the
-count, `truncated` reports whether `Fr.java.max` cut the list
+count, `truncated` reports whether `frida.java.max` cut the list
 (default 512 classes per request, 0 means unlimited). Pressing Load Plugin
 adds the two dynamic classes, raising the total to 23.
 
@@ -71,8 +71,8 @@ Smali-built minapp has none of that.
 ## Autocomplete
 
 `FrDj` and `FrImj` complete class names with Tab. Completion starts
-after `Fr.ac.min` characters (default 2) and suggests at most
-`Fr.ac.max` names (default 12):
+after `frida.ac.min` characters (default 2) and suggests at most
+`frida.ac.max` names (default 12):
 
 ```text
 [0x00000000]> FrDj re.frida.minapp.s<TAB>
@@ -80,9 +80,9 @@ secret.SecretVault   StringUtils   ...
 ```
 
 ```text
-[0x00000000]> e Fr.ac.min
+[0x00000000]> e frida.ac.min
 2
-[0x00000000]> e Fr.ac.max
+[0x00000000]> e frida.ac.max
 12
 ```
 

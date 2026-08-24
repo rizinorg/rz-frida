@@ -52,7 +52,7 @@ is open.
 ## 5. Fast failures
 
 frida's remote connect has no socket timeout of its own. rz-frida opens a
-short throwaway TCP connection first, bounded by `Fr.timeout`, so an
+short throwaway TCP connection first, bounded by `frida.timeout`, so an
 unreachable host fails quickly and a Ctrl-C aborts it:
 
 ```text

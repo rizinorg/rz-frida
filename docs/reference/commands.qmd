@@ -47,7 +47,7 @@ but does not print a useful reply. Type `Frdj`, not `Frd`.
 | `Frxj` | `<address> <size>` | read memory (addresses accept rizin expressions) |
 | `Frwj` | `<address> <bytes>` | write hex bytes |
 
-Bounded by `Fr.mem.max` (1 MiB default, 0 = unlimited).
+Bounded by `frida.mem.max` (1 MiB default, 0 = unlimited).
 
 ## Runtime info
 
@@ -77,11 +77,11 @@ Notes:
 
 - breakpoints use `Interceptor.attach`: no plugin-side patching or slot cap.
   Frida may rewrite the prologue. They fire on any thread
-- a hit parks the thread and reports a `Fr.bp` event through `Frm`
+- a hit parks the thread and reports a `frida.bp` event through `Frm`
 - `FrBj <tid>` reports the stop identity only, **not** the register
   values. A write (`<tid> <reg> <value>`) mutates the live context
-- watchpoints arm on every thread, are capped by `Fr.hw.watchpoints`,
-  and disarm on a hit (`Fr.wp` event)
+- watchpoints arm on every thread, are capped by `frida.hw.watchpoints`,
+  and disarm on a hit (`frida.wp` event)
 
 ## Java
 
@@ -89,10 +89,10 @@ Notes:
 |---|---|---|
 | `FrJj` | | is the Java VM available |
 | `FrLj` | | enumerate classloaders with stable ids |
-| `FrCj` | `[prefix]` | enumerate loaded classes (canonical prefix or simple name), capped by `Fr.java.max` |
+| `FrCj` | `[prefix]` | enumerate loaded classes (canonical prefix or simple name), capped by `frida.java.max` |
 | `FrNj` | `[start\|stop]` | class load monitor (snapshot diff, stop does not clear the seen set) |
 | `FrRNj` | `[on\|off\|import]` | RegisterNatives hook. USB/remote spawn already arms it, `on` also resumes a still-suspended spawn |
-| `Frfj` | | import runtime modules as flags in `Fr.libs` |
+| `Frfj` | | import runtime modules as flags in `frida.libs` |
 | `FrXj` | `[prefix]` | compare static binary classes with runtime classes |
 | `FrDj` | `<class> [loader]` | describe a class (Tab completes names) |
 | `FrImj` | `<class> [loader]` | import a class into rizin analysis (dotless = batch prefix import) |
@@ -106,7 +106,7 @@ Requests that fail inside the agent come back as `ok:false` envelopes with
 `internal_error` and a message such as:
 
 ```text
-read size exceeds the Fr.mem.max limit
+read size exceeds the frida.mem.max limit
 expected an even-length hex byte string
 invalid hex byte string
 address 0x1000 is not mapped in the target

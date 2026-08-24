@@ -229,7 +229,7 @@ RZ_IPI RzCmdStatus rz_cmd_Fro_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int arg
 		return RZ_CMD_STATUS_OK;
 	}
 
-	ut64 timeout = rz_config_get_integer(core->config, "Fr.timeout");
+	ut64 timeout = rz_config_get_integer(core->config, "frida.timeout");
 	if (!timeout) {
 		timeout = RZ_FRIDA_DEFAULT_TIMEOUT_MS;
 	}
@@ -389,9 +389,9 @@ RZ_IPI RzCmdStatus rz_cmd_Frx_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int arg
 
 	PJ *pj = state->d.pj;
 	ut64 size = rz_num_math(core->num, argv[2]);
-	ut64 maxbytes = rz_config_get_integer(core->config, "Fr.mem.max");
+	ut64 maxbytes = rz_config_get_integer(core->config, "frida.mem.max");
 	if (maxbytes && size > maxbytes) {
-		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "read size exceeds the Fr.mem.max limit");
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "read size exceeds the frida.mem.max limit");
 		return RZ_CMD_STATUS_OK;
 	}
 	RzFridaCoreContext *ctx = frida_context(core);
@@ -451,10 +451,10 @@ RZ_IPI RzCmdStatus rz_cmd_Frw_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int arg
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "expected an even-length hex byte string");
 		return RZ_CMD_STATUS_OK;
 	}
-	ut64 maxbytes = rz_config_get_integer(core->config, "Fr.mem.max");
+	ut64 maxbytes = rz_config_get_integer(core->config, "frida.mem.max");
 	if (maxbytes && (ut64)(hexlen / 2) > maxbytes) {
 		free(hex);
-		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "write size exceeds the Fr.mem.max limit");
+		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "write size exceeds the frida.mem.max limit");
 		return RZ_CMD_STATUS_OK;
 	}
 	RzFridaCoreContext *ctx = frida_context(core);
@@ -727,7 +727,7 @@ RZ_IPI RzCmdStatus rz_cmd_FrW_handler(RZ_NONNULL RzCore *core, int argc, RZ_NONN
 		ut64 address = rz_num_math(core->num, argv[1]);
 		ut64 size = (argc > 2) ? rz_num_math(core->num, argv[2]) : 0;
 		const char *conditions = (argc > 3) ? argv[3] : NULL;
-		ut64 slots = rz_config_get_integer(core->config, "Fr.hw.watchpoints");
+		ut64 slots = rz_config_get_integer(core->config, "frida.hw.watchpoints");
 		rz_frida_backend_wp_set(ctx->session, address, size, conditions, slots, pj);
 	} else {
 		rz_frida_backend_wp_list(ctx->session, pj);
@@ -809,7 +809,7 @@ RZ_IPI RzCmdStatus rz_cmd_FrC_handler(RZ_NONNULL RzCore *core, int argc,
 		return RZ_CMD_STATUS_OK;
 	}
 	const char *prefix = (argc > 1 && RZ_STR_ISNOTEMPTY(argv[1])) ? argv[1] : NULL;
-	ut64 max = rz_config_get_integer(core->config, "Fr.java.max");
+	ut64 max = rz_config_get_integer(core->config, "frida.java.max");
 	rz_cons_break_push(frida_cancel_on_break, ctx->session);
 	rz_frida_backend_classes(ctx->session, prefix, max, pj);
 	rz_cons_break_pop();
@@ -973,7 +973,7 @@ RZ_IPI RzCmdStatus rz_cmd_FrIm_handler(RZ_NONNULL RzCore *core, int argc,
 	if (has_dot) {
 		rz_frida_backend_import_class(ctx->session, core, className, loaderId, pj);
 	} else {
-		ut64 max = rz_config_get_integer(core->config, "Fr.java.max");
+		ut64 max = rz_config_get_integer(core->config, "frida.java.max");
 		size_t count = 0;
 		char **names = rz_frida_backend_class_list(ctx->session, className, max, &count);
 
@@ -1056,8 +1056,8 @@ static const char *extract_prefix(const char *line) {
  * \brief Returns loaded Java class names for FrDj Tab-completion.
  *
  * Reads the current line buffer to extract the partially typed class name,
- * guards against no-session and too-few-characters via the Fr.ac.min config,
- * queries the agent for matching class names (capped at Fr.ac.max), and
+ * guards against no-session and too-few-characters via the frida.ac.min config,
+ * queries the agent for matching class names (capped at frida.ac.max), and
  * returns a freshly allocated NULL-terminated array suitable for rizin's
  * RZ_CMD_ARG_TYPE_CHOICES autocomplete mechanism.
  *
@@ -1080,12 +1080,12 @@ RZ_IPI RZ_OWN char **rz_frida_autocomplete_class(RZ_NONNULL RzCore *core) {
 	}
 	size_t plen = strlen(prefix);
 
-	ut64 min = rz_config_get_integer(core->config, "Fr.ac.min");
+	ut64 min = rz_config_get_integer(core->config, "frida.ac.min");
 	if (min && plen < (size_t)min) {
 		return NULL;
 	}
 
-	ut64 max = rz_config_get_integer(core->config, "Fr.ac.max");
+	ut64 max = rz_config_get_integer(core->config, "frida.ac.max");
 	if (!max) {
 		max = 12;
 	}
@@ -1136,13 +1136,13 @@ static bool rz_frida_plugin_init(RzCore *core, void **user) {
 	}
 
 	// register the configurable limits the cmds read.
-	rz_config_add_integer(core->config, "Fr.mem.max", "Maximum bytes per frida memory read or write, 0 for no limit", RZ_FRIDA_MEM_MAX_DEFAULT);
-	rz_config_add_integer(core->config, "Fr.timeout", "Frida session and agent request timeout in milliseconds", RZ_FRIDA_DEFAULT_TIMEOUT_MS);
-	rz_config_add_integer(core->config, "Fr.hw.watchpoints", "Maximum hardware watchpoint slots FrW may use, capped by the CPU", RZ_FRIDA_HW_WATCHPOINTS_DEFAULT);
-	rz_config_add_integer(core->config, "Fr.java.max", "Maximum loaded classes FrC returns per request, 0 for unlimited", RZ_FRIDA_JAVA_MAX_DEFAULT);
-	rz_config_add_integer(core->config, "Fr.dex.max", "Maximum classes FrX uses for comparison, 0 for no limit", 0);
-	rz_config_add_integer(core->config, "Fr.ac.min", "Minimum characters typed before class autocomplete triggers", 2);
-	rz_config_add_integer(core->config, "Fr.ac.max", "Maximum class autocomplete suggestions shown", 12);
+	rz_config_add_integer(core->config, "frida.mem.max", "Maximum bytes per frida memory read or write, 0 for no limit", RZ_FRIDA_MEM_MAX_DEFAULT);
+	rz_config_add_integer(core->config, "frida.timeout", "Frida session and agent request timeout in milliseconds", RZ_FRIDA_DEFAULT_TIMEOUT_MS);
+	rz_config_add_integer(core->config, "frida.hw.watchpoints", "Maximum hardware watchpoint slots FrW may use, capped by the CPU", RZ_FRIDA_HW_WATCHPOINTS_DEFAULT);
+	rz_config_add_integer(core->config, "frida.java.max", "Maximum loaded classes FrC returns per request, 0 for unlimited", RZ_FRIDA_JAVA_MAX_DEFAULT);
+	rz_config_add_integer(core->config, "frida.dex.max", "Maximum classes FrX uses for comparison, 0 for no limit", 0);
+	rz_config_add_integer(core->config, "frida.ac.min", "Minimum characters typed before class autocomplete triggers", 2);
+	rz_config_add_integer(core->config, "frida.ac.max", "Maximum class autocomplete suggestions shown", 12);
 
 	rz_frida_backend_init();
 

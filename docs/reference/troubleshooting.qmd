@@ -248,7 +248,7 @@ gadget-embedded copy of the app and attach instead of spawning
 ## An eval that hits a breakpoint "times out"
 
 Expected: the eval thread parked at the breakpoint, so its request cannot
-complete. Read the `Fr.bp` event with `Frmj`, inspect with
+complete. Read the `frida.bp` event with `Frmj`, inspect with
 `FrBj <tid>`, and continue with `Frgj <tid>`: the call then
 finishes.
 
@@ -256,4 +256,4 @@ finishes.
 
 Batch imports need a **dotless** prefix (`FrImj re`, not
 `FrImj re.frida`): a dotted name is treated as one class. Also check
-`Fr.java.max`: a cap of 512 classes applies to the batch.
+`frida.java.max`: a cap of 512 classes applies to the batch.

@@ -12,7 +12,7 @@ it. Closing the session leaves the process running.
 
 **breakpoint parking**: when a breakpoint hits, the agent saves the
 thread's context and blocks the thread on a per-thread receive channel
-(`Fr.cont.<tid>`) until the host continues it with `Frgj`.
+(`frida.cont.<tid>`) until the host continues it with `Frgj`.
 
 **classloader**: the ART object that loads classes from dex files. minapp
 has three: system, boot and the app loader. `FrLj` assigns stable ids.
@@ -21,7 +21,7 @@ has three: system, boot and the app loader. `FrLj` assigns stable ids.
 `{"ok":false,"error":{"code":...,"message":...}}`.
 
 **flag space**: rizin's named flag collection. `Frfj` imports modules
-into the `Fr.libs` space.
+into the `frida.libs` space.
 
 **frida-core**: the host library that talks to devices, injects agents and
 routes messages. rz-frida links against its devkit.
@@ -36,7 +36,7 @@ serves frida-core over USB or TCP.
 
 **hardware watchpoint**: a CPU debug-register trap on a memory address
 range. `FrW` arms them on every thread. A hit disarms the watchpoint and
-emits a `Fr.wp` event. Trap delivery depends on the platform.
+emits a `frida.wp` event. Trap delivery depends on the platform.
 
 **Interceptor**: frida's hooking engine. rz-frida breakpoints use
 `Interceptor.attach`. The plugin does not patch the target and has no slot

@@ -44,34 +44,34 @@ static bool test_plugin_registration(RzCore *core) {
 }
 
 static bool test_config_defaults(RzCore *core) {
-	mu_assert_true(rz_config_get_i(core->config, "Fr.mem.max") == RZ_FRIDA_MEM_MAX_DEFAULT, "Fr.mem.max default is registered");
-	mu_assert_true(rz_config_get_i(core->config, "Fr.timeout") == RZ_FRIDA_DEFAULT_TIMEOUT_MS, "Fr.timeout default is registered");
-	mu_assert_true(rz_config_get_i(core->config, "Fr.hw.watchpoints") == RZ_FRIDA_HW_WATCHPOINTS_DEFAULT, "Fr.hw.watchpoints default is registered");
-	mu_assert_true(rz_config_get_i(core->config, "Fr.java.max") == RZ_FRIDA_JAVA_MAX_DEFAULT, "Fr.java.max default is registered");
-	mu_assert_true(rz_config_get_i(core->config, "Fr.dex.max") == 0, "Fr.dex.max defaults to 0 (no limit)");
+	mu_assert_true(rz_config_get_i(core->config, "frida.mem.max") == RZ_FRIDA_MEM_MAX_DEFAULT, "frida.mem.max default is registered");
+	mu_assert_true(rz_config_get_i(core->config, "frida.timeout") == RZ_FRIDA_DEFAULT_TIMEOUT_MS, "frida.timeout default is registered");
+	mu_assert_true(rz_config_get_i(core->config, "frida.hw.watchpoints") == RZ_FRIDA_HW_WATCHPOINTS_DEFAULT, "frida.hw.watchpoints default is registered");
+	mu_assert_true(rz_config_get_i(core->config, "frida.java.max") == RZ_FRIDA_JAVA_MAX_DEFAULT, "frida.java.max default is registered");
+	mu_assert_true(rz_config_get_i(core->config, "frida.dex.max") == 0, "frida.dex.max defaults to 0 (no limit)");
 	mu_end;
 }
 
 static bool test_mem_read_size_limit(RzCore *core) {
-	rz_config_set_i(core->config, "Fr.mem.max", 8);
+	rz_config_set_i(core->config, "frida.mem.max", 8);
 	char *read = rz_core_cmd_str(core, "Frxj 0x1000 16");
-	rz_config_set_i(core->config, "Fr.mem.max", RZ_FRIDA_MEM_MAX_DEFAULT);
+	rz_config_set_i(core->config, "frida.mem.max", RZ_FRIDA_MEM_MAX_DEFAULT);
 	mu_assert_notnull(read, "memory read command returns output");
 	mu_assert_streq(read,
-		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"read size exceeds the Fr.mem.max limit\"}}\n",
-		"a read larger than Fr.mem.max is rejected");
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"read size exceeds the frida.mem.max limit\"}}\n",
+		"a read larger than frida.mem.max is rejected");
 	RZ_FREE(read);
 	mu_end;
 }
 
 static bool test_mem_write_size_limit(RzCore *core) {
-	rz_config_set_i(core->config, "Fr.mem.max", 2);
+	rz_config_set_i(core->config, "frida.mem.max", 2);
 	char *write = rz_core_cmd_str(core, "Frwj 0x1000 deadbeef");
-	rz_config_set_i(core->config, "Fr.mem.max", RZ_FRIDA_MEM_MAX_DEFAULT);
+	rz_config_set_i(core->config, "frida.mem.max", RZ_FRIDA_MEM_MAX_DEFAULT);
 	mu_assert_notnull(write, "memory write command returns output");
 	mu_assert_streq(write,
-		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"write size exceeds the Fr.mem.max limit\"}}\n",
-		"a write larger than Fr.mem.max is rejected");
+		"{\"ok\":false,\"error\":{\"code\":\"invalid_target\",\"message\":\"write size exceeds the frida.mem.max limit\"}}\n",
+		"a write larger than frida.mem.max is rejected");
 	RZ_FREE(write);
 	mu_end;
 }

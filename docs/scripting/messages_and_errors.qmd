@@ -11,7 +11,7 @@ The agent talks back asynchronously with messages. `Frmj` drains them:
 
 | Kind | Meaning | Example |
 |---|---|---|
-| `send` | a payload from `send()` or an agent event | `{"type":"agent.ready","version":1}`, `Fr.bp`, `Fr.wp`, `Fr.rn` |
+| `send` | a payload from `send()` or an agent event | `{"type":"agent.ready","version":1}`, `frida.bp`, `frida.wp`, `frida.rn` |
 | `log` | console output | `console.log`, `console.error` |
 | `error` | an uncaught script error | description + stack |
 | `unknown` | anything the host cannot classify | rare |

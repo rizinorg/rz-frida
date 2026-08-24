@@ -24,7 +24,7 @@ parks:
 
 ```text
 [0x00000000]> Frmj
-{"ok":true,"result":{"messages":[...,{"kind":"send","payload":{"type":"Fr.bp","bp":1,"address":"0x5c95c467e209","threadId":46117,"context":{}}}],"dropped":0}}
+{"ok":true,"result":{"messages":[...,{"kind":"send","payload":{"type":"frida.bp","bp":1,"address":"0x5c95c467e209","threadId":46117,"context":{}}}],"dropped":0}}
 ```
 
 The demo is now frozen at the breakpoint, waiting for you.
@@ -73,15 +73,15 @@ sequenceDiagram
     participant A as agent
     participant H as host
     T->>A: enters check_key (onEnter)
-    A->>H: Fr.bp event (bp, address, threadId)
-    A->>A: park: recv('Fr.cont.<tid>').wait()
+    A->>H: frida.bp event (bp, address, threadId)
+    A->>A: park: recv('frida.cont.<tid>').wait()
     H->>H: FrBj stop identity or write live context
-    H->>A: Fr.cont.<tid> request
+    H->>A: frida.cont.<tid> request
     A->>T: resume the function
 ```
 
 The agent parks the thread with a `recv` on a per-thread channel
-(`Fr.cont.<tid>`), so continuing a specific thread is deterministic, and
+(`frida.cont.<tid>`), so continuing a specific thread is deterministic, and
 the host keeps the thread's live Interceptor context for a register write.
 
 > **Note:** the breakpoint's `context` is intentionally empty in the event:

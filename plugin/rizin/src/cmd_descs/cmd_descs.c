@@ -321,7 +321,7 @@ static const RzCmdDescArg cmd_Fre_args[] = {
 };
 static const RzCmdDescHelp cmd_Fre_help = {
 	.summary = "Evaluate JavaScript in the target process",
-	.description = "Loads the rz-frida agent into the open session on first use, then evaluates a JavaScript expression inside the target process and returns its value and type. Quote the expression when it contains spaces, or use Frl for a script that lives in a file.",
+	.description = "Loads the rz-frida agent into the open session on first use, then evaluates a JavaScript expression inside the target process and returns its value and type. Quote the expression when it contains spaces, or use Frlj for a script that lives in a file.",
 	.details = cmd_Fre_details,
 	.args = cmd_Fre_args,
 };
@@ -702,7 +702,7 @@ static const RzCmdDescArg cmd_FrW_args[] = {
 };
 static const RzCmdDescHelp cmd_FrW_help = {
 	.summary = "Set or list hardware watchpoints",
-	.description = "Sets a hardware watchpoint on an address in the target process through the rz-frida agent, or lists the watchpoints that are set when called with no argument. The optional size defaults to the pointer size and the optional conditions are r, w, or rw (default rw). The watchpoint is armed on every target thread, an access is reported asynchronously through Frm as a Fr.wp event with the faulting thread, program counter, and register context, and the watchpoint disarms itself on that hit. The CPU has a small fixed number of watchpoint slots. Loads the agent into the open session on first use.",
+	.description = "Sets a hardware watchpoint on an address in the target process through the rz-frida agent, or lists the watchpoints that are set when called with no argument. The optional size defaults to the pointer size and the optional conditions are r, w, or rw (default rw). The watchpoint is armed on every target thread, an access is reported asynchronously through Frm as a frida.wp event with the faulting thread, program counter, and register context, and the watchpoint disarms itself on that hit. The CPU has a small fixed number of watchpoint slots. Loads the agent into the open session on first use.",
 	.details = cmd_FrW_details,
 	.args = cmd_FrW_args,
 };
@@ -762,7 +762,7 @@ static const RzCmdDescArg cmd_FrC_args[] = {
 };
 static const RzCmdDescHelp cmd_FrC_help = {
 	.summary = "Enumerate loaded Java classes in the target",
-	.description = "Enumerates the loaded Java classes in the target process through the rz-frida agent. An optional prefix matches classes whose canonical name starts with that string, or whose simple name after the last dot equals it. The Fr.java.max config (default 512) caps the batch. Zero means unlimited.",
+	.description = "Enumerates the loaded Java classes in the target process through the rz-frida agent. An optional prefix matches classes whose canonical name starts with that string, or whose simple name after the last dot equals it. The frida.java.max config (default 512) caps the batch. Zero means unlimited.",
 	.args = cmd_FrC_args,
 };
 
@@ -803,7 +803,7 @@ static const RzCmdDescArg cmd_Frf_args[] = {
 };
 static const RzCmdDescHelp cmd_Frf_help = {
 	.summary = "Import runtime modules as rizin flags",
-	.description = "Enumerates the target process modules via the rz-frida agent and imports their base addresses into the Fr.libs flag space as rizin flags. Returns the count of modules imported.",
+	.description = "Enumerates the target process modules via the rz-frida agent and imports their base addresses into the frida.libs flag space as rizin flags. Returns the count of modules imported.",
 	.args = cmd_Frf_args,
 };
 

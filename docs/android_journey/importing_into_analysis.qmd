@@ -70,7 +70,7 @@ sanitized to `this_0`, and the Java `long` field became C `long long`.
 ## 4. Batch import
 
 A class name **without a dot** is a prefix: every loaded class starting with
-it is imported, capped by `Fr.java.max`:
+it is imported, capped by `frida.java.max`:
 
 ```text
 [0x00000000]> FrImj re
@@ -104,14 +104,14 @@ Re-importing an existing class does not crash and does not duplicate state:
 
 ## 6. Runtime module flags
 
-`Frfj` imports every loaded module as a flag in the `Fr.libs` space,
+`Frfj` imports every loaded module as a flag in the `frida.libs` space,
 named after the module at its base address:
 
 ```text
 [0x00000000]> Frfj
 {"ok":true,"result":{"imported":true,"modules":322}}
 
-[0x00000000]> fs Fr.libs
+[0x00000000]> fs frida.libs
 [0x00000000]> fl~libnative
 0x7adfac850000 20480 libnative.so
 ```
