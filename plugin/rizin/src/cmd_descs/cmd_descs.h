@@ -11,76 +11,76 @@
 
 // Command handlers, manually defined somewhere else
 // "Frs"
-RZ_IPI RzCmdStatus rz_cmd_Frs_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridas_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Fru"
-RZ_IPI RzCmdStatus rz_cmd_Fru_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridau_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frd"
-RZ_IPI RzCmdStatus rz_cmd_Frd_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridad_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frp"
-RZ_IPI RzCmdStatus rz_cmd_Frp_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridap_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Fra"
-RZ_IPI RzCmdStatus rz_cmd_Fra_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaa_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Fro"
-RZ_IPI RzCmdStatus rz_cmd_Fro_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridao_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frr"
-RZ_IPI RzCmdStatus rz_cmd_Frr_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridar_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frc"
-RZ_IPI RzCmdStatus rz_cmd_Frc_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridac_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Fre"
-RZ_IPI RzCmdStatus rz_cmd_Fre_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridae_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frl"
-RZ_IPI RzCmdStatus rz_cmd_Frl_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridal_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Fri"
-RZ_IPI RzCmdStatus rz_cmd_Fri_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridai_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frm"
-RZ_IPI RzCmdStatus rz_cmd_Frm_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridam_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frx"
-RZ_IPI RzCmdStatus rz_cmd_Frx_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridax_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frw"
-RZ_IPI RzCmdStatus rz_cmd_Frw_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaw_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrR"
-RZ_IPI RzCmdStatus rz_cmd_FrR_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaR_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frt"
-RZ_IPI RzCmdStatus rz_cmd_Frt_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridat_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrM"
-RZ_IPI RzCmdStatus rz_cmd_FrM_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaM_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrE"
-RZ_IPI RzCmdStatus rz_cmd_FrE_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaE_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrI"
-RZ_IPI RzCmdStatus rz_cmd_FrI_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaI_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrS"
-RZ_IPI RzCmdStatus rz_cmd_FrS_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaS_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frb"
-RZ_IPI RzCmdStatus rz_cmd_Frb_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridab_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frb-"
-RZ_IPI RzCmdStatus rz_cmd_Frb_minus_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridab_minus_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frg"
-RZ_IPI RzCmdStatus rz_cmd_Frg_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridag_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrB"
-RZ_IPI RzCmdStatus rz_cmd_FrB_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaB_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrW"
-RZ_IPI RzCmdStatus rz_cmd_FrW_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaW_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrW-"
-RZ_IPI RzCmdStatus rz_cmd_FrW_minus_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaW_minus_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrJ"
-RZ_IPI RzCmdStatus rz_cmd_FrJ_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaJ_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrL"
-RZ_IPI RzCmdStatus rz_cmd_FrL_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaL_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrC"
-RZ_IPI RzCmdStatus rz_cmd_FrC_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaC_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrN"
-RZ_IPI RzCmdStatus rz_cmd_FrN_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaN_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrRN"
-RZ_IPI RzCmdStatus rz_cmd_FrRN_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaRN_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "Frf"
-RZ_IPI RzCmdStatus rz_cmd_Frf_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaf_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrX"
-RZ_IPI RzCmdStatus rz_cmd_FrX_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaX_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 // "FrD"
-RZ_IPI RzCmdStatus rz_cmd_FrD_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaD_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 RZ_IPI char **rz_frida_autocomplete_class(RzCore *core);
 // "FrIm"
-RZ_IPI RzCmdStatus rz_cmd_FrIm_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
+RZ_IPI RzCmdStatus rz_cmd_fridaIm_handler(RzCore *core, int argc, const char **argv, RzCmdStateOutput *state);
 
 // Main function that initialize the entire commands tree
 RZ_IPI void rzshell_cmddescs_init(RzCore *core);
