@@ -207,8 +207,20 @@ jobs:
     name: rizin plugin (macos-x86_64)
     runs-on: macos-15-intel
     needs: test-gate
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
+      # actions/checkout post always runs git after the job. That git
+      # hangs once this runner has done sudo Frida attach, so clone first.
+      - name: Checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git init
+          git config --local --add safe.directory "$PWD"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth 1 origin "${GITHUB_REF}"
+          git checkout --force FETCH_HEAD
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
 
@@ -236,13 +248,24 @@ jobs:
           ninja -C build
           sudo ninja -C build install
 
+      - name: Build smoke target
+        run: |
+          # /bin/sleep is SIP. Hosted python injects too slowly on Intel.
+          printf '#include <unistd.h>\nint main(void){for(;;)pause();}\n' | cc -O0 -x c -o /tmp/rzfrida_smoke -
+          mkdir -p /tmp/rzfrida-home
+
       - name: Smoke test (local attach as root)
         run: |
           # hosted runners deny task_for_pid for non-root, attach as root instead
-          python3 -c "import time; time.sleep(30)" &
+          /tmp/rzfrida_smoke &
           target=$!
-          out=$(sudo rizin -N -q -c "Froj attach/local//${target}" -c "Frsj" -c "FrRj" -c "Frcj" malloc://512 2>&1)
-          kill $target 2>/dev/null || true
+          rizin_bin=$(command -v rizin)
+          out=$(cd /tmp && sudo env HOME=/tmp/rzfrida-home PATH="$PATH" "$rizin_bin" -N -q \
+            -c "e frida.timeout=30000" \
+            -c "Froj attach/local//${target}" \
+            -c "Frsj" -c "FrRj" -c "Frcj" malloc://512 2>&1)
+          sudo kill -9 "$target" 2>/dev/null || true
+          wait "$target" 2>/dev/null || true
           echo "$out"
           echo "$out" | grep -q '"action":"attach"' || exit 1
           echo "$out" | grep -q '"state":"attached"' || exit 1
@@ -251,10 +274,15 @@ jobs:
       - name: Smoke test (local attach as user)
         run: |
           # non-root attach should work on a normal mac, on a hosted runner it fails cleanly
-          python3 -c "import time; time.sleep(30)" &
+          /tmp/rzfrida_smoke &
           target=$!
-          out=$(rizin -N -q -c "Froj attach/local//${target}" -c "Frsj" -c "FrRj" malloc://512 2>&1)
-          kill $target 2>/dev/null || true
+          rizin_bin=$(command -v rizin)
+          out=$(cd /tmp && env HOME=/tmp/rzfrida-home "$rizin_bin" -N -q \
+            -c "e frida.timeout=30000" \
+            -c "Froj attach/local//${target}" \
+            -c "Frsj" -c "FrRj" -c "Frcj" malloc://512 2>&1)
+          sudo kill -9 "$target" 2>/dev/null || true
+          wait "$target" 2>/dev/null || true
           echo "$out"
           if echo "$out" | grep -q '"action":"attach"'; then
             echo "$out" | grep -q '"state":"attached"' || exit 1
@@ -264,6 +292,10 @@ jobs:
             echo "$out" | grep -q '"error"' || exit 1
             echo "$out" | grep -q '"no session is open"' || exit 1
           fi
+
+      - name: Restore workspace ownership
+        if: always()
+        run: sudo chown -R "$(id -un)" "$GITHUB_WORKSPACE" || true
 
       - uses: actions/upload-artifact@v7
         with:
@@ -275,6 +307,7 @@ jobs:
     name: rizin plugin (macos-arm64)
     runs-on: macos-14
     needs: test-gate
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -304,13 +337,23 @@ jobs:
           ninja -C build
           sudo ninja -C build install
 
+      - name: Build smoke target
+        run: |
+          printf '#include <unistd.h>\nint main(void){for(;;)pause();}\n' | cc -O0 -x c -o /tmp/rzfrida_smoke -
+          mkdir -p /tmp/rzfrida-home
+
       - name: Smoke test (local attach as root)
         run: |
           # hosted runners deny task_for_pid for non-root, attach as root instead
-          python3 -c "import time; time.sleep(30)" &
+          /tmp/rzfrida_smoke &
           target=$!
-          out=$(sudo rizin -N -q -c "Froj attach/local//${target}" -c "Frsj" -c "FrRj" -c "Frcj" malloc://512 2>&1)
-          kill $target 2>/dev/null || true
+          rizin_bin=$(command -v rizin)
+          out=$(cd /tmp && sudo env HOME=/tmp/rzfrida-home PATH="$PATH" "$rizin_bin" -N -q \
+            -c "e frida.timeout=30000" \
+            -c "Froj attach/local//${target}" \
+            -c "Frsj" -c "FrRj" -c "Frcj" malloc://512 2>&1)
+          sudo kill -9 "$target" 2>/dev/null || true
+          wait "$target" 2>/dev/null || true
           echo "$out"
           echo "$out" | grep -q '"action":"attach"' || exit 1
           echo "$out" | grep -q '"state":"attached"' || exit 1
@@ -319,10 +362,15 @@ jobs:
       - name: Smoke test (local attach as user)
         run: |
           # non-root attach should work on a normal mac, on a hosted runner it fails cleanly
-          python3 -c "import time; time.sleep(30)" &
+          /tmp/rzfrida_smoke &
           target=$!
-          out=$(rizin -N -q -c "Froj attach/local//${target}" -c "Frsj" -c "FrRj" malloc://512 2>&1)
-          kill $target 2>/dev/null || true
+          rizin_bin=$(command -v rizin)
+          out=$(cd /tmp && env HOME=/tmp/rzfrida-home "$rizin_bin" -N -q \
+            -c "e frida.timeout=30000" \
+            -c "Froj attach/local//${target}" \
+            -c "Frsj" -c "FrRj" -c "Frcj" malloc://512 2>&1)
+          sudo kill -9 "$target" 2>/dev/null || true
+          wait "$target" 2>/dev/null || true
           echo "$out"
           if echo "$out" | grep -q '"action":"attach"'; then
             echo "$out" | grep -q '"state":"attached"' || exit 1
@@ -332,6 +380,10 @@ jobs:
             echo "$out" | grep -q '"error"' || exit 1
             echo "$out" | grep -q '"no session is open"' || exit 1
           fi
+
+      - name: Restore workspace ownership
+        if: always()
+        run: sudo chown -R "$(id -un)" "$GITHUB_WORKSPACE" || true
 
       - uses: actions/upload-artifact@v7
         with:
