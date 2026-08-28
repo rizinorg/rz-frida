@@ -478,7 +478,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: rz-frida-rizin-windows-x86_64
-          path: build/plugin/rizin/rz_frida.*
+          path: build/plugin/rizin/rz_frida.dll
           if-no-files-found: error
 
   rizin-android:
@@ -547,9 +547,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: rz-frida-rizin-android-${{ matrix.abi }}
-          path: |
-            ${{ env.ANDROID_STAGING }}/bin
-            ${{ env.ANDROID_STAGING }}/lib
+          path: build-android/plugin/rizin/librz_frida.so
           if-no-files-found: error
 
   cutter-linux-x86_64-qt5:
@@ -896,42 +894,53 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
 
-      - name: Generate SHA256SUMS
+      - name: Stage uniquely named assets
         run: |
-          find . \( -name "*.so" -o -name "*.dylib" -o -name "*.dll" -o -name "*.zip" -o -name "rizin" \) -type f | sort | while read f; do
-            rel=${f#./}
-            case "$rel" in
-              rz-frida-*/*) sha256sum "$f" | awk '{print $1"  "$2}' ;;
-            esac
-          done > SHA256SUMS.txt
-          cat SHA256SUMS.txt
+          set -euo pipefail
+          mkdir -p release-assets
+          stage() {
+            src=$1
+            dest=$2
+            test -f "$src" || { echo "::error::missing $src"; exit 1; }
+            cp -v "$src" "release-assets/$dest"
+          }
+
+          stage rz-frida-rizin-linux-x86_64/librz_frida.so rz-frida-rizin-linux-x86_64.so
+          stage rz-frida-rizin-linux-arm64/librz_frida.so rz-frida-rizin-linux-arm64.so
+          stage rz-frida-rizin-macos-x86_64/librz_frida.dylib rz-frida-rizin-macos-x86_64.dylib
+          stage rz-frida-rizin-macos-arm64/librz_frida.dylib rz-frida-rizin-macos-arm64.dylib
+          stage rz-frida-rizin-windows-x86_64/rz_frida.dll rz-frida-rizin-windows-x86_64.dll
+          stage rz-frida-rizin-android-arm/librz_frida.so rz-frida-rizin-android-arm.so
+          stage rz-frida-rizin-android-aarch64/librz_frida.so rz-frida-rizin-android-aarch64.so
+          stage rz-frida-rizin-android-x86_64/librz_frida.so rz-frida-rizin-android-x86_64.so
+          stage rz-frida-cutter-linux-x86_64-qt5/libcutter_frida_plugin.so rz-frida-cutter-linux-x86_64-qt5.so
+          stage rz-frida-cutter-linux-x86_64-qt6/libcutter_frida_plugin.so rz-frida-cutter-linux-x86_64-qt6.so
+          stage rz-frida-cutter-macos-x86_64-qt6/libcutter_frida_plugin.so rz-frida-cutter-macos-x86_64-qt6.so
+          stage rz-frida-cutter-macos-arm64-qt6/libcutter_frida_plugin.so rz-frida-cutter-macos-arm64-qt6.so
+          stage rz-frida-cutter-windows-x86_64-qt6/cutter_frida_plugin.dll rz-frida-cutter-windows-x86_64-qt6.dll
+          stage rz-frida-source/rz-frida-source.zip rz-frida-source.zip
+          n=$(find release-assets -type f | wc -l)
+          test "$n" -eq 14 || { echo "::error::expected 14 staged files, got $n"; ls -la release-assets; exit 1; }
+          (cd release-assets && sha256sum rz-frida-* | sort -k2 > SHA256SUMS.txt)
+          cat release-assets/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v7
         with:
-          name: rz-frida-checksums
-          path: SHA256SUMS.txt
+          name: rz-frida-release-assets
+          path: release-assets/*
           if-no-files-found: error
 
   release:
     name: Publish release
     runs-on: ubuntu-latest
     needs:
-      - rizin-linux-x86_64
-      - rizin-linux-arm64
-      - rizin-macos-x86_64
-      - rizin-macos-arm64
-      - rizin-windows-x86_64
-      - rizin-android
-      - cutter-linux-x86_64-qt5
-      - cutter-linux-x86_64-qt6
-      - cutter-macos-x86_64-qt6
-      - cutter-macos-arm64-qt6
-      - cutter-windows-x86_64-qt6
-      - package-sources
       - package-checksums
     if: github.event_name == 'workflow_dispatch' && inputs.publish_release
     steps:
       - uses: actions/download-artifact@v8
+        with:
+          name: rz-frida-release-assets
+          path: release-assets
 
       - name: Resolve tag and name
         id: meta
@@ -975,8 +984,5 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ inputs.prerelease == 'true' }}
-          files: |
-            rz-frida-rizin-*/*
-            rz-frida-cutter-*/*
-            rz-frida-source/*
-            rz-frida-checksums/*
+          fail_on_unmatched_files: true
+          files: release-assets/*
