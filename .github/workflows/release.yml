@@ -478,7 +478,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: rz-frida-rizin-windows-x86_64
-          path: build/plugin/rizin/rz_frida.dll
+          path: build/plugin/rizin/rz_frida.*
           if-no-files-found: error
 
   rizin-android:
@@ -910,6 +910,8 @@ jobs:
           stage rz-frida-rizin-macos-x86_64/librz_frida.dylib rz-frida-rizin-macos-x86_64.dylib
           stage rz-frida-rizin-macos-arm64/librz_frida.dylib rz-frida-rizin-macos-arm64.dylib
           stage rz-frida-rizin-windows-x86_64/rz_frida.dll rz-frida-rizin-windows-x86_64.dll
+          stage rz-frida-rizin-windows-x86_64/rz_frida.lib rz-frida-rizin-windows-x86_64.lib
+          stage rz-frida-rizin-windows-x86_64/rz_frida.exp rz-frida-rizin-windows-x86_64.exp
           stage rz-frida-rizin-android-arm/librz_frida.so rz-frida-rizin-android-arm.so
           stage rz-frida-rizin-android-aarch64/librz_frida.so rz-frida-rizin-android-aarch64.so
           stage rz-frida-rizin-android-x86_64/librz_frida.so rz-frida-rizin-android-x86_64.so
@@ -920,7 +922,7 @@ jobs:
           stage rz-frida-cutter-windows-x86_64-qt6/cutter_frida_plugin.dll rz-frida-cutter-windows-x86_64-qt6.dll
           stage rz-frida-source/rz-frida-source.zip rz-frida-source.zip
           n=$(find release-assets -type f | wc -l)
-          test "$n" -eq 14 || { echo "::error::expected 14 staged files, got $n"; ls -la release-assets; exit 1; }
+          test "$n" -eq 16 || { echo "::error::expected 16 staged files, got $n"; ls -la release-assets; exit 1; }
           (cd release-assets && sha256sum rz-frida-* | sort -k2 > SHA256SUMS.txt)
           cat release-assets/SHA256SUMS.txt
 
