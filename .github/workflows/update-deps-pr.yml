@@ -1,0 +1,135 @@
+name: Open dependency pin pull request
+
+# Runs the workflow file from the default branch after "Update dependency
+# pins" succeeds there. Downloads that run's diff, checks it, and opens
+# the pr.
+
+on:
+  workflow_run:
+    workflows: ["Update dependency pins"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: write
+  workflows: write
+
+concurrency:
+  group: update-deps-pr
+  cancel-in-progress: false
+
+jobs:
+  open:
+    name: Open pull request
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event != 'pull_request' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          count=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+            --jq '[.artifacts[] | select(.name=="pins-patch" and .expired==false)] | length')
+          case "$count" in
+            0) echo "no pin diff"; exit 0 ;;
+            1) ;;
+            *) echo "expected one pins-patch artifact, found ${count}" >&2; exit 1 ;;
+          esac
+          dest="${RUNNER_TEMP}/pins-patch"
+          rm -rf "$dest"
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name pins-patch --dir "$dest"
+          PATCH=$(find "$dest" -type f -name pins.patch -print -quit)
+          if [ -z "$PATCH" ]; then
+            echo "pins.patch missing from artifact" >&2
+            exit 1
+          fi
+          python3 - "$PATCH" <<'PY'
+          import re, sys
+          allowed = {
+              ".github/workflows/ci.yml",
+              ".github/workflows/release.yml",
+              "meson_options.txt",
+              "README.md",
+          }
+          pin_line = re.compile(r"^[+-]  (RIZIN_VERSION|FRIDA_VERSION|CUTTER_VERSION): v?\d+(?:\.\d+)+[ \t]*$")
+          rules = {
+              ".github/workflows/ci.yml": pin_line,
+              ".github/workflows/release.yml": pin_line,
+              "meson_options.txt": re.compile(r"""^[+-]option\('frida_version', type: 'string', value: 'v?\d+(?:\.\d+)+', description: '[^']*'\)$"""),
+          }
+          version = re.compile(r"v?\d+(?:\.\d+)+")
+          skip = re.compile(r"^(?:index |--- |\+\+\+ |@@ |\\)")
+          bad = re.compile(r"^(?:old mode |new mode |deleted file mode |new file mode |rename from |rename to |copy from |copy to |similarity index |dissimilarity index |GIT binary|Binary files)")
+          path = None
+          readme = {"-": [], "+": []}
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              for raw in handle:
+                  line = raw.rstrip("\n")
+                  header = re.match(r"diff --git a/(.+) b/(.+)$", line)
+                  if header:
+                      if header.group(1) != header.group(2) or header.group(1) not in allowed:
+                          sys.exit("refusing %s" % line)
+                      path = header.group(1)
+                      continue
+                  if path is None:
+                      if not line.strip():
+                          continue
+                      sys.exit("diff does not start with a file header")
+                  if "/dev/null" in line or bad.match(line):
+                      sys.exit("refusing non-text pin edit for %s" % path)
+                  if skip.match(line) or line.startswith(" "):
+                      continue
+                  if line[:1] not in "+-":
+                      sys.exit("unrecognized diff line in %s" % path)
+                  if path == "README.md":
+                      readme[line[0]].append(version.sub("VER", line[1:]))
+                  elif not rules[path].match(line):
+                      sys.exit("refusing non-pin line in %s" % path)
+          if sorted(readme["-"]) != sorted(readme["+"]):
+              sys.exit("README change is not a version replacement")
+          PY
+          git apply "$PATCH"
+          git add -- .github/workflows/ci.yml .github/workflows/release.yml meson_options.txt README.md
+          status=$(git status --porcelain --untracked-files=all -- .github meson_options.txt README.md)
+          bad=$(printf '%s\n' "$status" | grep -Ev '^[MAR]  (\.github/workflows/ci\.yml|\.github/workflows/release\.yml|meson_options\.txt|README\.md)$' || true)
+          if [ -z "$status" ] || [ -n "$bad" ]; then
+            if [ -n "$bad" ]; then
+              echo "patch left a change outside the pin files" >&2
+              printf '%s\n' "$bad" >&2
+            else
+              echo "pin diff did not stage" >&2
+            fi
+            exit 1
+          fi
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'update release dependency pins'
+          gh auth setup-git
+          branch=deps/update-release-pins
+          if git ls-remote --exit-code origin "refs/heads/${branch}" >/dev/null 2>&1; then
+            git fetch origin "refs/heads/${branch}:refs/remotes/origin/${branch}"
+            git push --force-with-lease="refs/heads/${branch}:refs/remotes/origin/${branch}" \
+              origin "HEAD:refs/heads/${branch}"
+          else
+            git push origin "HEAD:refs/heads/${branch}"
+          fi
+          title='update release dependency pins'
+          body=$(printf '%s\n' '## Summary' '- bump the rizin / frida / Cutter version pins in the workflows to their latest releases')
+          state=$(gh pr view "$branch" --repo "$GITHUB_REPOSITORY" --json state --jq .state 2>/dev/null || true)
+          if [ "$state" = "OPEN" ]; then
+            gh pr edit "$branch" --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "$title" --body "$body"
+          fi
