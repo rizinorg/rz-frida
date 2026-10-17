@@ -1,8 +1,8 @@
 name: Update dependency pins
 
-# Reads the latest rizin, frida, and Cutter releases. When a pin is
-# outdated, only uploads a diff.
-# "Open dependency pin pull request" opens the pr.
+# Read-only collector: reads the latest rizin, frida, and Cutter releases,
+# rewrites the version pins when they are outdated, validates the diff, and
+# uploads it. "Open dependency pin pull request" publishes it.
 
 on:
   schedule:
@@ -47,6 +47,10 @@ jobs:
           fi
           git diff --no-ext-diff -- .github/workflows/ci.yml .github/workflows/release.yml meson_options.txt README.md > pins.patch
           echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Validate pin diff
+        if: steps.diff.outputs.changed == 'true'
+        run: python3 .github/scripts/validate_pins_patch.py pins.patch
 
       - uses: actions/upload-artifact@v7
         if: steps.diff.outputs.changed == 'true'
