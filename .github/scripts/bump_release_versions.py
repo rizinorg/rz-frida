@@ -12,7 +12,6 @@ Exit codes: 0 on success (changed or not), 1 when a version check fails.
 """
 
 import json
-import os
 import re
 import sys
 import urllib.request
@@ -46,9 +45,6 @@ def latest_release(repo):
             "User-Agent": "rz-frida-version-bump",
         },
     )
-    token = os.environ.get("GITHUB_TOKEN")
-    if token:
-        request.add_header("Authorization", "Bearer %s" % token)
     with urllib.request.urlopen(request, timeout=30) as response:
         data = json.load(response)
     return data["tag_name"]

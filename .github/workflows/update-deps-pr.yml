@@ -1,0 +1,127 @@
+name: Open dependency pin pull request
+
+# Publisher for the diff produced by the read-only "Update dependency pins"
+# collector. It only downloads that run's validated patch, applies it, and
+# pushes a branch / opens the pr. All patch validation stuff happens
+# in the collector.
+
+on:
+  workflow_run:
+    workflows: ["Update dependency pins"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: update-deps-pr
+  cancel-in-progress: false
+
+jobs:
+  open:
+    name: Open pull request
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event != 'pull_request' &&
+      (github.event.workflow_run.event == 'schedule' ||
+       github.event.workflow_run.event == 'workflow_dispatch') &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Download pin diff
+        id: download
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          count=$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+            --jq '.artifacts[] | select(.name == "pins-patch" and .expired == false) | .id' \
+            | wc -l)
+          case "$count" in
+            0)
+              echo "no pin diff to publish"
+              exit 0
+              ;;
+            1) ;;
+            *)
+              echo "::error::expected one non-expired pins-patch artifact, found ${count}"
+              exit 1
+              ;;
+          esac
+          dest="${RUNNER_TEMP}/pins-patch"
+          rm -rf "$dest"
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name pins-patch --dir "$dest"
+          mapfile -d '' patches < <(find "$dest" -type f -name pins.patch -print0)
+          if [ "${#patches[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one pins.patch in the artifact, found ${#patches[@]}"
+            exit 1
+          fi
+          # Fixed copy path, so no artifact-controlled name reaches later steps.
+          cp -- "${patches[0]}" "${RUNNER_TEMP}/pins.patch"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+
+      - name: Apply pin diff
+        if: steps.download.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          patch="${RUNNER_TEMP}/pins.patch"
+          git apply --check "$patch"
+          git apply "$patch"
+          git add -- .github/workflows/ci.yml .github/workflows/release.yml meson_options.txt README.md
+          status=$(git status --porcelain --untracked-files=all)
+          if [ -z "$status" ]; then
+            echo "::error::pin diff produced no staged changes"
+            exit 1
+          fi
+          unexpected=$(printf '%s\n' "$status" | grep -Ev '^M  (\.github/workflows/ci\.yml|\.github/workflows/release\.yml|meson_options\.txt|README\.md)$' || true)
+          if [ -n "$unexpected" ]; then
+            echo "::error::pin diff touched paths outside the four pin files"
+            printf '%s\n' "$unexpected" >&2
+            exit 1
+          fi
+          summary=$(git diff --cached --summary)
+          if [ -n "$summary" ]; then
+            echo "::error::pin diff changes a file type or mode"
+            printf '%s\n' "$summary" >&2
+            exit 1
+          fi
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'update release dependency pins'
+
+      - name: Push branch and open pull request
+        if: steps.download.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.DEPENDENCY_PIN_PR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::DEPENDENCY_PIN_PR_TOKEN is not set; cannot publish the pin pr"
+            exit 1
+          fi
+          gh auth setup-git
+          branch=deps/update-release-pins
+          if git ls-remote --exit-code origin "refs/heads/${branch}" >/dev/null 2>&1; then
+            git fetch origin "refs/heads/${branch}:refs/remotes/origin/${branch}"
+            git push --force-with-lease="refs/heads/${branch}:refs/remotes/origin/${branch}" \
+              origin "HEAD:refs/heads/${branch}"
+          else
+            git push origin "HEAD:refs/heads/${branch}"
+          fi
+          title='update release dependency pins'
+          body=$(printf '%s\n' '## Summary' '- bump the rizin / frida / Cutter version pins in the workflows to their latest releases')
+          state=$(gh pr view "$branch" --repo "$GITHUB_REPOSITORY" --json state --jq .state 2>/dev/null || true)
+          if [ "$state" = "OPEN" ]; then
+            gh pr edit "$branch" --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "$title" --body "$body"
+          fi

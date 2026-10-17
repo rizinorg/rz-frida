@@ -1,7 +1,8 @@
 name: Update dependency pins
 
-# Checks latest rizin / frida / Cutter releases once a week and opens a
-# pr when a pinned version in the release workflow is outdated.
+# Read-only collector: reads the latest rizin, frida, and Cutter releases,
+# rewrites the version pins when they are outdated, validates the diff, and
+# uploads it. "Open dependency pin pull request" publishes it.
 
 on:
   schedule:
@@ -9,44 +10,52 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
-  group: update-deps
+  group: update-deps-collect
   cancel-in-progress: true
 
 jobs:
-  bump:
+  collect:
     name: Check for newer dependency releases
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Bump version pins
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ""
+          GH_TOKEN: ""
         run: python3 .github/scripts/bump_release_versions.py
 
-      - name: Check for changes
+      - name: Save pin diff
         id: diff
         run: |
+          set -euo pipefail
           if git diff --quiet; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-          else
-            git diff
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          unexpected=$(git diff --name-only | grep -Ev '^(\.github/workflows/ci\.yml|\.github/workflows/release\.yml|meson_options\.txt|README\.md)$' || true)
+          if [ -n "$unexpected" ]; then
+            echo "bump edited a file that is not a pin file" >&2
+            printf '%s\n' "$unexpected" >&2
+            exit 1
+          fi
+          git diff --no-ext-diff -- .github/workflows/ci.yml .github/workflows/release.yml meson_options.txt README.md > pins.patch
+          echo "changed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Create pull request
+      - name: Validate pin diff
         if: steps.diff.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v8
+        run: python3 .github/scripts/validate_pins_patch.py pins.patch
+
+      - uses: actions/upload-artifact@v7
+        if: steps.diff.outputs.changed == 'true'
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: deps/update-release-pins
-          title: 'update release dependency pins'
-          body: |
-            ## Summary
-            - bump the rizin / frida / Cutter version pins in the workflows to their latest releases
-          commit-message: 'update release dependency pins'
-          delete-branch: true
+          name: pins-patch
+          path: pins.patch
+          retention-days: 5
+          if-no-files-found: error
