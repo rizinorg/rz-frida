@@ -49,12 +49,12 @@ static RzCmdStatus print_status(RzCore *core, RzCmdStateOutput *state) {
 
 	switch (state->mode) {
 	case RZ_OUTPUT_MODE_STANDARD:
-		rz_cons_printf("active: %s\n", rz_str_bool(active));
-		rz_cons_printf("state: %s\n", state_string);
+		rz_cons_printf(core->cons,"active: %s\n", rz_str_bool(active));
+		rz_cons_printf(core->cons,"state: %s\n", state_string);
 		if (session) {
-			rz_cons_printf("pid: %u\n", rz_frida_session_target_pid(session));
-			rz_cons_printf("action: %s\n", uri->action);
-			rz_cons_printf("target: %s\n", uri->target);
+			rz_cons_printf(core->cons,"pid: %u\n", rz_frida_session_target_pid(session));
+			rz_cons_printf(core->cons,"action: %s\n", uri->action);
+			rz_cons_printf(core->cons,"target: %s\n", uri->target);
 		}
 		return RZ_CMD_STATUS_OK;
 	case RZ_OUTPUT_MODE_JSON:
@@ -74,7 +74,7 @@ static RzCmdStatus print_status(RzCore *core, RzCmdStateOutput *state) {
 	}
 }
 
-static RzCmdStatus print_uri(const char *uri_string, RzCmdStateOutput *state) {
+static RzCmdStatus print_uri(const char *uri_string, RzCmdStateOutput *state, RzCons* cons) {
 	rz_return_val_if_fail(state, RZ_CMD_STATUS_ERROR);
 
 	RzFridaUri uri = { 0 };
@@ -102,10 +102,10 @@ static RzCmdStatus print_uri(const char *uri_string, RzCmdStateOutput *state) {
 
 	switch (state->mode) {
 	case RZ_OUTPUT_MODE_STANDARD:
-		rz_cons_printf("action: %s\n", uri.action);
-		rz_cons_printf("transport: %s\n", uri.transport);
-		rz_cons_printf("device: %s\n", uri.device);
-		rz_cons_printf("target: %s\n", uri.target);
+		rz_cons_printf(cons,"action: %s\n", uri.action);
+		rz_cons_printf(cons,"transport: %s\n", uri.transport);
+		rz_cons_printf(cons,"device: %s\n", uri.device);
+		rz_cons_printf(cons,"target: %s\n", uri.target);
 		break;
 	case RZ_OUTPUT_MODE_JSON:
 		rz_frida_json_ok_begin(state->d.pj);
@@ -132,7 +132,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridas_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 
 RZ_IPI RzCmdStatus rz_cmd_fridau_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int argc, RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
 	rz_return_val_if_fail(core && argv && state, RZ_CMD_STATUS_ERROR);
-	return print_uri(argv[1], state);
+	return print_uri(argv[1], state, core->cons);
 }
 
 RZ_IPI RzCmdStatus rz_cmd_fridad_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int argc, RZ_NONNULL const char **argv, RZ_NONNULL RzCmdStateOutput *state) {
@@ -246,9 +246,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridao_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 	// backend_open writes the envelope either way. only keep the session if it opened.
 	// the cons break hook forwards a Cutter breakTask (or Ctrl-C) into the session's
 	// cancellable, which frida's blocking attach/connect uses.
-	rz_cons_break_push(frida_cancel_on_break, session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, session);
 	bool opened = rz_frida_backend_open(session, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	if (!opened) {
 		rz_frida_session_free(session);
 		return RZ_CMD_STATUS_OK;
@@ -314,9 +314,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridae_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		return RZ_CMD_STATUS_OK;
 	}
 
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_eval(ctx->session, argv[1], pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -338,9 +338,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridal_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "cannot read the script file");
 		return RZ_CMD_STATUS_OK;
 	}
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_eval(ctx->session, source, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	free(source);
 	return RZ_CMD_STATUS_OK;
 }
@@ -358,9 +358,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridai_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		return RZ_CMD_STATUS_OK;
 	}
 
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_ping(ctx->session, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -401,9 +401,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridax_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 	}
 
 	ut64 address = rz_num_math(core->num, argv[1]);
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_mem_read(ctx->session, address, size, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -478,9 +478,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaw_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		return RZ_CMD_STATUS_OK;
 	}
 	ut64 address = rz_num_math(core->num, argv[1]);
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_mem_write(ctx->session, address, bytes, (size_t)len, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	free(bytes);
 	return RZ_CMD_STATUS_OK;
 }
@@ -500,9 +500,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaR_handler(RZ_NONNULL RzCore *core, int argc, RZ_N
 
 	// any arg forces a fresh enumeration instead of cached ranges.
 	bool refresh = (argc > 1) && RZ_STR_ISNOTEMPTY(argv[1]);
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_ranges(ctx->session, refresh, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -519,9 +519,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridat_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		return RZ_CMD_STATUS_OK;
 	}
 
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_threads(ctx->session, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -540,9 +540,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaM_handler(RZ_NONNULL RzCore *core, int argc, RZ_N
 
 	// any arg forces fresh enum instead of cached modules.
 	bool refresh = (argc > 1) && RZ_STR_ISNOTEMPTY(argv[1]);
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_modules(ctx->session, refresh, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -559,9 +559,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaE_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		return RZ_CMD_STATUS_OK;
 	}
 
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_exports(ctx->session, argv[1], pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -578,9 +578,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaI_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		return RZ_CMD_STATUS_OK;
 	}
 
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_imports(ctx->session, argv[1], pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -597,9 +597,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaS_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		return RZ_CMD_STATUS_OK;
 	}
 
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_symbols(ctx->session, argv[1], pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -617,14 +617,14 @@ RZ_IPI RzCmdStatus rz_cmd_fridab_handler(RZ_NONNULL RzCore *core, int argc, RZ_N
 	}
 
 	// an addr sets a breakpoint, no arg lists the current breakpoints.
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	if (argc > 1 && RZ_STR_ISNOTEMPTY(argv[1])) {
 		ut64 address = rz_num_math(core->num, argv[1]);
 		rz_frida_backend_bp_set(ctx->session, address, pj);
 	} else {
 		rz_frida_backend_bp_list(ctx->session, pj);
 	}
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -648,9 +648,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridab_minus_handler(RZ_NONNULL RzCore *core, RZ_UNUSE
 		rz_strf(address_str, "0x%" PFMT64x, address);
 		target = address_str;
 	}
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_bp_remove(ctx->session, target, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -674,9 +674,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridag_handler(RZ_NONNULL RzCore *core, int argc, RZ_N
 		rz_strf(tid, "%" PFMT64u, rz_num_math(core->num, argv[1]));
 		thread_id = tid;
 	}
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_continue(ctx->session, thread_id, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -694,7 +694,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaB_handler(RZ_NONNULL RzCore *core, int argc, RZ_N
 	}
 
 	ut64 thread_id = rz_num_math(core->num, argv[1]);
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	if (argc > 3) {
 		char value_str[32];
 		rz_strf(value_str, "0x%" PFMT64x, rz_num_math(core->num, argv[3]));
@@ -704,7 +704,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaB_handler(RZ_NONNULL RzCore *core, int argc, RZ_N
 	} else {
 		rz_frida_backend_reg_read(ctx->session, thread_id, pj);
 	}
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -722,7 +722,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaW_handler(RZ_NONNULL RzCore *core, int argc, RZ_N
 	}
 
 	// addr sets watchpoint, no arg lists current wps.
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	if (argc > 1 && RZ_STR_ISNOTEMPTY(argv[1])) {
 		ut64 address = rz_num_math(core->num, argv[1]);
 		ut64 size = (argc > 2) ? rz_num_math(core->num, argv[2]) : 0;
@@ -732,7 +732,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaW_handler(RZ_NONNULL RzCore *core, int argc, RZ_N
 	} else {
 		rz_frida_backend_wp_list(ctx->session, pj);
 	}
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -756,9 +756,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaW_minus_handler(RZ_NONNULL RzCore *core, RZ_UNUSE
 		rz_strf(address_str, "0x%" PFMT64x, address);
 		target = address_str;
 	}
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_wp_remove(ctx->session, target, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -773,9 +773,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaJ_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
 		return RZ_CMD_STATUS_OK;
 	}
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_java_available(ctx->session, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -790,9 +790,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaL_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
 		return RZ_CMD_STATUS_OK;
 	}
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_loaders(ctx->session, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -810,9 +810,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaC_handler(RZ_NONNULL RzCore *core, int argc,
 	}
 	const char *prefix = (argc > 1 && RZ_STR_ISNOTEMPTY(argv[1])) ? argv[1] : NULL;
 	ut64 max = rz_config_get_integer(core->config, "frida.java.max");
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_classes(ctx->session, prefix, max, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -829,7 +829,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaN_handler(RZ_NONNULL RzCore *core, int argc,
 		return RZ_CMD_STATUS_OK;
 	}
 	bool enable = true;
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	if (argc > 1 && RZ_STR_ISNOTEMPTY(argv[1])) {
 		if (RZ_STR_EQ(argv[1], "start")) {
 			enable = true;
@@ -838,14 +838,14 @@ RZ_IPI RzCmdStatus rz_cmd_fridaN_handler(RZ_NONNULL RzCore *core, int argc,
 		} else {
 			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET,
 				"FrNj expects start, stop, or no arguments to list");
-			rz_cons_break_pop();
+			rz_interrupt_break_pop(core->intr);
 			return RZ_CMD_STATUS_OK;
 		}
 		rz_frida_backend_class_load_monitor(ctx->session, enable, pj);
 	} else {
 		rz_frida_backend_newly_loaded_classes(ctx->session, pj);
 	}
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -861,7 +861,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaRN_handler(RZ_NONNULL RzCore *core, int argc,
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
 		return RZ_CMD_STATUS_OK;
 	}
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	if (argc > 1 && RZ_STR_ISNOTEMPTY(argv[1])) {
 		if (RZ_STR_EQ(argv[1], "on")) {
 			rz_frida_backend_rn_set(ctx->session, true, pj);
@@ -872,13 +872,13 @@ RZ_IPI RzCmdStatus rz_cmd_fridaRN_handler(RZ_NONNULL RzCore *core, int argc,
 		} else {
 			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET,
 				"FrRNj expects on, off, import, or no arguments to list");
-			rz_cons_break_pop();
+			rz_interrupt_break_pop(core->intr);
 			return RZ_CMD_STATUS_OK;
 		}
 	} else {
 		rz_frida_backend_rn_list(ctx->session, pj);
 	}
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -894,9 +894,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaf_handler(RZ_NONNULL RzCore *core, RZ_UNUSED int 
 		rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET, "no session is open");
 		return RZ_CMD_STATUS_OK;
 	}
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_flag_import(ctx->session, core, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -913,9 +913,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaX_handler(RZ_NONNULL RzCore *core, int argc,
 		return RZ_CMD_STATUS_OK;
 	}
 	const char *prefix = (argc > 1 && RZ_STR_ISNOTEMPTY(argv[1])) ? argv[1] : NULL;
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_dex_diff(ctx->session, core, prefix, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -940,9 +940,9 @@ RZ_IPI RzCmdStatus rz_cmd_fridaD_handler(RZ_NONNULL RzCore *core, int argc,
 	if (argc > 2 && RZ_STR_ISNOTEMPTY(argv[2])) {
 		loaderId = rz_num_math(core->num, argv[2]);
 	}
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	rz_frida_backend_class_describe(ctx->session, className, loaderId, pj);
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
@@ -969,7 +969,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaIm_handler(RZ_NONNULL RzCore *core, int argc,
 	}
 
 	bool has_dot = (strchr(className, '.') != NULL);
-	rz_cons_break_push(frida_cancel_on_break, ctx->session);
+	rz_interrupt_break_push(core->intr, frida_cancel_on_break, ctx->session);
 	if (has_dot) {
 		rz_frida_backend_import_class(ctx->session, core, className, loaderId, pj);
 	} else {
@@ -983,7 +983,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaIm_handler(RZ_NONNULL RzCore *core, int argc,
 			}
 			rz_frida_json_error(pj, RZ_FRIDA_ERROR_INVALID_TARGET,
 				"no matching classes found for the given prefix");
-			rz_cons_break_pop();
+			rz_interrupt_break_pop(core->intr);
 			return RZ_CMD_STATUS_OK;
 		}
 
@@ -1026,7 +1026,7 @@ RZ_IPI RzCmdStatus rz_cmd_fridaIm_handler(RZ_NONNULL RzCore *core, int argc,
 		pj_kn(pj, "constructors", (ut64)total_c);
 		rz_frida_json_ok_end(pj);
 	}
-	rz_cons_break_pop();
+	rz_interrupt_break_pop(core->intr);
 	return RZ_CMD_STATUS_OK;
 }
 
