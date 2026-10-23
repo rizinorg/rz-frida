@@ -4,6 +4,16 @@ Frida integration plugin for Rizin and Cutter.
 
 The Rizin plugin provides the backend and command interface. The Cutter plugin provides a native frontend over the Rizin backend.
 
+## Branches
+
+- `dev` (default): development branch. CI builds against rizin `dev`.
+- `stable`: release branch. Uses the rizin, frida, and Cutter releases
+  pinned in the workflows. Fixes that apply to the released APIs are
+  cherry-picked here, and releases are tagged here.
+
+Pull requests target `dev` by default. Dependency pin PRs are opened
+against both branches when a newer release is available.
+
 ## Screenshots
 
 ![Rizin CLI command help](.images/rizin-cli.png)

@@ -2,14 +2,19 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [dev, stable]
   pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 # Dependency pins, bumped by update-deps workflow.
+# dev builds rizin from its dev branch, stable uses the pinned release.
+# RIZIN_DEV_REF can be a branch name or a commit sha (just-in-case).
+# PRs use the base branch, pushes/dispatches use the ref.
 env:
   RIZIN_VERSION: v0.9.1
+  RIZIN_DEV_REF: dev
   FRIDA_VERSION: 17.17.0
+  RIZIN_FLAVOR: ${{ (github.base_ref == 'dev' || github.ref_name == 'dev') && 'dev' || 'release' }}
 
 jobs:
   linux-frida:
@@ -22,15 +27,26 @@ jobs:
         with: { node-version: '24' }
 
       - name: Install rizin
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           pip install meson ninja PyYAML
-          wget -q "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
-          tar xf rizin-src-${RIZIN_VERSION}.tar.xz
-          cd rizin-${RIZIN_VERSION}
-          meson setup build --prefix=/usr -Dblob=true
-          ninja -C build
-          sudo ninja -C build install
-          cd ..
+          if [ "$RIZIN_FLAVOR" = dev ]; then
+            curl -fsSL "https://github.com/rizinorg/rizin/archive/${RIZIN_DEV_REF}.tar.gz" -o rizin-dev.tar.gz
+            mkdir -p rizin-dev-src
+            tar xf rizin-dev.tar.gz -C rizin-dev-src --strip-components=1
+            src=rizin-dev-src
+            echo "rizin dev ref: ${RIZIN_DEV_REF} ($(gh api "repos/rizinorg/rizin/commits/${RIZIN_DEV_REF}" --jq .sha 2>/dev/null || echo unknown))"
+          else
+            wget -q "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
+            tar xf "rizin-src-${RIZIN_VERSION}.tar.xz"
+            src="rizin-${RIZIN_VERSION}"
+            echo "rizin release: ${RIZIN_VERSION}"
+          fi
+          meson setup "$src/build" "$src" --prefix=/usr -Dblob=true
+          ninja -C "$src/build"
+          sudo ninja -C "$src/build" install
 
       - name: Build (with frida-core)
         run: |
@@ -56,15 +72,26 @@ jobs:
         with: { node-version: '24' }
 
       - name: Install rizin
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           pip install meson ninja PyYAML
-          wget -q "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
-          tar xf rizin-src-${RIZIN_VERSION}.tar.xz
-          cd rizin-${RIZIN_VERSION}
-          meson setup build --prefix=/usr -Dblob=true
-          ninja -C build
-          sudo ninja -C build install
-          cd ..
+          if [ "$RIZIN_FLAVOR" = dev ]; then
+            curl -fsSL "https://github.com/rizinorg/rizin/archive/${RIZIN_DEV_REF}.tar.gz" -o rizin-dev.tar.gz
+            mkdir -p rizin-dev-src
+            tar xf rizin-dev.tar.gz -C rizin-dev-src --strip-components=1
+            src=rizin-dev-src
+            echo "rizin dev ref: ${RIZIN_DEV_REF} ($(gh api "repos/rizinorg/rizin/commits/${RIZIN_DEV_REF}" --jq .sha 2>/dev/null || echo unknown))"
+          else
+            wget -q "https://github.com/rizinorg/rizin/releases/download/${RIZIN_VERSION}/rizin-src-${RIZIN_VERSION}.tar.xz"
+            tar xf "rizin-src-${RIZIN_VERSION}.tar.xz"
+            src="rizin-${RIZIN_VERSION}"
+            echo "rizin release: ${RIZIN_VERSION}"
+          fi
+          meson setup "$src/build" "$src" --prefix=/usr -Dblob=true
+          ninja -C "$src/build"
+          sudo ninja -C "$src/build" install
 
       - name: Build (without frida-core)
         run: |

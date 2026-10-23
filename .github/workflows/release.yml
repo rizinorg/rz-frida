@@ -2,6 +2,7 @@ name: Release
 
 # Builds and tests the rizin and cutter plugins 
 # and optionally publishes a GitHub release.
+# Releases are from the stable branch, dev has no releases.
 
 on:
   workflow_dispatch:
@@ -27,9 +28,11 @@ on:
   pull_request:
     branches:
       - '**release**'
+      - stable
   push:
     branches:
       - '**release**'
+      - stable
 
 # Dependency pins, bumped by the update-deps workflow.
 env:
@@ -49,6 +52,14 @@ jobs:
     name: Test gate
     runs-on: ubuntu-24.04
     steps:
+      - name: Require stable branch for publishing
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+        run: |
+          if [ "$GITHUB_REF_NAME" != stable ]; then
+            echo "::error::releases must be dispatched from the stable branch"
+            exit 1
+          fi
+
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
@@ -939,6 +950,13 @@ jobs:
       - package-checksums
     if: github.event_name == 'workflow_dispatch' && inputs.publish_release
     steps:
+      - name: Require stable branch
+        run: |
+          if [ "$GITHUB_REF_NAME" != stable ]; then
+            echo "::error::releases must be dispatched from the stable branch"
+            exit 1
+          fi
+
       - uses: actions/download-artifact@v8
         with:
           name: rz-frida-release-assets
