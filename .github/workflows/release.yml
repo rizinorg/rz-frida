@@ -1003,6 +1003,6 @@ jobs:
           target_commitish: ${{ steps.meta.outputs.target_commitish }}
           generate_release_notes: true
           draft: false
-          prerelease: ${{ inputs.prerelease == 'true' }}
+          prerelease: ${{ inputs.prerelease }}
           fail_on_unmatched_files: true
           files: release-assets/*
